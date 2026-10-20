@@ -1,45 +1,10 @@
 "use client";
 
-import { Suspense, useMemo, useRef, Component, ReactNode } from "react";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
 import { getTerrainHeight } from "@/utils/noise";
 import { NPCS, NPCDef } from "./npcData";
-import manifest from "../../../public/assets/manifest.json";
-
-class SorceressErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
-  constructor(props: { fallback: ReactNode; children: ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) return this.props.fallback;
-    return this.props.children;
-  }
-}
-
-function SorceressGLB({ url }: { url: string }) {
-  const gltf = useGLTF(url);
-  const { scale, offset } = useMemo(() => {
-    const box = new THREE.Box3().setFromObject(gltf.scene);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    const maxDim = Math.max(size.x, size.y, size.z, 0.001);
-    const s = 1.85 / maxDim;
-    return {
-      scale: s,
-      offset: [-center.x * s, -box.min.y * s, -center.z * s] as [number, number, number],
-    };
-  }, [gltf.scene]);
-
-  return <primitive object={gltf.scene} scale={scale} position={offset} />;
-}
 
 function StylizedVillagerMesh({ coatColor, hatColor, isSorceress }: { coatColor: string; hatColor: string; isSorceress?: boolean }) {
   return (
@@ -72,12 +37,10 @@ function StylizedVillagerMesh({ coatColor, hatColor, isSorceress }: { coatColor:
   );
 }
 
-// Runtime world positions of NPCs so InteractionSystem can check distance accurately
 export const npcLivePositions: Record<string, { x: number; y: number; z: number }> = {};
 
 function SingleNPC({ npc, index }: { npc: NPCDef; index: number }) {
   const groupRef = useRef<THREE.Group>(null);
-  const sorceressUrl = manifest.models?.npcKingdomSorceress || "";
 
   useFrame((state) => {
     if (!groupRef.current) return;
@@ -98,26 +61,9 @@ function SingleNPC({ npc, index }: { npc: NPCDef; index: number }) {
     npcLivePositions[npc.id] = { x: wx, y: wy, z: wz };
   });
 
-  const fallbackMesh = (
-    <StylizedVillagerMesh
-      coatColor={npc.coatColor}
-      hatColor={npc.hatColor}
-      isSorceress={npc.useSorceressModel}
-    />
-  );
-
   return (
     <group ref={groupRef}>
-      {npc.useSorceressModel && sorceressUrl ? (
-        <SorceressErrorBoundary fallback={fallbackMesh}>
-          <Suspense fallback={fallbackMesh}>
-            <SorceressGLB url={sorceressUrl} />
-          </Suspense>
-        </SorceressErrorBoundary>
-      ) : (
-        fallbackMesh
-      )}
-      {/* Floating Gold Quest/Talk Indicator Crystal above NPC */}
+      <StylizedVillagerMesh coatColor={npc.coatColor} hatColor={npc.hatColor} isSorceress={npc.useSorceressModel} />
       <mesh position={[0, 2.15, 0]}>
         <octahedronGeometry args={[0.12, 0]} />
         <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={2.0} />

@@ -2,33 +2,28 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { CapsuleCollider, RigidBody, RapierRigidBody } from "@react-three/rapier";
 import { useControls, button } from "leva";
 import * as THREE from "three";
-import { getTerrainHeight, BIOME_CENTERS } from "@/utils/noise";
+import { getWalkableHeight, resolveObstacleCollisions, BIOME_CENTERS } from "@/utils/noise";
 import { playerFrameState, usePlayerStore } from "@/game/state/usePlayerStore";
+import { weatherFrameState } from "@/game/state/useWeatherStore";
 import PlayerModel from "./PlayerModel";
 
-const WALK_SPEED = 2.5;
-const RUN_SPEED = 6.0;
-const SWIM_SPEED = 3.2;
-const BOAT_SPEED = 11.0;
-const JUMP_VELOCITY = 5.2;
-const DEFAULT_CAM_DIST = 4.5;
-const MIN_CAM_DIST = 2.0;
-const MAX_CAM_DIST = 11.0;
-const SHOULDER_OFFSET = 0.4;
-const MIN_PITCH = THREE.MathUtils.degToRad(-20);
-const MAX_PITCH = THREE.MathUtils.degToRad(70);
-
-const SAFE_SPAWN: [number, number, number] = [
-  BIOME_CENTERS.westBeach.x,
-  Math.max(3.5, getTerrainHeight(BIOME_CENTERS.westBeach.x, BIOME_CENTERS.westBeach.z) + 2.2),
-  BIOME_CENTERS.westBeach.z,
-];
+const WALK_SPEED = 3.6;
+const RUN_SPEED = 7.8;
+const SWIM_SPEED = 4.2;
+const BOAT_SPEED = 14.0;
+const GRAVITY = 20.0;
+const JUMP_VELOCITY = 7.5;
+const DEFAULT_CAM_DIST = 4.8;
+const MIN_CAM_DIST = 2.2;
+const MAX_CAM_DIST = 12.0;
+const SHOULDER_OFFSET = 0.35;
+const MIN_PITCH = THREE.MathUtils.degToRad(-15);
+const MAX_PITCH = THREE.MathUtils.degToRad(68);
 
 export default function PlayerController() {
-  const bodyRef = useRef<RapierRigidBody>(null);
+  const playerGroupRef = useRef<THREE.Group>(null);
   const visualGroupRef = useRef<THREE.Group>(null);
   const { camera, gl } = useThree();
 
@@ -41,10 +36,20 @@ export default function PlayerController() {
   const clearTeleport = usePlayerStore((s) => s.clearTeleport);
   const lastUiSyncRef = useRef(0);
 
+  // Pure analytical position & velocity (never freezes or falls through ground!)
+  const phys = useRef({
+    x: BIOME_CENTERS.westBeach.x,
+    y: getWalkableHeight(BIOME_CENTERS.westBeach.x, BIOME_CENTERS.westBeach.z),
+    z: BIOME_CENTERS.westBeach.z,
+    vy: 0,
+    isGrounded: true,
+  });
+
   const keys = useRef<Record<string, boolean>>({});
+  const isDraggingRef = useRef(false);
   const orbit = useRef({
     yaw: -Math.PI / 2,
-    pitch: 0.22,
+    pitch: 0.24,
     distance: DEFAULT_CAM_DIST,
   });
 
@@ -53,50 +58,52 @@ export default function PlayerController() {
   const moveDir = useRef(new THREE.Vector3()).current;
   const targetCamPos = useRef(new THREE.Vector3()).current;
   const lookAtTarget = useRef(new THREE.Vector3()).current;
-  const smoothedCamPos = useRef(new THREE.Vector3(SAFE_SPAWN[0] - 5, SAFE_SPAWN[1] + 2, SAFE_SPAWN[2])).current;
-  const smoothedLookAt = useRef(new THREE.Vector3(SAFE_SPAWN[0], SAFE_SPAWN[1], SAFE_SPAWN[2])).current;
+  const smoothedCamPos = useRef(new THREE.Vector3(-582, 8, 0)).current;
+  const smoothedLookAt = useRef(new THREE.Vector3(-575, 5, 0)).current;
 
   const teleportTo = (x: number, z: number) => {
     playerFrameState.isInBoat = false;
     setInBoat(false);
-    const y = Math.max(2.5, getTerrainHeight(x, z) + 2.5);
+    const y = Math.max(0.0, getWalkableHeight(x, z));
     requestTeleport([x, y, z]);
   };
 
-  useControls("Teleport Lokasi (Pulau 1.4km)", {
+  useControls("Teleport Lokasi (Anti-Stuck)", {
     "1. Pantai Barat & Dermaga": button(() => teleportTo(BIOME_CENTERS.westBeach.x, BIOME_CENTERS.westBeach.z)),
-    "2. Padang Rumput Tengah": button(() => teleportTo(BIOME_CENTERS.centralMeadow.x, BIOME_CENTERS.centralMeadow.z)),
-    "3. Desa Pedesaan (Timur)": button(() => teleportTo(BIOME_CENTERS.eastVillage.x, BIOME_CENTERS.eastVillage.z)),
+    "2. Persimpangan Rumput": button(() => teleportTo(BIOME_CENTERS.centralMeadow.x, BIOME_CENTERS.centralMeadow.z)),
+    "3. Desa Medieval (Timur)": button(() => teleportTo(BIOME_CENTERS.eastVillage.x, BIOME_CENTERS.eastVillage.z)),
     "4. Kota Kerajaan (Selatan)": button(() => teleportTo(BIOME_CENTERS.southKingdom.x, BIOME_CENTERS.southKingdom.z)),
-    "5. Pelabuhan (Ujung Selatan)": button(() => teleportTo(BIOME_CENTERS.southHarbor.x, BIOME_CENTERS.southHarbor.z)),
+    "5. Pelabuhan Selatan": button(() => teleportTo(BIOME_CENTERS.southHarbor.x, BIOME_CENTERS.southHarbor.z)),
     "6. Kuil Maple (Barat Laut)": button(() => teleportTo(BIOME_CENTERS.nwShrine.x, BIOME_CENTERS.nwShrine.z)),
-    "7. Gunung Salju (Utara)": button(() => teleportTo(BIOME_CENTERS.northMountains.x, BIOME_CENTERS.northMountains.z)),
+    "7. Lembah Salju & Aurora": button(() => teleportTo(BIOME_CENTERS.northMountains.x, BIOME_CENTERS.northMountains.z)),
   });
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       keys.current[e.code] = true;
-      // Toggle Boat boarding with E when near the tugboat (PRD 6.5 & 19.6)
       if (e.code === "KeyE") {
-        const dx = playerFrameState.x - playerFrameState.boatX;
-        const dz = playerFrameState.z - playerFrameState.boatZ;
-        const distToBoat = Math.sqrt(dx * dx + dz * dz);
+        const dx = phys.current.x - playerFrameState.boatX;
+        const dz = phys.current.z - playerFrameState.boatZ;
+        const distToBoat = Math.hypot(dx, dz);
         if (playerFrameState.isInBoat) {
           playerFrameState.isInBoat = false;
           setInBoat(false);
-          if (bodyRef.current) {
-            bodyRef.current.setTranslation({ x: playerFrameState.boatX + 3.2, y: 2.2, z: playerFrameState.boatZ }, true);
-          }
-        } else if (distToBoat < 9.5) {
+          // Place player safely on dock or beside boat
+          phys.current.x = playerFrameState.boatX + 3.5;
+          phys.current.z = playerFrameState.boatZ;
+          phys.current.y = Math.max(0.0, getWalkableHeight(phys.current.x, phys.current.z));
+        } else if (distToBoat < 11.0) {
           playerFrameState.isInBoat = true;
           setInBoat(true);
         }
       }
     };
     const onKeyUp = (e: KeyboardEvent) => { keys.current[e.code] = false; };
+    const onMouseDown = () => { isDraggingRef.current = true; };
+    const onMouseUp = () => { isDraggingRef.current = false; };
     const onMouseMove = (e: MouseEvent) => {
-      if (document.pointerLockElement !== gl.domElement) return;
-      const sensitivity = 0.0022;
+      if (document.pointerLockElement !== gl.domElement && !isDraggingRef.current) return;
+      const sensitivity = 0.0024;
       orbit.current.yaw -= e.movementX * sensitivity;
       orbit.current.pitch = THREE.MathUtils.clamp(
         orbit.current.pitch + e.movementY * sensitivity,
@@ -112,18 +119,26 @@ export default function PlayerController() {
       );
     };
     const onCanvasClick = () => {
-      if (document.pointerLockElement !== gl.domElement) {
-        gl.domElement.requestPointerLock?.();
+      if (document.pointerLockElement !== gl.domElement && !weatherFrameState.isPhotoMode) {
+        try {
+          const p = gl.domElement.requestPointerLock?.() as unknown as Promise<void> | undefined;
+          if (p && typeof p.catch === "function") p.catch(() => {});
+        } catch {}
       }
     };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mouseup", onMouseUp);
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("wheel", onWheel, { passive: true });
     gl.domElement.addEventListener("click", onCanvasClick);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mouseup", onMouseUp);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("wheel", onWheel);
       gl.domElement.removeEventListener("click", onCanvasClick);
@@ -132,17 +147,14 @@ export default function PlayerController() {
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
-    const body = bodyRef.current;
-    if (!body) return;
+    const p = phys.current;
 
     if (teleportTarget) {
-      body.setTranslation({ x: teleportTarget[0], y: teleportTarget[1], z: teleportTarget[2] }, true);
-      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-      playerFrameState.x = teleportTarget[0];
-      playerFrameState.y = teleportTarget[1];
-      playerFrameState.z = teleportTarget[2];
+      p.x = teleportTarget[0];
+      p.z = teleportTarget[2];
+      p.y = Math.max(0.0, getWalkableHeight(p.x, p.z));
+      p.vy = 0;
       clearTeleport();
-      return;
     }
 
     const forwardInput = (keys.current["KeyW"] || keys.current["ArrowUp"] ? 1 : 0) -
@@ -150,46 +162,30 @@ export default function PlayerController() {
     const sideInput = (keys.current["KeyD"] || keys.current["ArrowRight"] ? 1 : 0) -
                       (keys.current["KeyA"] || keys.current["ArrowLeft"] ? 1 : 0);
 
-    // --- MODE 1: DRIVING THE TUGBOAT (PRD 6.5 & 19.6) ---
+    // --- MODE 1: MENGEMUDI PERAHU TUGBOAT (Anti-Tembus Pantai & Dermaga) ---
     if (playerFrameState.isInBoat) {
       if (Math.abs(sideInput) > 0) {
-        playerFrameState.boatYaw -= sideInput * dt * 1.45;
+        playerFrameState.boatYaw -= sideInput * dt * 1.5;
       }
       const moveDist = forwardInput * BOAT_SPEED * dt;
       const nextBx = playerFrameState.boatX - Math.sin(playerFrameState.boatYaw) * moveDist;
       const nextBz = playerFrameState.boatZ - Math.cos(playerFrameState.boatYaw) * moveDist;
-      // Prevent boat from driving onto dry land
-      if (getTerrainHeight(nextBx, nextBz) < -0.35) {
+      // Perahu hanya boleh bergerak di air dengan kedalaman memadai (< -0.4m)
+      if (getWalkableHeight(nextBx, nextBz) < -0.4) {
         playerFrameState.boatX = nextBx;
         playerFrameState.boatZ = nextBz;
       }
       playerFrameState.isMoving = Math.abs(forwardInput) > 0;
-      playerFrameState.x = playerFrameState.boatX;
-      playerFrameState.y = 1.6;
-      playerFrameState.z = playerFrameState.boatZ;
-      body.setTranslation({ x: playerFrameState.boatX, y: 1.85, z: playerFrameState.boatZ }, true);
-      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      p.x = playerFrameState.boatX;
+      p.y = 1.45;
+      p.z = playerFrameState.boatZ;
       if (visualGroupRef.current) {
         visualGroupRef.current.rotation.y = playerFrameState.boatYaw + Math.PI;
       }
     } else {
-      // --- MODE 2: WALKING, RUNNING, OR SWIMMING ---
-      const pos = body.translation();
-      const vel = body.linvel();
-
-      if (pos.y < -15 || isNaN(pos.y)) {
-        const safeY = Math.max(3.5, getTerrainHeight(SAFE_SPAWN[0], SAFE_SPAWN[2]) + 3);
-        body.setTranslation({ x: SAFE_SPAWN[0], y: safeY, z: SAFE_SPAWN[2] }, true);
-        body.setLinvel({ x: 0, y: 0, z: 0 }, true);
-        return;
-      }
-
-      const groundY = getTerrainHeight(pos.x, pos.z);
-      const footY = pos.y - 0.9;
-      const isGrounded = footY <= groundY + 0.35;
-      // Enter swim mode when water depth > 1.2m (PRD 6.5)
-      const isSwimming = groundY < -1.2 && pos.y <= 0.35;
-
+      // --- MODE 2: JALAN, LARI, LOMPAT & BERENANG ---
+      const groundY = getWalkableHeight(p.x, p.z);
+      const isSwimming = groundY < -1.1 && p.y <= 0.15;
       const isRunning = Boolean(keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !isSwimming;
       const speed = isSwimming ? SWIM_SPEED : isRunning ? RUN_SPEED : WALK_SPEED;
 
@@ -207,69 +203,85 @@ export default function PlayerController() {
           let diff = targetAngle - currentRot;
           while (diff < -Math.PI) diff += Math.PI * 2;
           while (diff > Math.PI) diff -= Math.PI * 2;
-          visualGroupRef.current.rotation.y += diff * Math.min(1, dt * 12);
+          visualGroupRef.current.rotation.y += diff * Math.min(1, dt * 14);
         }
       }
 
-      const nextX = pos.x + moveDir.x * 0.5;
-      const nextZ = pos.z + moveDir.z * 0.5;
-      const nextGroundY = getTerrainHeight(nextX, nextZ);
-      const climbSlope = (nextGroundY - groundY) / 0.5;
-      const slopeFactor = climbSlope > 1.19 ? 0 : 1;
+      let nextX = p.x + moveDir.x * speed * dt;
+      let nextZ = p.z + moveDir.z * speed * dt;
+      // Cegah tembus bangunan, menara, atau sumur
+      [nextX, nextZ] = resolveObstacleCollisions(nextX, nextZ, 0.6);
 
-      let nextVy = vel.y;
+      // Cegah karakter menabrak perahu saat jalan/berenang di dekatnya
+      const dxBoat = nextX - playerFrameState.boatX;
+      const dzBoat = nextZ - playerFrameState.boatZ;
+      const distBoat = Math.hypot(dxBoat, dzBoat);
+      if (distBoat < 3.6 && distBoat > 0.001) {
+        nextX = playerFrameState.boatX + (dxBoat / distBoat) * 3.6;
+        nextZ = playerFrameState.boatZ + (dzBoat / distBoat) * 3.6;
+      }
+
+      p.x = nextX;
+      p.z = nextZ;
+
+      const newGroundY = getWalkableHeight(p.x, p.z);
+
       if (isSwimming) {
-        // Buoyancy keeps player floating cleanly at water surface (Y ≈ 0.0)
-        nextVy = (0.05 - pos.y) * 6.0;
+        p.y = THREE.MathUtils.lerp(p.y, -0.15, dt * 8);
+        p.vy = 0;
+        p.isGrounded = false;
       } else {
-        if (keys.current["Space"] && isGrounded && vel.y < 1.5) {
-          nextVy = JUMP_VELOCITY;
+        if (keys.current["Space"] && p.isGrounded) {
+          p.vy = JUMP_VELOCITY;
+          p.isGrounded = false;
         }
-        if (isGrounded && isMoving && climbSlope > 0 && climbSlope <= 1.19) {
-          nextVy = Math.max(nextVy, climbSlope * speed * 0.45);
+        p.vy -= GRAVITY * dt;
+        p.y += p.vy * dt;
+
+        if (p.y <= newGroundY) {
+          p.y = newGroundY;
+          p.vy = 0;
+          p.isGrounded = true;
         }
       }
 
-      body.setLinvel({ x: moveDir.x * speed * slopeFactor, y: nextVy, z: moveDir.z * speed * slopeFactor }, true);
-
-      playerFrameState.x = pos.x;
-      playerFrameState.y = pos.y;
-      playerFrameState.z = pos.z;
-      playerFrameState.yaw = orbit.current.yaw;
       playerFrameState.isMoving = isMoving;
       playerFrameState.isRunning = isRunning;
-      playerFrameState.isGrounded = isGrounded;
+      playerFrameState.isGrounded = p.isGrounded;
       playerFrameState.isSwimming = isSwimming;
     }
 
-    // Throttled UI sync (position, swim status, and Boat interaction prompt)
-    if (state.clock.elapsedTime - lastUiSyncRef.current > 0.2) {
+    // Sync visual group (feet sit at p.y, center of model is +0.9m above feet)
+    if (playerGroupRef.current) {
+      playerGroupRef.current.position.set(p.x, p.y + 0.9, p.z);
+    }
+
+    playerFrameState.x = p.x;
+    playerFrameState.y = p.y + 0.9;
+    playerFrameState.z = p.z;
+    playerFrameState.yaw = orbit.current.yaw;
+
+    if (state.clock.elapsedTime - lastUiSyncRef.current > 0.25) {
       lastUiSyncRef.current = state.clock.elapsedTime;
-      setStorePosition([
-        Math.round(playerFrameState.x * 10) / 10,
-        Math.round(playerFrameState.y * 10) / 10,
-        Math.round(playerFrameState.z * 10) / 10,
-      ]);
+      setStorePosition([Math.round(p.x), Math.round(p.y), Math.round(p.z)]);
       setSwimming(playerFrameState.isSwimming);
 
-      const dx = playerFrameState.x - playerFrameState.boatX;
-      const dz = playerFrameState.z - playerFrameState.boatZ;
-      const distToBoat = Math.sqrt(dx * dx + dz * dz);
+      const distToBoat = Math.hypot(p.x - playerFrameState.boatX, p.z - playerFrameState.boatZ);
       if (playerFrameState.isInBoat) {
         setInteractionPrompt("Tekan E untuk Turun dari Perahu • W/S Maju/Mundur • A/D Belok");
-      } else if (distToBoat < 9.5) {
+      } else if (distToBoat < 11.0) {
         setInteractionPrompt("Tekan E untuk Naik Perahu Tugboat");
-      } else {
-        setInteractionPrompt(null);
       }
     }
 
-    // Camera positioning (backs out slightly when driving the boat)
-    const effectiveDist = playerFrameState.isInBoat ? Math.max(orbit.current.distance, 8.0) : orbit.current.distance;
+    // Smooth 3rd Person Camera
+    const effectiveDist = playerFrameState.isInBoat ? Math.max(orbit.current.distance, 8.5) : orbit.current.distance;
     rightVec.set(Math.cos(orbit.current.yaw), 0, -Math.sin(orbit.current.yaw)).normalize();
-    const shoulderX = rightVec.x * SHOULDER_OFFSET;
-    const shoulderZ = rightVec.z * SHOULDER_OFFSET;
-    lookAtTarget.set(playerFrameState.x + shoulderX, playerFrameState.y + 0.65, playerFrameState.z + shoulderZ);
+    lookAtTarget.set(
+      p.x + rightVec.x * SHOULDER_OFFSET,
+      p.y + 1.55,
+      p.z + rightVec.z * SHOULDER_OFFSET
+    );
 
     const horizDist = effectiveDist * Math.cos(orbit.current.pitch);
     const vertDist = effectiveDist * Math.sin(orbit.current.pitch);
@@ -277,30 +289,23 @@ export default function PlayerController() {
     const camZ = lookAtTarget.z + Math.cos(orbit.current.yaw) * horizDist;
     let camY = lookAtTarget.y + vertDist;
 
-    const terrainAtCam = Math.max(0.2, getTerrainHeight(camX, camZ));
-    if (camY < terrainAtCam + 0.6) camY = terrainAtCam + 0.6;
+    const terrainAtCam = Math.max(0.3, getWalkableHeight(camX, camZ));
+    if (camY < terrainAtCam + 0.7) camY = terrainAtCam + 0.7;
 
     targetCamPos.set(camX, camY, camZ);
-    const damp = 1 - Math.exp(-10 * dt);
+    const damp = 1 - Math.exp(-12 * dt);
     smoothedCamPos.lerp(targetCamPos, damp);
     smoothedLookAt.lerp(lookAtTarget, damp);
 
     camera.position.copy(smoothedCamPos);
     camera.lookAt(smoothedLookAt);
-
-    if (camera instanceof THREE.PerspectiveCamera) {
-      const targetFov = playerFrameState.isRunning && playerFrameState.isMoving ? 65 : 60;
-      camera.fov = THREE.MathUtils.lerp(camera.fov, targetFov, dt * 6);
-      camera.updateProjectionMatrix();
-    }
   });
 
   return (
-    <RigidBody ref={bodyRef} colliders={false} mass={1} type="dynamic" position={SAFE_SPAWN} enabledRotations={[false, false, false]} linearDamping={0.5}>
-      <CapsuleCollider args={[0.5, 0.4]} friction={0.1} />
+    <group ref={playerGroupRef} position={[BIOME_CENTERS.westBeach.x, 5, BIOME_CENTERS.westBeach.z]}>
       <group ref={visualGroupRef}>
         <PlayerModel />
       </group>
-    </RigidBody>
+    </group>
   );
 }

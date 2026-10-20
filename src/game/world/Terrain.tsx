@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { RigidBody } from "@react-three/rapier";
 import * as THREE from "three";
-import { getTerrainHeight, getTerrainSlope } from "@/utils/noise";
+import { getTerrainHeight, getTerrainSlope, getRoadFactor, fbm } from "@/utils/noise";
 import { playerFrameState, usePlayerStore } from "@/game/state/usePlayerStore";
 
 const CHUNK_SIZE = 100;
-const SEGMENTS = 32;
-const VIEW_RADIUS = 4; // 9x9 chunks (900m x 900m active view around player)
+const SEGMENTS = 28;
+const VIEW_RADIUS = 4;
 
 interface ChunkCoord {
   cx: number;
@@ -17,15 +16,16 @@ interface ChunkCoord {
   key: string;
 }
 
-const COLOR_WET_SAND = new THREE.Color("#c2a36b");
-const COLOR_DRY_SAND = new THREE.Color("#e8d29b");
-const COLOR_MEADOW = new THREE.Color("#5a9e4b");
-const COLOR_VILLAGE_SOIL = new THREE.Color("#857558");
-const COLOR_KINGDOM_STONE = new THREE.Color("#7a7282");
-const COLOR_SHRINE_MAPLE = new THREE.Color("#8c3b3b");
-const COLOR_FOREST = new THREE.Color("#3b753c");
-const COLOR_ROCK = new THREE.Color("#64686e");
-const COLOR_SNOW = new THREE.Color("#f0f6fc");
+const COLOR_WET_SAND = new THREE.Color("#b89758");
+const COLOR_DRY_SAND = new THREE.Color("#e6cf93");
+const COLOR_MEADOW = new THREE.Color("#4d8c40");
+const COLOR_MEADOW_LUSH = new THREE.Color("#63a649");
+const COLOR_ROAD_COBaza = new THREE.Color("#7c7265");
+const COLOR_ROAD_STONE = new THREE.Color("#6b6878");
+const COLOR_SHRINE_SOIL = new THREE.Color("#7a3731");
+const COLOR_FOREST = new THREE.Color("#2e6130");
+const COLOR_ROCK = new THREE.Color("#575c66");
+const COLOR_SNOW = new THREE.Color("#eef5fc");
 
 function TerrainChunk({ cx, cz }: { cx: number; cz: number }) {
   const geometry = useMemo(() => {
@@ -42,33 +42,37 @@ function TerrainChunk({ cx, cz }: { cx: number; cz: number }) {
       const vz = posAttr.getZ(i) + worldOffsetZ;
       const vy = getTerrainHeight(vx, vz);
       posAttr.setY(i, vy);
-      const slope = getTerrainSlope(vx, vz);
 
-      const distKingdom = Math.sqrt(vx * vx + Math.pow(vz - 680, 2));
-      const distVillage = Math.sqrt(Math.pow(vx - 650, 2) + vz * vz);
-      const distShrine = Math.sqrt(Math.pow(vx + 520, 2) + Math.pow(vz + 520, 2));
+      const slope = getTerrainSlope(vx, vz);
+      const road = getRoadFactor(vx, vz);
+      const microNoise = (fbm(vx * 0.04, vz * 0.04, 2) + 1) * 0.5;
+
+      const distShrine = Math.hypot(vx + 310, vz + 310);
 
       if (vy < 0.8) {
         tempColor.copy(COLOR_WET_SAND);
-      } else if (vy < 4.4) {
+      } else if (vy < 4.2) {
         tempColor.copy(COLOR_DRY_SAND);
-      } else if (slope > 0.88) {
+      } else if (slope > 0.85) {
         tempColor.copy(COLOR_ROCK);
-      } else if (distKingdom < 220) {
-        tempColor.copy(COLOR_KINGDOM_STONE);
-      } else if (distVillage < 180) {
-        tempColor.copy(COLOR_MEADOW).lerp(COLOR_VILLAGE_SOIL, 0.45);
-      } else if (distShrine < 130) {
-        tempColor.copy(COLOR_FOREST).lerp(COLOR_SHRINE_MAPLE, 0.5);
-      } else if (vy > 48) {
+      } else if (vy > 42) {
         tempColor.copy(COLOR_SNOW);
-      } else if (vy > 34) {
-        const t = (vy - 34) / 14;
+      } else if (vy > 28) {
+        const t = (vy - 28) / 14;
         tempColor.copy(COLOR_ROCK).lerp(COLOR_SNOW, t);
-      } else if (vy > 14) {
-        tempColor.copy(COLOR_FOREST);
+      } else if (distShrine < 115) {
+        tempColor.copy(COLOR_FOREST).lerp(COLOR_SHRINE_SOIL, 0.55);
+      } else if (vy > 13.5) {
+        tempColor.copy(COLOR_FOREST).lerp(COLOR_MEADOW, microNoise * 0.35);
       } else {
-        tempColor.copy(COLOR_MEADOW);
+        tempColor.copy(COLOR_MEADOW).lerp(COLOR_MEADOW_LUSH, microNoise * 0.6);
+      }
+
+      // Cat jalan setapak batu/tanah di atas terrain
+      if (road > 0.05 && vy >= 3.2) {
+        const isKingdomRoad = vz > 180;
+        const roadCol = isKingdomRoad ? COLOR_ROAD_STONE : COLOR_ROAD_COBaza;
+        tempColor.lerp(roadCol, road * 0.92);
       }
 
       colors[i * 3] = tempColor.r;
@@ -82,17 +86,13 @@ function TerrainChunk({ cx, cz }: { cx: number; cz: number }) {
   }, [cx, cz]);
 
   useEffect(() => {
-    return () => {
-      geometry.dispose();
-    };
+    return () => geometry.dispose();
   }, [geometry]);
 
   return (
-    <RigidBody type="fixed" colliders="trimesh" position={[cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE]} friction={0.9}>
-      <mesh geometry={geometry} receiveShadow castShadow>
-        <meshStandardMaterial vertexColors roughness={0.88} metalness={0.05} />
-      </mesh>
-    </RigidBody>
+    <mesh geometry={geometry} position={[cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE]} receiveShadow>
+      <meshStandardMaterial vertexColors roughness={0.88} metalness={0.04} />
+    </mesh>
   );
 }
 
@@ -112,7 +112,7 @@ export default function Terrain() {
           if (dx * dx + dz * dz <= VIEW_RADIUS * VIEW_RADIUS + 1) {
             const cx = currentCx + dx;
             const cz = currentCz + dz;
-            if (Math.abs(cx) <= 16 && Math.abs(cz) <= 16) {
+            if (Math.abs(cx) <= 10 && Math.abs(cz) <= 10) {
               nextChunks.push({ cx, cz, key: String(cx) + "," + String(cz) });
             }
           }

@@ -2,7 +2,6 @@
 
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { RigidBody } from "@react-three/rapier";
 import * as THREE from "three";
 import { getTerrainHeight } from "@/utils/noise";
 import { globalUniforms } from "@/game/systems/globalUniforms";
@@ -10,47 +9,20 @@ import { globalUniforms } from "@/game/systems/globalUniforms";
 const SHRINE_X = -310;
 const SHRINE_Z = -315;
 const LEAF_COUNT = 180;
-const FIREFLY_COUNT = 90;
+const FIREFLY_COUNT = 95;
 
 function ToriiGate({ position, scale = 1 }: { position: [number, number, number]; scale?: number }) {
   return (
     <group position={position} scale={[scale, scale, scale]}>
-      <mesh castShadow receiveShadow position={[-2.6, 2.8, 0]}>
-        <cylinderGeometry args={[0.26, 0.32, 5.6, 10]} />
-        <meshStandardMaterial color="#b91c1c" roughness={0.6} />
-      </mesh>
-      <mesh castShadow receiveShadow position={[2.6, 2.8, 0]}>
-        <cylinderGeometry args={[0.26, 0.32, 5.6, 10]} />
-        <meshStandardMaterial color="#b91c1c" roughness={0.6} />
-      </mesh>
-      <mesh castShadow position={[-2.6, 0.4, 0]}>
-        <cylinderGeometry args={[0.38, 0.42, 0.8, 10]} />
-        <meshStandardMaterial color="#18181b" roughness={0.8} />
-      </mesh>
-      <mesh castShadow position={[2.6, 0.4, 0]}>
-        <cylinderGeometry args={[0.38, 0.42, 0.8, 10]} />
-        <meshStandardMaterial color="#18181b" roughness={0.8} />
-      </mesh>
-      <mesh position={[-2.6, 4.4, 0]}>
-        <cylinderGeometry args={[0.30, 0.30, 0.35, 10]} />
-        <meshStandardMaterial color="#fbbf24" metalness={0.5} roughness={0.3} />
-      </mesh>
-      <mesh position={[2.6, 4.4, 0]}>
-        <cylinderGeometry args={[0.30, 0.30, 0.35, 10]} />
-        <meshStandardMaterial color="#fbbf24" metalness={0.5} roughness={0.3} />
-      </mesh>
-      <mesh castShadow position={[0, 4.35, 0]}>
-        <boxGeometry args={[6.8, 0.32, 0.32]} />
-        <meshStandardMaterial color="#991b1b" roughness={0.65} />
-      </mesh>
-      <mesh castShadow position={[0, 5.45, 0]}>
-        <boxGeometry args={[8.2, 0.42, 0.55]} />
-        <meshStandardMaterial color="#dc2626" roughness={0.55} />
-      </mesh>
-      <mesh position={[0, 4.9, 0]}>
-        <boxGeometry args={[0.55, 0.9, 0.25]} />
-        <meshStandardMaterial color="#18181b" />
-      </mesh>
+      <mesh castShadow receiveShadow position={[-2.8, 3.0, 0]}><cylinderGeometry args={[0.28, 0.34, 6.0, 12]} /><meshStandardMaterial color="#b91c1c" roughness={0.55} /></mesh>
+      <mesh castShadow receiveShadow position={[2.8, 3.0, 0]}><cylinderGeometry args={[0.28, 0.34, 6.0, 12]} /><meshStandardMaterial color="#b91c1c" roughness={0.55} /></mesh>
+      <mesh castShadow position={[-2.8, 0.45, 0]}><cylinderGeometry args={[0.42, 0.46, 0.9, 12]} /><meshStandardMaterial color="#18181b" /></mesh>
+      <mesh castShadow position={[2.8, 0.45, 0]}><cylinderGeometry args={[0.42, 0.46, 0.9, 12]} /><meshStandardMaterial color="#18181b" /></mesh>
+      <mesh position={[-2.8, 4.6, 0]}><cylinderGeometry args={[0.32, 0.32, 0.4, 12]} /><meshStandardMaterial color="#fbbf24" metalness={0.6} roughness={0.3} /></mesh>
+      <mesh position={[2.8, 4.6, 0]}><cylinderGeometry args={[0.32, 0.32, 0.4, 12]} /><meshStandardMaterial color="#fbbf24" metalness={0.6} roughness={0.3} /></mesh>
+      <mesh castShadow position={[0, 4.55, 0]}><boxGeometry args={[7.2, 0.35, 0.35]} /><meshStandardMaterial color="#991b1b" /></mesh>
+      <mesh castShadow position={[0, 5.75, 0]}><boxGeometry args={[8.8, 0.45, 0.6]} /><meshStandardMaterial color="#dc2626" /></mesh>
+      <mesh position={[0, 5.15, 0]}><boxGeometry args={[0.6, 0.95, 0.28]} /><meshStandardMaterial color="#18181b" /></mesh>
     </group>
   );
 }
@@ -60,11 +32,11 @@ export default function Shrine() {
   const leafMeshRef = useRef<THREE.InstancedMesh>(null);
   const fireflyMeshRef = useRef<THREE.InstancedMesh>(null);
 
-  const sharedShojiMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef3c7", emissive: "#f59e0b", emissiveIntensity: 1.5 }), []);
-  const sharedLanternMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#ffedd5", emissive: "#ea580c", emissiveIntensity: 2.2 }), []);
+  const sharedShojiMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef3c7", emissive: "#f59e0b", emissiveIntensity: 1.8 }), []);
+  const sharedLanternMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#ffedd5", emissive: "#ea580c", emissiveIntensity: 2.5 }), []);
 
   const stoneLanterns = useMemo(() => {
-    const coords = [[-4.2, -264], [4.2, -264], [-4.2, -276], [4.2, -276], [-4.2, -288], [4.2, -288], [-6.5, -301], [6.5, -301], [-11.0, -308], [11.0, -308]];
+    const coords = [[-4.5, -264], [4.5, -264], [-4.5, -276], [4.5, -276], [-4.5, -288], [4.5, -288], [-6.8, -301], [6.8, -301], [-11.5, -308], [11.5, -308]];
     return coords.map(([dx, z]) => ({ x: SHRINE_X + dx, y: getTerrainHeight(SHRINE_X + dx, z), z }));
   }, []);
 
@@ -79,8 +51,8 @@ export default function Shrine() {
     const t = state.clock.elapsedTime;
     const night = globalUniforms.uNightFactor.value;
     const blood = globalUniforms.uBloodMoon.value;
-    sharedShojiMat.emissiveIntensity = 0.35 + night * (2.2 + blood * 1.8);
-    sharedLanternMat.emissiveIntensity = 0.5 + night * (3.2 + blood * 2.0);
+    sharedShojiMat.emissiveIntensity = 0.45 + night * (2.4 + blood * 1.8);
+    sharedLanternMat.emissiveIntensity = 0.6 + night * (3.4 + blood * 2.0);
 
     if (leafMeshRef.current) {
       for (let i = 0; i < LEAF_COUNT; i++) {
@@ -96,7 +68,7 @@ export default function Shrine() {
     }
 
     if (fireflyMeshRef.current) {
-      const s = night > 0.1 ? 0.08 : 0.001;
+      const s = night > 0.1 ? 0.085 : 0.001;
       for (let i = 0; i < FIREFLY_COUNT; i++) {
         const f = fireflies[i];
         const pulse = s * (0.6 + 0.4 * Math.sin(t * 3.5 + f.phase));
@@ -111,63 +83,34 @@ export default function Shrine() {
 
   return (
     <group name="maple-shrine-biome">
-      <RigidBody type="fixed" colliders="cuboid" position={[SHRINE_X, baseY - 0.6, SHRINE_Z + 32]}>
-        <mesh castShadow receiveShadow rotation={[-0.08, 0, 0]}>
-          <boxGeometry args={[7.5, 1.8, 38]} />
-          <meshStandardMaterial color="#374151" roughness={0.9} />
-        </mesh>
-      </RigidBody>
+      {/* Stone Stairway (Reference Image 3) */}
+      <mesh castShadow receiveShadow position={[SHRINE_X, baseY - 0.3, SHRINE_Z + 32]} rotation={[-0.04, 0, 0]}>
+        <boxGeometry args={[8.0, 1.2, 38]} />
+        <meshStandardMaterial color="#374151" roughness={0.9} />
+      </mesh>
       <ToriiGate position={[SHRINE_X, getTerrainHeight(SHRINE_X, SHRINE_Z + 44), SHRINE_Z + 44]} scale={1.15} />
       <ToriiGate position={[SHRINE_X, baseY, SHRINE_Z + 18]} scale={1.05} />
       {stoneLanterns.map((l, idx) => (
         <group key={idx} position={[l.x, l.y, l.z]}>
-          <mesh castShadow receiveShadow position={[0, 0.9, 0]}>
-            <cylinderGeometry args={[0.22, 0.34, 1.8, 6]} />
-            <meshStandardMaterial color="#4b5563" roughness={0.9} />
-          </mesh>
-          <mesh position={[0, 2.0, 0]} material={sharedLanternMat}>
-            <boxGeometry args={[0.48, 0.52, 0.48]} />
-          </mesh>
-          <mesh castShadow position={[0, 2.45, 0]} rotation={[0, Math.PI / 4, 0]}>
-            <coneGeometry args={[0.65, 0.45, 4]} />
-            <meshStandardMaterial color="#374151" roughness={0.85} />
-          </mesh>
+          <mesh castShadow receiveShadow position={[0, 0.9, 0]}><cylinderGeometry args={[0.22, 0.34, 1.8, 6]} /><meshStandardMaterial color="#4b5563" /></mesh>
+          <mesh position={[0, 2.0, 0]} material={sharedLanternMat}><boxGeometry args={[0.5, 0.54, 0.5]} /></mesh>
+          <mesh castShadow position={[0, 2.48, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[0.68, 0.48, 4]} /><meshStandardMaterial color="#374151" /></mesh>
         </group>
       ))}
-      <RigidBody type="fixed" colliders="cuboid" position={[SHRINE_X, baseY, SHRINE_Z]}>
-        <group>
-          <mesh castShadow receiveShadow position={[0, 1.0, 0]}>
-            <boxGeometry args={[26, 2.0, 16]} />
-            <meshStandardMaterial color="#334155" roughness={0.9} />
-          </mesh>
-          <mesh castShadow receiveShadow position={[0, 4.2, 0]}>
-            <boxGeometry args={[22, 4.4, 12]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.8} />
-          </mesh>
-          {[-8, -5, -2, 2, 5, 8].map((wx, i) => (
-            <mesh key={i} position={[wx, 4.1, 6.05]} material={sharedShojiMat}>
-              <planeGeometry args={[1.6, 2.4]} />
-            </mesh>
-          ))}
-          <mesh castShadow receiveShadow position={[0, 7.2, 0]} rotation={[0, Math.PI / 4, 0]}>
-            <coneGeometry args={[17.5, 3.2, 4]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.7} />
-          </mesh>
-          <mesh castShadow receiveShadow position={[0, 9.8, 0]}>
-            <boxGeometry args={[13, 3.6, 8.5]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.8} />
-          </mesh>
-          {[-3.2, 0, 3.2].map((wx, i) => (
-            <mesh key={i} position={[wx, 9.8, 4.28]} material={sharedShojiMat}>
-              <planeGeometry args={[1.8, 2.0]} />
-            </mesh>
-          ))}
-          <mesh castShadow receiveShadow position={[0, 12.8, 0]} rotation={[0, Math.PI / 4, 0]}>
-            <coneGeometry args={[11.8, 3.4, 4]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.7} />
-          </mesh>
-        </group>
-      </RigidBody>
+      {/* Multi-Tiered Japanese Pagoda Temple (Reference Image 3) */}
+      <group position={[SHRINE_X, baseY, SHRINE_Z]}>
+        <mesh castShadow receiveShadow position={[0, 1.0, 0]}><boxGeometry args={[26, 2.0, 16]} /><meshStandardMaterial color="#334155" /></mesh>
+        <mesh castShadow receiveShadow position={[0, 4.2, 0]}><boxGeometry args={[22, 4.4, 12]} /><meshStandardMaterial color="#1e293b" /></mesh>
+        {[-8, -5, -2, 2, 5, 8].map((wx, i) => (
+          <mesh key={i} position={[wx, 4.1, 6.06]} material={sharedShojiMat}><planeGeometry args={[1.65, 2.45]} /></mesh>
+        ))}
+        <mesh castShadow receiveShadow position={[0, 7.2, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[18.2, 3.4, 4]} /><meshStandardMaterial color="#0f172a" /></mesh>
+        <mesh castShadow receiveShadow position={[0, 9.8, 0]}><boxGeometry args={[13.5, 3.6, 8.8]} /><meshStandardMaterial color="#1e293b" /></mesh>
+        {[-3.4, 0, 3.4].map((wx, i) => (
+          <mesh key={i} position={[wx, 9.8, 4.45]} material={sharedShojiMat}><planeGeometry args={[1.9, 2.1]} /></mesh>
+        ))}
+        <mesh castShadow receiveShadow position={[0, 12.8, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[12.4, 3.6, 4]} /><meshStandardMaterial color="#0f172a" /></mesh>
+      </group>
       <instancedMesh ref={leafMeshRef} args={[undefined, undefined, LEAF_COUNT]} frustumCulled={false}>
         <planeGeometry args={[0.7, 0.7]} />
         <meshBasicMaterial color="#ef4444" side={THREE.DoubleSide} />
