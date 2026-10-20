@@ -1,6 +1,8 @@
 {
-  "version": "1.4.0",
-  "models": {},
+  "version": "1.6.0",
+  "models": {
+    "npcKingdomSorceress": ""
+  },
   "textures": {},
   "audio": {}
 }
