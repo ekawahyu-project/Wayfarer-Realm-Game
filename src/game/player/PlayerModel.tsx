@@ -1,271 +1,296 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, Component, ReactNode } from "react";
+import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
-import { useGLTF, useAnimations } from "@react-three/drei";
 import * as THREE from "three";
 import { playerFrameState } from "@/game/state/usePlayerStore";
-import manifest from "../../../public/assets/manifest.json";
+import { globalUniforms } from "@/game/systems/globalUniforms";
 
-class ModelErrorBoundary extends Component<{ fallback: ReactNode; children: ReactNode }, { hasError: boolean }> {
-  constructor(props: { fallback: ReactNode; children: ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-  render() {
-    if (this.state.hasError) return this.props.fallback;
-    return this.props.children;
-  }
-}
+export default function PlayerModel() {
+  const rootRef = useRef<THREE.Group>(null);
+  const torsoRef = useRef<THREE.Group>(null);
+  const headRef = useRef<THREE.Group>(null);
+  const capeRef = useRef<THREE.Mesh>(null);
 
-// Shared shader uniforms so even static unrigged GLB meshes swing their legs & arms naturally!
-const charAnimUniforms = {
-  uAnimPhase: { value: 0 },
-  uMoveIntensity: { value: 0 },
-  uRunFactor: { value: 0 },
-  uBreathTime: { value: 0 },
-};
+  // Upper & lower limbs for natural knee and elbow bending
+  const leftThighRef = useRef<THREE.Group>(null);
+  const leftShinRef = useRef<THREE.Group>(null);
+  const rightThighRef = useRef<THREE.Group>(null);
+  const rightShinRef = useRef<THREE.Group>(null);
 
-function ArticulatedHumanoidFallback() {
-  const leftLegRef = useRef<THREE.Mesh>(null);
-  const rightLegRef = useRef<THREE.Mesh>(null);
-  const leftArmRef = useRef<THREE.Mesh>(null);
-  const rightArmRef = useRef<THREE.Mesh>(null);
+  const leftUpperArmRef = useRef<THREE.Group>(null);
+  const leftForearmRef = useRef<THREE.Group>(null);
+  const rightUpperArmRef = useRef<THREE.Group>(null);
+  const rightForearmRef = useRef<THREE.Group>(null);
 
-  useFrame(() => {
-    const p = charAnimUniforms.uAnimPhase.value;
-    const m = charAnimUniforms.uMoveIntensity.value;
-    if (leftLegRef.current && rightLegRef.current && leftArmRef.current && rightArmRef.current) {
-      leftLegRef.current.rotation.x = Math.sin(p) * 0.65 * m;
-      rightLegRef.current.rotation.x = -Math.sin(p) * 0.65 * m;
-      leftArmRef.current.rotation.x = -Math.sin(p) * 0.5 * m;
-      rightArmRef.current.rotation.x = Math.sin(p) * 0.5 * m;
-    }
-  });
+  const lanternMatRef = useRef<THREE.MeshStandardMaterial>(null);
 
-  return (
-    <group>
-      <mesh castShadow position={[0, 0.55, 0]}>
-        <sphereGeometry args={[0.22, 16, 16]} />
-        <meshStandardMaterial color="#fde68a" />
-      </mesh>
-      <mesh castShadow position={[0, 0.05, 0]}>
-        <capsuleGeometry args={[0.22, 0.45, 8, 16]} />
-        <meshStandardMaterial color="#ef4444" />
-      </mesh>
-      <mesh ref={leftArmRef} castShadow position={[-0.32, 0.12, 0]}>
-        <capsuleGeometry args={[0.08, 0.38, 6, 12]} />
-        <meshStandardMaterial color="#fde68a" />
-      </mesh>
-      <mesh ref={rightArmRef} castShadow position={[0.32, 0.12, 0]}>
-        <capsuleGeometry args={[0.08, 0.38, 6, 12]} />
-        <meshStandardMaterial color="#fde68a" />
-      </mesh>
-      <mesh ref={leftLegRef} castShadow position={[-0.13, -0.52, 0]}>
-        <capsuleGeometry args={[0.1, 0.45, 6, 12]} />
-        <meshStandardMaterial color="#1e293b" />
-      </mesh>
-      <mesh ref={rightLegRef} castShadow position={[0.13, -0.52, 0]}>
-        <capsuleGeometry args={[0.1, 0.45, 6, 12]} />
-        <meshStandardMaterial color="#1e293b" />
-      </mesh>
-    </group>
-  );
-}
-
-interface DetectedBones {
-  leftUpLeg?: THREE.Bone;
-  rightUpLeg?: THREE.Bone;
-  leftLeg?: THREE.Bone;
-  rightLeg?: THREE.Bone;
-  leftArm?: THREE.Bone;
-  rightArm?: THREE.Bone;
-  spine?: THREE.Bone;
-  head?: THREE.Bone;
-}
-
-function LoadedCharacterGLB({ url }: { url: string }) {
-  const outerRef = useRef<THREE.Group>(null);
-  const gltf = useGLTF(url);
-  const { actions, names } = useAnimations(gltf.animations, outerRef);
-  const bonesRef = useRef<DetectedBones>({});
-  const hasSkeletonRef = useRef(false);
   const phaseRef = useRef(0);
-  const moveSmoothedRef = useRef(0);
-
-  const { scale, offset, boxMinY, boxHeight } = useMemo(() => {
-    const box = new THREE.Box3().setFromObject(gltf.scene);
-    const size = new THREE.Vector3();
-    const center = new THREE.Vector3();
-    box.getSize(size);
-    box.getCenter(center);
-    const maxDim = Math.max(size.x, size.y, size.z, 0.001);
-    const targetHeight = 1.78;
-    const computedScale = targetHeight / maxDim;
-    const footY = -0.9 - box.min.y * computedScale;
-    return {
-      scale: computedScale,
-      offset: [-center.x * computedScale, footY, -center.z * computedScale] as [number, number, number],
-      boxMinY: box.min.y,
-      boxHeight: Math.max(size.y, 0.001),
-    };
-  }, [gltf.scene]);
-
-  useEffect(() => {
-    const detected: DetectedBones = {};
-    let foundBones = 0;
-
-    gltf.scene.traverse((child) => {
-      if ((child as THREE.Bone).isBone) {
-        foundBones++;
-        const n = child.name.toLowerCase();
-        if ((n.includes("upleg") || n.includes("thigh") || n.includes("hip")) && (n.includes("l") || n.includes("left"))) detected.leftUpLeg = child as THREE.Bone;
-        else if ((n.includes("upleg") || n.includes("thigh") || n.includes("hip")) && (n.includes("r") || n.includes("right"))) detected.rightUpLeg = child as THREE.Bone;
-        else if ((n.includes("leg") || n.includes("calf") || n.includes("knee")) && (n.includes("l") || n.includes("left")) && !detected.leftLeg) detected.leftLeg = child as THREE.Bone;
-        else if ((n.includes("leg") || n.includes("calf") || n.includes("knee")) && (n.includes("r") || n.includes("right")) && !detected.rightLeg) detected.rightLeg = child as THREE.Bone;
-        else if ((n.includes("arm") || n.includes("shoulder")) && (n.includes("l") || n.includes("left")) && !n.includes("fore") && !detected.leftArm) detected.leftArm = child as THREE.Bone;
-        else if ((n.includes("arm") || n.includes("shoulder")) && (n.includes("r") || n.includes("right")) && !n.includes("fore") && !detected.rightArm) detected.rightArm = child as THREE.Bone;
-        else if (n.includes("spine") || n.includes("chest") || n.includes("torso")) detected.spine = child as THREE.Bone;
-        else if (n.includes("head") || n.includes("neck")) detected.head = child as THREE.Bone;
-      }
-
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-
-        // Inject organic vertex gait animation so static/unrigged meshes walk & breathe fluidly!
-        const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        mats.forEach((mat) => {
-          if (!mat || mat.userData?.hasGaitShader) return;
-          mat.userData = { ...mat.userData, hasGaitShader: true };
-          mat.onBeforeCompile = (shader) => {
-            shader.uniforms.uAnimPhase = charAnimUniforms.uAnimPhase;
-            shader.uniforms.uMoveIntensity = charAnimUniforms.uMoveIntensity;
-            shader.uniforms.uRunFactor = charAnimUniforms.uRunFactor;
-            shader.uniforms.uBreathTime = charAnimUniforms.uBreathTime;
-            shader.uniforms.uMinY = { value: boxMinY };
-            shader.uniforms.uHeight = { value: boxHeight };
-
-            shader.vertexShader = [
-              "uniform float uAnimPhase;",
-              "uniform float uMoveIntensity;",
-              "uniform float uRunFactor;",
-              "uniform float uBreathTime;",
-              "uniform float uMinY;",
-              "uniform float uHeight;",
-              shader.vertexShader
-            ].join("\n").replace(
-              "#include <begin_vertex>",
-              [
-                "#include <begin_vertex>",
-                "float normY = clamp((position.y - uMinY) / uHeight, 0.0, 1.0);",
-                "float sideSign = position.x >= 0.0 ? 1.0 : -1.0;",
-                "float sideWeight = clamp(abs(position.x) / (uHeight * 0.07), 0.25, 1.0);",
-                "// 1. Leg stride & knee lift (lower 48% of body)",
-                "float legMask = smoothstep(0.50, 0.04, normY);",
-                "float legSwing = sin(uAnimPhase + sideSign * 1.5708) * legMask * sideWeight * uMoveIntensity;",
-                "transformed.z += legSwing * uHeight * 0.20;",
-                "transformed.y += max(0.0, cos(uAnimPhase + sideSign * 1.5708)) * legMask * uMoveIntensity * uHeight * 0.07;",
-                "// 2. Upper body & arm counter-swing + torso twist",
-                "float armMask = smoothstep(0.48, 0.85, normY) * smoothstep(0.92, 0.72, normY);",
-                "float armSwing = -sin(uAnimPhase + sideSign * 1.5708) * armMask * sideWeight * uMoveIntensity;",
-                "transformed.z += armSwing * uHeight * 0.14;",
-                "// 3. Hair / cloth breeze & breathing chest motion",
-                "float breath = sin(uBreathTime * 2.4 + normY * 3.0) * 0.008 * uHeight * smoothstep(0.4, 0.9, normY);",
-                "transformed.z += breath;",
-                "transformed.x += cos(uBreathTime * 1.8 + normY * 4.0) * 0.005 * uHeight * smoothstep(0.5, 1.0, normY);"
-              ].join("\n")
-            );
-          };
-          mat.needsUpdate = true;
-        });
-      }
-    });
-
-    bonesRef.current = detected;
-    hasSkeletonRef.current = foundBones > 3;
-  }, [gltf.scene, boxMinY, boxHeight]);
-
-  useEffect(() => {
-    if (names.length > 0 && actions[names[0]]) {
-      actions[names[0]]?.reset().fadeIn(0.2).play();
-    }
-  }, [actions, names]);
+  const moveBlendRef = useRef(0);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
-    if (!outerRef.current) return;
+    const t = state.clock.elapsedTime;
+    if (!rootRef.current || !torsoRef.current || !headRef.current) return;
 
     const isMoving = playerFrameState.isMoving && !playerFrameState.isInBoat;
     const isRunning = playerFrameState.isRunning;
+    const isGrounded = playerFrameState.isGrounded;
     const isSwimming = playerFrameState.isSwimming && !playerFrameState.isInBoat;
 
-    const targetMove = isMoving ? (isRunning ? 1.25 : 0.8) : isSwimming ? 0.65 : 0.0;
-    moveSmoothedRef.current = THREE.MathUtils.lerp(moveSmoothedRef.current, targetMove, dt * 10);
+    const targetBlend = isMoving ? (isRunning ? 1.25 : 0.82) : isSwimming ? 0.7 : 0.0;
+    moveBlendRef.current = THREE.MathUtils.lerp(moveBlendRef.current, targetBlend, dt * 10);
+    const m = moveBlendRef.current;
 
-    const cycleSpeed = isSwimming ? 6.5 : isRunning ? 13.5 : 8.5;
+    const cycleSpeed = isSwimming ? 6.0 : isRunning ? 14.0 : 8.5;
     if (isMoving || isSwimming) {
       phaseRef.current += dt * cycleSpeed;
     } else {
-      // Smoothly return phase to neutral stance when stopping
-      phaseRef.current = THREE.MathUtils.lerp(phaseRef.current, Math.round(phaseRef.current / Math.PI) * Math.PI, dt * 6);
+      phaseRef.current = THREE.MathUtils.lerp(
+        phaseRef.current,
+        Math.round(phaseRef.current / Math.PI) * Math.PI,
+        dt * 7
+      );
     }
 
-    charAnimUniforms.uAnimPhase.value = phaseRef.current;
-    charAnimUniforms.uMoveIntensity.value = moveSmoothedRef.current;
-    charAnimUniforms.uRunFactor.value = isRunning ? 1.0 : 0.0;
-    charAnimUniforms.uBreathTime.value = state.clock.elapsedTime;
+    const p = phaseRef.current;
+    const sinP = Math.sin(p);
+    const cosP = Math.cos(p);
 
-    // Whole-body vertical bounce, forward run lean, hip sway, and swim pitch
-    const bounce = Math.abs(Math.sin(phaseRef.current)) * 0.075 * moveSmoothedRef.current;
-    const idleBreathY = Math.sin(state.clock.elapsedTime * 2.2) * 0.015;
-    outerRef.current.position.y = isSwimming ? -0.35 + idleBreathY * 2 : bounce + idleBreathY;
+    // 1. Root vertical bounce & swim pitch
+    const bounce = isGrounded && !isSwimming ? Math.abs(sinP) * 0.075 * m : 0;
+    const breath = Math.sin(t * 2.4) * 0.015;
+    rootRef.current.position.y = isSwimming ? -0.32 + breath * 2 : bounce + breath;
 
-    const targetLeanX = isSwimming
-      ? (isMoving ? 1.15 : 0.45)
+    const targetPitch = isSwimming
+      ? (isMoving ? 1.25 : 0.45)
+      : !isGrounded
+      ? 0.12
       : isMoving
-      ? (isRunning ? 0.18 : 0.08)
-      : 0.0;
-    const targetSwayZ = Math.cos(phaseRef.current) * 0.045 * moveSmoothedRef.current;
-    const targetTwistY = Math.sin(phaseRef.current) * 0.08 * moveSmoothedRef.current;
+      ? (isRunning ? 0.22 : 0.09)
+      : 0;
+    rootRef.current.rotation.x = THREE.MathUtils.lerp(rootRef.current.rotation.x, targetPitch, dt * 9);
+    rootRef.current.rotation.z = THREE.MathUtils.lerp(rootRef.current.rotation.z, cosP * 0.04 * m, dt * 10);
 
-    outerRef.current.rotation.x = THREE.MathUtils.lerp(outerRef.current.rotation.x, targetLeanX, dt * 8);
-    outerRef.current.rotation.z = THREE.MathUtils.lerp(outerRef.current.rotation.z, targetSwayZ, dt * 10);
-    outerRef.current.rotation.y = THREE.MathUtils.lerp(outerRef.current.rotation.y, targetTwistY, dt * 10);
+    // 2. Torso counter-twist & head look stabilizer
+    torsoRef.current.rotation.y = sinP * 0.14 * m;
+    headRef.current.rotation.y = -sinP * 0.10 * m + (m < 0.05 ? Math.sin(t * 0.9) * 0.08 : 0);
+    headRef.current.rotation.x = isSwimming ? -0.65 : -rootRef.current.rotation.x * 0.5 + Math.cos(t * 1.8) * 0.02;
 
-    // Also animate skeletal bones if present and no embedded clip is overriding
-    if (names.length === 0 && hasSkeletonRef.current) {
-      const b = bonesRef.current;
-      const s = Math.sin(phaseRef.current) * moveSmoothedRef.current;
-      if (b.leftUpLeg) b.leftUpLeg.rotation.x = s * 0.55;
-      if (b.rightUpLeg) b.rightUpLeg.rotation.x = -s * 0.55;
-      if (b.leftArm) b.leftArm.rotation.x = -s * 0.45;
-      if (b.rightArm) b.rightArm.rotation.x = s * 0.45;
-      if (b.spine) b.spine.rotation.y = s * 0.12;
+    // 3. Articulated Legs (Thigh + Knee/Shin bending)
+    if (leftThighRef.current && rightThighRef.current && leftShinRef.current && rightShinRef.current) {
+      if (!isGrounded && !isSwimming) {
+        // Mid-air jump pose
+        leftThighRef.current.rotation.x = THREE.MathUtils.lerp(leftThighRef.current.rotation.x, -0.45, dt * 12);
+        leftShinRef.current.rotation.x = THREE.MathUtils.lerp(leftShinRef.current.rotation.x, 0.75, dt * 12);
+        rightThighRef.current.rotation.x = THREE.MathUtils.lerp(rightThighRef.current.rotation.x, 0.25, dt * 12);
+        rightShinRef.current.rotation.x = THREE.MathUtils.lerp(rightShinRef.current.rotation.x, 0.45, dt * 12);
+      } else {
+        const leftSwing = sinP * 0.68 * m;
+        const rightSwing = -sinP * 0.68 * m;
+        leftThighRef.current.rotation.x = leftSwing;
+        rightThighRef.current.rotation.x = rightSwing;
+
+        // Knee only bends backward (positive X rotation) during leg lift
+        const leftKnee = Math.max(0, -cosP) * 0.85 * m + (m * 0.08);
+        const rightKnee = Math.max(0, cosP) * 0.85 * m + (m * 0.08);
+        leftShinRef.current.rotation.x = leftKnee;
+        rightShinRef.current.rotation.x = rightKnee;
+      }
+    }
+
+    // 4. Articulated Arms (Shoulder + Forearm elbow bend)
+    if (leftUpperArmRef.current && rightUpperArmRef.current && leftForearmRef.current && rightForearmRef.current) {
+      if (isSwimming) {
+        // Breaststroke arm motion
+        leftUpperArmRef.current.rotation.x = -0.9 + sinP * 0.7;
+        leftUpperArmRef.current.rotation.z = 0.35 + Math.max(0, cosP) * 0.5;
+        rightUpperArmRef.current.rotation.x = -0.9 + sinP * 0.7;
+        rightUpperArmRef.current.rotation.z = -0.35 - Math.max(0, cosP) * 0.5;
+        leftForearmRef.current.rotation.x = -0.4;
+        rightForearmRef.current.rotation.x = -0.4;
+      } else if (!isGrounded) {
+        leftUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.z, 0.55, dt * 10);
+        rightUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(rightUpperArmRef.current.rotation.z, -0.55, dt * 10);
+      } else {
+        const armSwing = -sinP * 0.58 * m;
+        leftUpperArmRef.current.rotation.x = armSwing;
+        rightUpperArmRef.current.rotation.x = -armSwing;
+        leftUpperArmRef.current.rotation.z = 0.08 + Math.sin(t * 2.0) * 0.02;
+        rightUpperArmRef.current.rotation.z = -0.08 - Math.sin(t * 2.0) * 0.02;
+
+        // Elbows bend naturally forward, especially when running
+        const runElbow = isRunning ? -0.65 : -0.22;
+        leftForearmRef.current.rotation.x = runElbow * Math.min(1, m + 0.2) + Math.min(0, armSwing * 0.4);
+        rightForearmRef.current.rotation.x = runElbow * Math.min(1, m + 0.2) + Math.min(0, -armSwing * 0.4);
+      }
+    }
+
+    // 5. Flowing Traveler Cape
+    if (capeRef.current) {
+      const targetCapeAngle = 0.16 + m * 0.48 + Math.sin(t * 9.0) * (0.04 + m * 0.08);
+      capeRef.current.rotation.x = THREE.MathUtils.lerp(capeRef.current.rotation.x, targetCapeAngle, dt * 10);
+    }
+
+    // 6. Waist Lantern auto-glow at dusk/night
+    if (lanternMatRef.current) {
+      lanternMatRef.current.emissiveIntensity = globalUniforms.uNightFactor.value * 2.8;
     }
   });
 
   return (
-    <group ref={outerRef}>
-      <primitive object={gltf.scene} scale={scale} position={offset} />
-    </group>
-  );
-}
+    <group ref={rootRef}>
+      {/* TORSO & UPPER BODY */}
+      <group ref={torsoRef} position={[0, 0.02, 0]}>
+        {/* Tunic Coat */}
+        <mesh castShadow receiveShadow position={[0, 0.06, 0]}>
+          <cylinderGeometry args={[0.17, 0.23, 0.54, 12]} />
+          <meshStandardMaterial color="#1e3a5f" roughness={0.75} />
+        </mesh>
+        {/* Leather Belt & Gold Buckle */}
+        <mesh castShadow position={[0, -0.08, 0]}>
+          <cylinderGeometry args={[0.205, 0.21, 0.08, 12]} />
+          <meshStandardMaterial color="#451a03" roughness={0.8} />
+        </mesh>
+        <mesh castShadow position={[0, -0.08, 0.20]}>
+          <boxGeometry args={[0.08, 0.08, 0.03]} />
+          <meshStandardMaterial color="#fbbf24" metalness={0.6} roughness={0.3} />
+        </mesh>
+        {/* Warm Red/Amber Traveler Scarf */}
+        <mesh castShadow position={[0, 0.31, 0]}>
+          <torusGeometry args={[0.15, 0.055, 8, 16]} rotation={[Math.PI / 2, 0, 0]} />
+          <meshStandardMaterial color="#dc2626" roughness={0.7} />
+        </mesh>
+        {/* Flowing Cape */}
+        <mesh ref={capeRef} castShadow position={[0, 0.28, -0.15]}>
+          <boxGeometry args={[0.38, 0.68, 0.03]} />
+          <meshStandardMaterial color="#991b1b" roughness={0.85} />
+        </mesh>
+        {/* Explorer Backpack & Bedroll */}
+        <group position={[0, 0.12, -0.22]}>
+          <mesh castShadow receiveShadow>
+            <boxGeometry args={[0.28, 0.34, 0.16]} />
+            <meshStandardMaterial color="#78350f" roughness={0.85} />
+          </mesh>
+          <mesh castShadow position={[0, 0.21, 0]} rotation={[0, 0, Math.PI / 2]}>
+            <cylinderGeometry args={[0.065, 0.065, 0.32, 10]} />
+            <meshStandardMaterial color="#d97706" roughness={0.8} />
+          </mesh>
+          {/* Waist Lantern (glows automatically at night) */}
+          <mesh castShadow position={[0.17, -0.18, 0.08]}>
+            <cylinderGeometry args={[0.045, 0.035, 0.12, 8]} />
+            <meshStandardMaterial
+              ref={lanternMatRef}
+              color="#fef08a"
+              emissive="#f59e0b"
+              emissiveIntensity={0}
+            />
+          </mesh>
+        </group>
 
-export default function PlayerModel() {
-  const playerUrl = manifest.models?.playerMai || "";
-  if (!playerUrl) {
-    return <ArticulatedHumanoidFallback />;
-  }
-  return (
-    <ModelErrorBoundary fallback={<ArticulatedHumanoidFallback />}>
-      <Suspense fallback={<ArticulatedHumanoidFallback />}>
-        <LoadedCharacterGLB url={playerUrl} />
-      </Suspense>
-    </ModelErrorBoundary>
+        {/* HEAD, HAIR & ADVENTURER HAT */}
+        <group ref={headRef} position={[0, 0.48, 0]}>
+          <mesh castShadow receiveShadow>
+            <sphereGeometry args={[0.165, 16, 16]} />
+            <meshStandardMaterial color="#fde68a" roughness={0.55} />
+          </mesh>
+          {/* Eyes */}
+          <mesh position={[-0.055, 0.02, 0.145]}>
+            <sphereGeometry args={[0.022, 8, 8]} />
+            <meshStandardMaterial color="#0f172a" />
+          </mesh>
+          <mesh position={[0.055, 0.02, 0.145]}>
+            <sphereGeometry args={[0.022, 8, 8]} />
+            <meshStandardMaterial color="#0f172a" />
+          </mesh>
+          {/* Stylized Hair Back */}
+          <mesh castShadow position={[0, -0.02, -0.06]}>
+            <sphereGeometry args={[0.16, 12, 12]} />
+            <meshStandardMaterial color="#3b2314" roughness={0.8} />
+          </mesh>
+          {/* Explorer Hat Brim & Crown */}
+          <mesh castShadow position={[0, 0.12, 0]} rotation={[-0.12, 0, 0]}>
+            <cylinderGeometry args={[0.28, 0.28, 0.025, 16]} />
+            <meshStandardMaterial color="#78350f" roughness={0.85} />
+          </mesh>
+          <mesh castShadow position={[0, 0.22, -0.02]} rotation={[-0.18, 0, 0]}>
+            <coneGeometry args={[0.17, 0.24, 12]} />
+            <meshStandardMaterial color="#92400e" roughness={0.85} />
+          </mesh>
+        </group>
+
+        {/* LEFT ARM (Shoulder -> Upper Arm -> Elbow -> Forearm -> Hand) */}
+        <group ref={leftUpperArmRef} position={[-0.24, 0.24, 0]}>
+          <mesh castShadow position={[0, -0.11, 0]}>
+            <capsuleGeometry args={[0.055, 0.16, 6, 10]} />
+            <meshStandardMaterial color="#1e3a5f" roughness={0.75} />
+          </mesh>
+          <group ref={leftForearmRef} position={[0, -0.22, 0]}>
+            <mesh castShadow position={[0, -0.10, 0]}>
+              <capsuleGeometry args={[0.048, 0.14, 6, 10]} />
+              <meshStandardMaterial color="#fde68a" roughness={0.6} />
+            </mesh>
+            <mesh castShadow position={[0, -0.21, 0]}>
+              <sphereGeometry args={[0.052, 8, 8]} />
+              <meshStandardMaterial color="#78350f" roughness={0.8} />
+            </mesh>
+          </group>
+        </group>
+
+        {/* RIGHT ARM */}
+        <group ref={rightUpperArmRef} position={[0.24, 0.24, 0]}>
+          <mesh castShadow position={[0, -0.11, 0]}>
+            <capsuleGeometry args={[0.055, 0.16, 6, 10]} />
+            <meshStandardMaterial color="#1e3a5f" roughness={0.75} />
+          </mesh>
+          <group ref={rightForearmRef} position={[0, -0.22, 0]}>
+            <mesh castShadow position={[0, -0.10, 0]}>
+              <capsuleGeometry args={[0.048, 0.14, 6, 10]} />
+              <meshStandardMaterial color="#fde68a" roughness={0.6} />
+            </mesh>
+            <mesh castShadow position={[0, -0.21, 0]}>
+              <sphereGeometry args={[0.052, 8, 8]} />
+              <meshStandardMaterial color="#78350f" roughness={0.8} />
+            </mesh>
+          </group>
+        </group>
+      </group>
+
+      {/* LEFT LEG (Hip -> Thigh -> Knee -> Shin -> Boot) */}
+      <group ref={leftThighRef} position={[-0.10, -0.22, 0]}>
+        <mesh castShadow position={[0, -0.16, 0]}>
+          <capsuleGeometry args={[0.072, 0.22, 6, 10]} />
+          <meshStandardMaterial color="#334155" roughness={0.85} />
+        </mesh>
+        <group ref={leftShinRef} position={[0, -0.34, 0]}>
+          <mesh castShadow position={[0, -0.15, 0]}>
+            <capsuleGeometry args={[0.062, 0.20, 6, 10]} />
+            <meshStandardMaterial color="#451a03" roughness={0.8} />
+          </mesh>
+          <mesh castShadow position={[0, -0.30, 0.04]}>
+            <boxGeometry args={[0.11, 0.09, 0.20]} />
+            <meshStandardMaterial color="#291202" roughness={0.85} />
+          </mesh>
+        </group>
+      </group>
+
+      {/* RIGHT LEG */}
+      <group ref={rightThighRef} position={[0.10, -0.22, 0]}>
+        <mesh castShadow position={[0, -0.16, 0]}>
+          <capsuleGeometry args={[0.072, 0.22, 6, 10]} />
+          <meshStandardMaterial color="#334155" roughness={0.85} />
+        </mesh>
+        <group ref={rightShinRef} position={[0, -0.34, 0]}>
+          <mesh castShadow position={[0, -0.15, 0]}>
+            <capsuleGeometry args={[0.062, 0.20, 6, 10]} />
+            <meshStandardMaterial color="#451a03" roughness={0.8} />
+          </mesh>
+          <mesh castShadow position={[0, -0.30, 0.04]}>
+            <boxGeometry args={[0.11, 0.09, 0.20]} />
+            <meshStandardMaterial color="#291202" roughness={0.85} />
+          </mesh>
+        </group>
+      </group>
+    </group>
   );
 }

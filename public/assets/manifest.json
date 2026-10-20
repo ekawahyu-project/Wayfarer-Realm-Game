@@ -1,9 +1,6 @@
 {
-  "version": "1.1.0",
-  "models": {
-    "playerMai": "/assets/models/mai_shiranui__anime_hot_girl__street_fighter.glb",
-    "npcKingdomSorceress": "/assets/models/dark_fantasy_sorceress_crystal_staff.glb"
-  },
+  "version": "1.4.0",
+  "models": {},
   "textures": {},
   "audio": {}
 }

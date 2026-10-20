@@ -8,6 +8,8 @@ export const globalUniforms = {
   uSunColor: { value: new THREE.Color("#fff4e0") },
   uSkyTop: { value: new THREE.Color("#2563eb") },
   uSkyHorizon: { value: new THREE.Color("#93c5fd") },
-  uWindStrength: { value: 0.6 },
+  uWindStrength: { value: 0.7 },
   uBloodMoon: { value: 0 },
+  uAuroraStrength: { value: 1.0 },
+  uPlayerPos: { value: new THREE.Vector3(-575, 5, 0) },
 };
