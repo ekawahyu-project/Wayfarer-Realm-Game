@@ -18,6 +18,10 @@ const GameCanvas = dynamic(() => import("@/game/GameCanvas"), {
 export default function PlayPage() {
   const position = usePlayerStore((s) => s.position);
   const activeChunks = usePlayerStore((s) => s.activeChunks);
+  const isSwimming = usePlayerStore((s) => s.isSwimming);
+  const isInBoat = usePlayerStore((s) => s.isInBoat);
+  const interactionPrompt = usePlayerStore((s) => s.interactionPrompt);
+
   const hour = useTimeStore((s) => s.hour);
   const day = useTimeStore((s) => s.day);
   const phaseLabel = useTimeStore((s) => s.phaseLabel);
@@ -28,30 +32,44 @@ export default function PlayPage() {
   return (
     <main className="relative w-screen h-screen overflow-hidden select-none">
       <GameCanvas />
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-5 py-2 bg-amber-950/85 border-2 border-amber-600/60 rounded-2xl text-amber-100 shadow-xl backdrop-blur-md">
+
+      {/* Top-Center World Clock HUD */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-5 py-2 bg-amber-950/90 border-2 border-amber-500/70 rounded-2xl text-amber-100 shadow-xl backdrop-blur-md">
         <span className="text-xl" role="img" aria-label="phase">
           {isNight ? (isBloodMoon ? "🩸" : "🌙") : "☀️"}
         </span>
         <div className="flex flex-col">
           <div className="flex items-center gap-2">
             <span className="font-mono text-base font-bold text-amber-300">{formatGameClock(hour)}</span>
-            <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-800/70 text-amber-200">{phaseLabel}</span>
+            <span className="text-xs font-semibold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-800/80 text-amber-200">{phaseLabel}</span>
             {timeScale > 1 && <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-emerald-600 text-white">{timeScale}x Cepat</span>}
           </div>
-          <span className="text-[11px] text-amber-200/75">Hari ke-{day} {isBloodMoon && isNight ? "• Event Bulan Merah" : ""}</span>
+          <span className="text-[11px] text-amber-200/75">
+            Hari ke-{day} {isInBoat ? "• 🚤 Mengemudi Perahu" : isSwimming ? "• 🏊 Berenang" : ""}
+          </span>
         </div>
       </div>
-      <div className="absolute top-4 right-4 z-10 px-4 py-2.5 text-xs text-amber-100 bg-slate-950/75 border border-amber-700/50 rounded-xl backdrop-blur-sm space-y-1">
-        <div className="font-semibold text-amber-400">Milestone M1 & M2 Aktif</div>
+
+      {/* Center-Bottom Interaction Prompt (PRD 6.6 & 10.2) */}
+      {interactionPrompt && (
+        <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-20 px-6 py-3 bg-amber-950/95 border-2 border-amber-400 rounded-xl text-amber-100 font-semibold text-sm shadow-2xl animate-bounce">
+          ⚓ {interactionPrompt}
+        </div>
+      )}
+
+      {/* Top-Right Status Box */}
+      <div className="absolute top-4 right-4 z-10 px-4 py-2.5 text-xs text-amber-100 bg-amber-950/85 border-2 border-amber-700/60 rounded-xl backdrop-blur-sm space-y-1 shadow-lg">
+        <div className="font-semibold text-amber-300">Milestone M3: Pantai, Laut & Perahu</div>
         <div>Posisi: X: {position[0]}m | Y: {position[1]}m | Z: {position[2]}m</div>
-        <div>Chunk Aktif: {activeChunks} (100x100m)</div>
+        <div>Chunk Aktif: {activeChunks} • Pulau 1.4km</div>
       </div>
+
       <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3">
-        <Link href="/" className="px-4 py-2 text-sm font-medium text-amber-100 bg-amber-950/80 border border-amber-700/60 rounded-lg hover:bg-amber-900 transition">
+        <Link href="/" className="px-4 py-2 text-sm font-medium text-amber-100 bg-amber-950/85 border border-amber-600/60 rounded-lg hover:bg-amber-900 transition">
           Kembali ke Menu
         </Link>
-        <div className="px-3.5 py-2 text-xs text-amber-100/90 bg-slate-900/80 rounded-lg border border-slate-700/80">
-          <span className="font-semibold text-amber-300">Kontrol:</span> Klik layar (kunci kursor) • <b>WASD</b> Jalan • <b>Shift</b> Lari • <b>Spasi</b> Lompat • <b>T</b> Percepat Waktu (30x)
+        <div className="px-3.5 py-2 text-xs text-amber-100/90 bg-slate-900/85 rounded-lg border border-slate-700/80">
+          <span className="font-semibold text-amber-300">Kontrol:</span> <b>WASD</b> Gerak • <b>Shift</b> Lari • <b>Spasi</b> Lompat • <b>E</b> Naik/Turun Perahu • <b>T</b> Waktu 30x
         </div>
       </div>
     </main>

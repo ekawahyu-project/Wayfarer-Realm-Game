@@ -9,7 +9,7 @@ import { playerFrameState, usePlayerStore } from "@/game/state/usePlayerStore";
 
 const CHUNK_SIZE = 100;
 const SEGMENTS = 32;
-const VIEW_RADIUS = 3;
+const VIEW_RADIUS = 4; // 9x9 chunks (900m x 900m active view around player)
 
 interface ChunkCoord {
   cx: number;
@@ -20,6 +20,9 @@ interface ChunkCoord {
 const COLOR_WET_SAND = new THREE.Color("#c2a36b");
 const COLOR_DRY_SAND = new THREE.Color("#e8d29b");
 const COLOR_MEADOW = new THREE.Color("#5a9e4b");
+const COLOR_VILLAGE_SOIL = new THREE.Color("#857558");
+const COLOR_KINGDOM_STONE = new THREE.Color("#7a7282");
+const COLOR_SHRINE_MAPLE = new THREE.Color("#8c3b3b");
 const COLOR_FOREST = new THREE.Color("#3b753c");
 const COLOR_ROCK = new THREE.Color("#64686e");
 const COLOR_SNOW = new THREE.Color("#f0f6fc");
@@ -40,26 +43,39 @@ function TerrainChunk({ cx, cz }: { cx: number; cz: number }) {
       const vy = getTerrainHeight(vx, vz);
       posAttr.setY(i, vy);
       const slope = getTerrainSlope(vx, vz);
-      if (vy < 0.4) {
+
+      const distKingdom = Math.sqrt(vx * vx + Math.pow(vz - 680, 2));
+      const distVillage = Math.sqrt(Math.pow(vx - 650, 2) + vz * vz);
+      const distShrine = Math.sqrt(Math.pow(vx + 520, 2) + Math.pow(vz + 520, 2));
+
+      if (vy < 0.8) {
         tempColor.copy(COLOR_WET_SAND);
-      } else if (vy < 2.8) {
+      } else if (vy < 4.4) {
         tempColor.copy(COLOR_DRY_SAND);
-      } else if (slope > 0.85) {
+      } else if (slope > 0.88) {
         tempColor.copy(COLOR_ROCK);
-      } else if (vy > 36) {
+      } else if (distKingdom < 220) {
+        tempColor.copy(COLOR_KINGDOM_STONE);
+      } else if (distVillage < 180) {
+        tempColor.copy(COLOR_MEADOW).lerp(COLOR_VILLAGE_SOIL, 0.45);
+      } else if (distShrine < 130) {
+        tempColor.copy(COLOR_FOREST).lerp(COLOR_SHRINE_MAPLE, 0.5);
+      } else if (vy > 48) {
         tempColor.copy(COLOR_SNOW);
-      } else if (vy > 24) {
-        const t = (vy - 24) / 12;
+      } else if (vy > 34) {
+        const t = (vy - 34) / 14;
         tempColor.copy(COLOR_ROCK).lerp(COLOR_SNOW, t);
-      } else if (vy > 10) {
+      } else if (vy > 14) {
         tempColor.copy(COLOR_FOREST);
       } else {
         tempColor.copy(COLOR_MEADOW);
       }
+
       colors[i * 3] = tempColor.r;
       colors[i * 3 + 1] = tempColor.g;
       colors[i * 3 + 2] = tempColor.b;
     }
+
     geom.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geom.computeVertexNormals();
     return geom;
@@ -96,7 +112,7 @@ export default function Terrain() {
           if (dx * dx + dz * dz <= VIEW_RADIUS * VIEW_RADIUS + 1) {
             const cx = currentCx + dx;
             const cz = currentCz + dz;
-            if (Math.abs(cx) <= 10 && Math.abs(cz) <= 10) {
+            if (Math.abs(cx) <= 16 && Math.abs(cz) <= 16) {
               nextChunks.push({ cx, cz, key: String(cx) + "," + String(cz) });
             }
           }
