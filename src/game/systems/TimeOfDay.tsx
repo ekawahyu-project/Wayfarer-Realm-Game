@@ -2,14 +2,13 @@
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useControls, button } from "leva";
 import * as THREE from "three";
 import { InterpolatedTimeSample, sampleTimeOfDay } from "@/config/timeOfDay";
 import { timeFrameState, useTimeStore } from "@/game/state/useTimeStore";
 import { playerFrameState } from "@/game/state/usePlayerStore";
 import { globalUniforms } from "./globalUniforms";
 
-const SHADOW_FRUSTUM = 85;
+const SHADOW_FRUSTUM = 95;
 const SHADOW_MAP_SIZE = 2048;
 
 export default function TimeOfDay() {
@@ -22,9 +21,7 @@ export default function TimeOfDay() {
   const dayLengthMinutes = useTimeStore((s) => s.dayLengthMinutes);
   const timeScale = useTimeStore((s) => s.timeScale);
   const isBloodMoon = useTimeStore((s) => s.isBloodMoon);
-  const setHour = useTimeStore((s) => s.setHour);
   const setTimeScale = useTimeStore((s) => s.setTimeScale);
-  const setBloodMoon = useTimeStore((s) => s.setBloodMoon);
   const syncUiTime = useTimeStore((s) => s.syncUiTime);
 
   const lastUiSync = useRef(0);
@@ -37,10 +34,10 @@ export default function TimeOfDay() {
     sunIntensity: 1,
     ambientColor: new THREE.Color(),
     ambientGround: new THREE.Color(),
-    ambientIntensity: 0.5,
+    ambientIntensity: 0.6,
     fogColor: new THREE.Color(),
-    fogDensity: 0.0012,
-    exposure: 1,
+    fogDensity: 0.0008,
+    exposure: 1.1,
     windowGlow: 0,
     nightFactor: 0,
   });
@@ -57,26 +54,6 @@ export default function TimeOfDay() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [setTimeScale]);
-
-  useControls("M2 Time & Sky", {
-    "Jam Pagi (07:30)": button(() => setHour(7.5)),
-    "Jam Siang (12:00)": button(() => setHour(12.0)),
-    "Golden Hour (16:15)": button(() => setHour(16.25)),
-    "Senja (18:15)": button(() => setHour(18.25)),
-    "Malam (22:00)": button(() => setHour(22.0)),
-    "Fajar (05:30)": button(() => setHour(5.5)),
-    kecepatanWaktu: {
-      value: timeScale,
-      min: 0,
-      max: 60,
-      step: 1,
-      onChange: (v: number) => setTimeScale(v),
-    },
-    bulanMerah: {
-      value: isBloodMoon,
-      onChange: (v: boolean) => setBloodMoon(v),
-    },
-  });
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -106,8 +83,9 @@ export default function TimeOfDay() {
 
     const isNight = sample.nightFactor > 0.65;
     lightDir.copy(isNight ? globalUniforms.uMoonDir.value : globalUniforms.uSunDir.value);
-    if (lightDir.y < 0.12) {
-      lightDir.y = 0.12;
+    // Keep light angle high enough so low-angle shadow stripes never appear on terrain!
+    if (lightDir.y < 0.28) {
+      lightDir.y = 0.28;
       lightDir.normalize();
     }
 
@@ -116,14 +94,14 @@ export default function TimeOfDay() {
     const snappedZ = Math.floor(playerFrameState.z / texelSize) * texelSize;
 
     if (sunLightRef.current) {
-      sunLightRef.current.position.set(snappedX + lightDir.x * 140, playerFrameState.y + lightDir.y * 140, snappedZ + lightDir.z * 140);
+      sunLightRef.current.position.set(snappedX + lightDir.x * 150, playerFrameState.y + lightDir.y * 150, snappedZ + lightDir.z * 150);
       sunLightRef.current.target.position.set(snappedX, playerFrameState.y, snappedZ);
       sunLightRef.current.target.updateMatrixWorld();
       sunLightRef.current.color.copy(sample.sunColor);
       if (isBloodMoon && isNight) sunLightRef.current.color.set("#f43f5e");
       sunLightRef.current.intensity = sample.sunIntensity;
     }
-    if (moonLightRef.current) moonLightRef.current.intensity = sample.nightFactor * 0.22;
+    if (moonLightRef.current) moonLightRef.current.intensity = sample.nightFactor * 0.45;
     if (hemiLightRef.current) {
       hemiLightRef.current.color.copy(sample.ambientColor);
       hemiLightRef.current.groundColor.copy(sample.ambientGround);
@@ -144,8 +122,8 @@ export default function TimeOfDay() {
 
   return (
     <>
-      <fogExp2 ref={fogRef} attach="fog" args={["#bae6fd", 0.0013]} />
-      <hemisphereLight ref={hemiLightRef} args={["#bae6fd", "#3f6212", 0.55]} />
+      <fogExp2 ref={fogRef} attach="fog" args={["#bae6fd", 0.0008]} />
+      <hemisphereLight ref={hemiLightRef} args={["#e0f2fe", "#3f6212", 0.68]} />
       <directionalLight
         ref={sunLightRef}
         castShadow
@@ -156,9 +134,10 @@ export default function TimeOfDay() {
         shadow-camera-bottom={-SHADOW_FRUSTUM}
         shadow-camera-near={10}
         shadow-camera-far={380}
-        shadow-bias={-0.0005}
+        shadow-bias={-0.0001}
+        shadow-normalBias={0.06}
       />
-      <directionalLight ref={moonLightRef} position={[-80, 120, -60]} color="#93c5fd" intensity={0.15} />
+      <directionalLight ref={moonLightRef} position={[-80, 120, -60]} color="#bae6fd" intensity={0.35} />
     </>
   );
 }

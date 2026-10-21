@@ -7,7 +7,7 @@ import { getExactMeshTerrainHeight } from "@/utils/noise";
 import { playerFrameState } from "@/game/state/usePlayerStore";
 import { globalUniforms } from "./globalUniforms";
 
-const MAX_ACTIVE_LIGHTS = 12;
+const MAX_ACTIVE_LIGHTS = 4;
 
 interface StreetLamp {
   x: number;

@@ -155,8 +155,8 @@ export default function Village() {
     const sList: MarketStallItem[] = [];
     const pList: { x: number; y: number; z: number; r: number }[] = [
       { x: 365, y: getExactMeshTerrainHeight(365, 0), z: 0, r: 92 },
-      { x: -280, y: getExactMeshTerrainHeight(-280, 240), z: 240, r: 44 },
-      { x: -245, y: getExactMeshTerrainHeight(-245, -95), z: -95, r: 42 },
+      { x: -280, y: getExactMeshTerrainHeight(-280, 240), z: 240, r: 72 },
+      { x: -245, y: getExactMeshTerrainHeight(-245, -95), z: -95, r: 70 },
     ];
 
     const addRowHouse = (x: number, z: number, rotY: number, scale: number, variant: HouseVariant) => {
@@ -233,6 +233,20 @@ export default function Village() {
     addRowHouse(-296, 254, Math.PI, 1.12, "merchant_gable");
     addRowHouse(-285, 255, Math.PI, 1.15, "tower_house");
     addRowHouse(-274, 254, Math.PI, 1.12, "overpass_arch");
+    addRowHouse(-309, 226, 0.12, 1.12, "tower_house");
+    addRowHouse(-254, 226, -0.1, 1.15, "tavern_L");
+    addRowHouse(-243, 225, -0.12, 1.14, "tower_house");
+    addRowHouse(-307, 254, Math.PI, 1.15, "tavern_L");
+    addRowHouse(-263, 255, Math.PI, 1.15, "tower_house");
+    addRowHouse(-252, 254, Math.PI, 1.12, "merchant_gable");
+    addRowHouse(-298, 208, 0.05, 1.14, "merchant_gable");
+    addRowHouse(-287, 208, 0.0,  1.16, "tower_house");
+    addRowHouse(-276, 208, -0.05, 1.14, "tavern_L");
+    addRowHouse(-265, 208, -0.1, 1.15, "windmill");
+    addRowHouse(-298, 272, Math.PI, 1.14, "tower_house");
+    addRowHouse(-287, 272, Math.PI, 1.15, "blacksmith");
+    addRowHouse(-276, 272, Math.PI, 1.14, "merchant_gable");
+    addRowHouse(-265, 272, Math.PI, 1.16, "tower_house");
     sList.push({ x: -288, y: getExactMeshTerrainHeight(-288, 238), z: 238, rotY: 0, type: "fish" });
     sList.push({ x: -278, y: getExactMeshTerrainHeight(-278, 238), z: 238, rotY: 0, type: "fruit" });
     sList.push({ x: -268, y: getExactMeshTerrainHeight(-268, 238), z: 238, rotY: 0, type: "veggie" });
@@ -245,6 +259,20 @@ export default function Village() {
     addRowHouse(-258, -81,  Math.PI, 1.12, "blacksmith");
     addRowHouse(-247, -80,  Math.PI, 1.16, "tower_house");
     addRowHouse(-236, -81,  Math.PI, 1.12, "merchant_gable");
+    addRowHouse(-273, -109, 0.08, 1.14, "tavern_L");
+    addRowHouse(-218, -109, -0.08, 1.15, "tower_house");
+    addRowHouse(-207, -110, -0.12, 1.12, "merchant_gable");
+    addRowHouse(-269, -81,  Math.PI, 1.15, "tower_house");
+    addRowHouse(-225, -80,  Math.PI, 1.14, "overpass_arch");
+    addRowHouse(-214, -81,  Math.PI, 1.15, "tavern_L");
+    addRowHouse(-262, -127, 0.0,  1.15, "tower_house");
+    addRowHouse(-251, -127, 0.0,  1.14, "merchant_gable");
+    addRowHouse(-240, -127, 0.0,  1.16, "tavern_L");
+    addRowHouse(-229, -127, 0.0,  1.14, "blacksmith");
+    addRowHouse(-258, -63,  Math.PI, 1.15, "merchant_gable");
+    addRowHouse(-247, -63,  Math.PI, 1.16, "tower_house");
+    addRowHouse(-236, -63,  Math.PI, 1.14, "tavern_L");
+    addRowHouse(-225, -63,  Math.PI, 1.15, "tower_house");
     sList.push({ x: -252, y: getExactMeshTerrainHeight(-252, -95), z: -95, rotY: 0, type: "veggie" });
     sList.push({ x: -242, y: getExactMeshTerrainHeight(-242, -95), z: -95, rotY: 0, type: "fruit" });
     sList.push({ x: -232, y: getExactMeshTerrainHeight(-232, -95), z: -95, rotY: 0, type: "bakery" });

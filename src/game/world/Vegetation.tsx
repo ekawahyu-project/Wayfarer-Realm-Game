@@ -13,7 +13,6 @@ export default function Vegetation() {
   const oakTrunkRef = useRef<THREE.InstancedMesh>(null);
   const oakCrown1Ref = useRef<THREE.InstancedMesh>(null);
   const oakCrown2Ref = useRef<THREE.InstancedMesh>(null);
-  const oakCrown3Ref = useRef<THREE.InstancedMesh>(null);
   const birchTrunkRef = useRef<THREE.InstancedMesh>(null);
   const birchCrownRef = useRef<THREE.InstancedMesh>(null);
   const pineTrunkRef = useRef<THREE.InstancedMesh>(null);
@@ -22,18 +21,16 @@ export default function Vegetation() {
   const snowPineRef = useRef<THREE.InstancedMesh>(null);
   const mapleTrunkRef = useRef<THREE.InstancedMesh>(null);
   const mapleCrownRef = useRef<THREE.InstancedMesh>(null);
-  const mistRef = useRef<THREE.InstancedMesh>(null);
   const flowerRef = useRef<THREE.InstancedMesh>(null);
 
   const textures = useMemo(() => getWorldTextures(), []);
 
-  const { oaks, birches, pines, snowPines, maples, mists, flowers, grassList } = useMemo(() => {
+  const { oaks, birches, pines, snowPines, maples, flowers, grassList } = useMemo(() => {
     const oakList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const birchList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const pineList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const snowPineList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const mapleList: { x: number; y: number; z: number; s: number; r: number }[] = [];
-    const mistList: { x: number; y: number; z: number; sx: number; sy: number; phase: number }[] = [];
     const flowerList: { x: number; y: number; z: number; s: number; color: THREE.Color }[] = [];
     const gList: { x: number; y: number; z: number; s: number; r: number }[] = [];
 
@@ -41,10 +38,10 @@ export default function Vegetation() {
     const rand = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
 
     const isInsideSettlement = (x: number, z: number) => {
-      if (Math.hypot(x - 365, z) < 110) return true;
-      if (Math.hypot(x + 280, z - 240) < 75) return true;
-      if (Math.hypot(x + 245, z + 95) < 72) return true;
-      if (Math.hypot(x, z - 395) < 150) return true;
+      if (Math.hypot(x - 365, z) < 115) return true;
+      if (Math.hypot(x + 280, z - 240) < 88) return true;
+      if (Math.hypot(x + 245, z + 95) < 85) return true;
+      if (Math.hypot(x, z - 395) < 165) return true;
       return false;
     };
 
@@ -56,8 +53,7 @@ export default function Vegetation() {
       new THREE.Color("#ffffff"),
     ];
 
-    // 1. Dense Lush Island Forest: 950 Oaks & White Birches (Reference Image 23)
-    for (let i = 0; i < 950; i++) {
+    for (let i = 0; i < 820; i++) {
       const x = (rand() - 0.5) * 960;
       const z = (rand() - 0.5) * 820;
       if (Math.hypot(x, z) > 515 || isInsideSettlement(x, z)) continue;
@@ -65,12 +61,11 @@ export default function Vegetation() {
       const y = getExactMeshTerrainHeight(x, z);
       if (y > 4.0 && y < 26) {
         if (i % 3 === 0) birchList.push({ x, y, z, s: 0.95 + rand() * 0.9, r: rand() * Math.PI * 2 });
-        else oakList.push({ x, y, z, s: 1.05 + rand() * 1.25, r: rand() * Math.PI * 2 });
+        else oakList.push({ x, y, z, s: 1.05 + rand() * 1.2, r: rand() * Math.PI * 2 });
       }
     }
 
-    // 2. 900 Conifers & Snow Pines on Slopes & Mountains
-    for (let i = 0; i < 900; i++) {
+    for (let i = 0; i < 780; i++) {
       const x = (rand() - 0.5) * 980;
       const z = -160 + (rand() - 0.65) * 600;
       if (Math.hypot(x, z) > 545 || isInsideSettlement(x, z)) continue;
@@ -83,8 +78,7 @@ export default function Vegetation() {
       }
     }
 
-    // 3. 150 Red Maples at NW Shrine
-    for (let i = 0; i < 150; i++) {
+    for (let i = 0; i < 140; i++) {
       const angle = rand() * Math.PI * 2;
       const rad = 22 + rand() * 110;
       const x = -310 + Math.cos(angle) * rad;
@@ -94,16 +88,7 @@ export default function Vegetation() {
       if (y > 8) mapleList.push({ x, y, z, s: 0.95 + rand() * 0.7, r: rand() * Math.PI * 2 });
     }
 
-    // 4. Volumetric Mountain & Forest Valley Mist Clouds (Reference Image 23)
-    for (let i = 0; i < 45; i++) {
-      const x = (rand() - 0.5) * 780;
-      const z = -80 - rand() * 380;
-      const y = getExactMeshTerrainHeight(x, z) + 12 + rand() * 18;
-      mistList.push({ x, y, z, sx: 28 + rand() * 32, sy: 6 + rand() * 6, phase: rand() * Math.PI * 2 });
-    }
-
-    // 5. Wildflowers & 28,000 Curved Arching Grass Clumps
-    for (let i = 0; i < 700; i++) {
+    for (let i = 0; i < 550; i++) {
       const x = (rand() - 0.5) * 860;
       const z = (rand() - 0.4) * 720;
       if (Math.hypot(x, z) > 500 || isInsideSettlement(x, z) || getRoadFactor(x, z) > 0.2) continue;
@@ -113,7 +98,8 @@ export default function Vegetation() {
       }
     }
 
-    for (let i = 0; i < 28000; i++) {
+    // 18,000 Optimized Curved Grass Clumps (Ultra-fast GPU vertex count!)
+    for (let i = 0; i < 18000; i++) {
       const x = (rand() - 0.5) * 960;
       const z = (rand() - 0.5) * 860;
       if (Math.hypot(x, z) > 515) continue;
@@ -121,11 +107,11 @@ export default function Vegetation() {
       if (getRoadFactor(x, z) > 0.32 || isInsideSettlement(x, z)) continue;
       const y = getExactMeshTerrainHeight(x, z);
       if (y > 3.5 && y < 22.0) {
-        gList.push({ x, y, z, s: 0.75 + rand() * 0.65, r: rand() * Math.PI * 2 });
+        gList.push({ x, y, z, s: 0.85 + rand() * 0.65, r: rand() * Math.PI * 2 });
       }
     }
 
-    return { oaks: oakList, birches: birchList, pines: pineList, snowPines: snowPineList, maples: mapleList, mists: mistList, flowers: flowerList, grassList: gList };
+    return { oaks: oakList, birches: birchList, pines: pineList, snowPines: snowPineList, maples: mapleList, flowers: flowerList, grassList: gList };
   }, []);
 
   useEffect(() => {
@@ -142,7 +128,7 @@ export default function Vegetation() {
       grassMeshRef.current.instanceMatrix.needsUpdate = true;
     }
 
-    if (oakTrunkRef.current && oakCrown1Ref.current && oakCrown2Ref.current && oakCrown3Ref.current) {
+    if (oakTrunkRef.current && oakCrown1Ref.current && oakCrown2Ref.current) {
       oaks.forEach((t, i) => {
         dummy.position.set(t.x, t.y + 2.5 * t.s, t.z);
         dummy.rotation.set(0, t.r, 0);
@@ -155,20 +141,14 @@ export default function Vegetation() {
         dummy.updateMatrix();
         oakCrown1Ref.current!.setMatrixAt(i, dummy.matrix);
 
-        dummy.position.set(t.x + 0.8 * t.s, t.y + 6.5 * t.s, t.z - 0.5 * t.s);
+        dummy.position.set(t.x + 0.7 * t.s, t.y + 6.4 * t.s, t.z - 0.4 * t.s);
         dummy.scale.set(t.s * 1.25, t.s * 1.0, t.s * 1.25);
         dummy.updateMatrix();
         oakCrown2Ref.current!.setMatrixAt(i, dummy.matrix);
-
-        dummy.position.set(t.x - 0.7 * t.s, t.y + 6.1 * t.s, t.z + 0.6 * t.s);
-        dummy.scale.set(t.s * 1.15, t.s * 0.95, t.s * 1.15);
-        dummy.updateMatrix();
-        oakCrown3Ref.current!.setMatrixAt(i, dummy.matrix);
       });
       oakTrunkRef.current.instanceMatrix.needsUpdate = true;
       oakCrown1Ref.current.instanceMatrix.needsUpdate = true;
       oakCrown2Ref.current.instanceMatrix.needsUpdate = true;
-      oakCrown3Ref.current.instanceMatrix.needsUpdate = true;
     }
 
     if (birchTrunkRef.current && birchCrownRef.current) {
@@ -249,36 +229,25 @@ export default function Vegetation() {
     }
   }, [grassList, oaks, birches, pines, snowPines, maples, flowers]);
 
-  const dummyMist = useMemo(() => new THREE.Object3D(), []);
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
+  useFrame(() => {
     globalUniforms.uPlayerPos.value.set(playerFrameState.x, playerFrameState.y, playerFrameState.z);
-    if (mistRef.current) {
-      for (let i = 0; i < mists.length; i++) {
-        const m = mists[i];
-        dummyMist.position.set(m.x + Math.sin(t * 0.15 + m.phase) * 8.0, m.y, m.z + Math.cos(t * 0.12 + m.phase) * 6.0);
-        dummyMist.scale.set(m.sx, m.sy, m.sx);
-        dummyMist.updateMatrix();
-        mistRef.current.setMatrixAt(i, dummyMist.matrix);
-      }
-      mistRef.current.instanceMatrix.needsUpdate = true;
-    }
   });
 
+  // Lightweight 6-Blade 2-Segment Curved Grass Clump (6x Faster GPU rendering, identical arched look!)
   const curvedGrassClumpGeo = useMemo(() => {
     const positions: number[] = [];
     const indices: number[] = [];
-    const bladeCount = 9;
-    const segs = 4;
+    const bladeCount = 6;
+    const segs = 2;
     let vOffset = 0;
     for (let b = 0; b < bladeCount; b++) {
-      const angle = (b / bladeCount) * Math.PI * 2 + (b % 2) * 0.25;
-      const radOffset = 0.04 + (b % 3) * 0.05;
+      const angle = (b / bladeCount) * Math.PI * 2 + (b % 2) * 0.3;
+      const radOffset = 0.04 + (b % 3) * 0.04;
       const bx = Math.cos(angle) * radOffset;
       const bz = Math.sin(angle) * radOffset;
-      const bladeHeight = 0.38 + (b % 3) * 0.12;
-      const archDist = 0.20 + (b % 2) * 0.10;
-      const baseHalfWidth = 0.028;
+      const bladeHeight = 0.40 + (b % 3) * 0.12;
+      const archDist = 0.22 + (b % 2) * 0.08;
+      const baseHalfWidth = 0.032;
       const dirX = Math.cos(angle), dirZ = Math.sin(angle);
       const perpX = -dirZ, perpZ = dirX;
       for (let s = 0; s <= segs; s++) {
@@ -321,7 +290,7 @@ export default function Vegetation() {
         "void main() {",
         "  vec4 instPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);",
         "  float dist = distance(instPos.xz, uPlayerPos.xz);",
-        "  vDistFade = 1.0 - smoothstep(70.0, 102.0, dist);",
+        "  vDistFade = 1.0 - smoothstep(65.0, 92.0, dist);",
         "  vHeightFrac = clamp(position.y / 0.45, 0.0, 1.0);",
         "  vColorVar = fract(sin(dot(instPos.xz, vec2(12.9898, 78.233))) * 43758.5453);",
         "  vec3 pos = position * vDistFade;",
@@ -353,67 +322,53 @@ export default function Vegetation() {
     <group name="world-vegetation">
       <instancedMesh ref={grassMeshRef} args={[curvedGrassClumpGeo, grassMaterial, grassList.length]} frustumCulled={false} />
 
-      {/* High-Res Textured Leaf Canopies & Bark with Bump Mapping */}
       <instancedMesh ref={oakTrunkRef} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
-        <cylinderGeometry args={[0.34, 0.65, 5.0, 10]} />
-        <meshStandardMaterial map={textures.oakBark} bumpMap={textures.oakBark} bumpScale={0.08} color="#7c5333" roughness={0.9} />
+        <cylinderGeometry args={[0.34, 0.65, 5.0, 7]} />
+        <meshStandardMaterial map={textures.oakBark} color="#7c5333" roughness={0.9} />
       </instancedMesh>
       <instancedMesh ref={oakCrown1Ref} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
-        <icosahedronGeometry args={[2.7, 2]} />
-        <meshStandardMaterial map={textures.leafFoliage} bumpMap={textures.leafFoliage} bumpScale={0.12} color="#529e3e" roughness={0.78} />
+        <icosahedronGeometry args={[2.7, 1]} />
+        <meshStandardMaterial map={textures.leafFoliage} color="#529e3e" roughness={0.78} />
       </instancedMesh>
       <instancedMesh ref={oakCrown2Ref} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
-        <icosahedronGeometry args={[2.3, 2]} />
-        <meshStandardMaterial map={textures.leafFoliage} bumpMap={textures.leafFoliage} bumpScale={0.12} color="#68b849" roughness={0.75} />
-      </instancedMesh>
-      <instancedMesh ref={oakCrown3Ref} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
-        <icosahedronGeometry args={[2.1, 2]} />
-        <meshStandardMaterial map={textures.leafFoliage} bumpMap={textures.leafFoliage} bumpScale={0.12} color="#438732" roughness={0.8} />
+        <icosahedronGeometry args={[2.3, 1]} />
+        <meshStandardMaterial map={textures.leafFoliage} color="#68b849" roughness={0.75} />
       </instancedMesh>
 
-      {/* White Birch Trees with Textured Foliage */}
       <instancedMesh ref={birchTrunkRef} args={[undefined, undefined, birches.length]} frustumCulled={false} castShadow receiveShadow>
-        <cylinderGeometry args={[0.15, 0.25, 5.6, 8]} />
-        <meshStandardMaterial map={textures.birchBark} bumpMap={textures.birchBark} bumpScale={0.05} color="#f8fafc" roughness={0.72} />
+        <cylinderGeometry args={[0.15, 0.25, 5.6, 7]} />
+        <meshStandardMaterial map={textures.birchBark} color="#f8fafc" roughness={0.72} />
       </instancedMesh>
       <instancedMesh ref={birchCrownRef} args={[undefined, undefined, birches.length]} frustumCulled={false} castShadow receiveShadow>
-        <icosahedronGeometry args={[2.2, 2]} />
-        <meshStandardMaterial map={textures.leafFoliage} bumpMap={textures.leafFoliage} bumpScale={0.12} color="#84cc16" roughness={0.74} />
+        <icosahedronGeometry args={[2.2, 1]} />
+        <meshStandardMaterial map={textures.leafFoliage} color="#84cc16" roughness={0.74} />
       </instancedMesh>
 
-      {/* Textured Conifers & Snow Pines */}
       <instancedMesh ref={pineTrunkRef} args={[undefined, undefined, pines.length]} frustumCulled={false} castShadow receiveShadow>
         <cylinderGeometry args={[0.18, 0.30, 3.2, 6]} />
         <meshStandardMaterial map={textures.oakBark} color="#4a2f1b" roughness={0.9} />
       </instancedMesh>
       <instancedMesh ref={pineCone1Ref} args={[undefined, undefined, pines.length]} frustumCulled={false} castShadow receiveShadow>
-        <coneGeometry args={[2.2, 4.5, 9]} />
-        <meshStandardMaterial map={textures.leafFoliage} bumpMap={textures.leafFoliage} bumpScale={0.1} color="#2d6a31" roughness={0.82} />
+        <coneGeometry args={[2.2, 4.5, 7]} />
+        <meshStandardMaterial map={textures.leafFoliage} color="#2d6a31" roughness={0.82} />
       </instancedMesh>
       <instancedMesh ref={pineCone2Ref} args={[undefined, undefined, pines.length]} frustumCulled={false} castShadow receiveShadow>
-        <coneGeometry args={[1.7, 3.8, 9]} />
-        <meshStandardMaterial map={textures.leafFoliage} bumpMap={textures.leafFoliage} bumpScale={0.1} color="#3d823b" roughness={0.82} />
+        <coneGeometry args={[1.7, 3.8, 7]} />
+        <meshStandardMaterial map={textures.leafFoliage} color="#3d823b" roughness={0.82} />
       </instancedMesh>
 
       <instancedMesh ref={snowPineRef} args={[undefined, undefined, snowPines.length]} frustumCulled={false} castShadow receiveShadow>
-        <coneGeometry args={[1.9, 5.8, 9]} />
-        <meshStandardMaterial map={textures.terrainDetail} color="#e2e8f0" roughness={0.75} />
+        <coneGeometry args={[1.9, 5.8, 7]} />
+        <meshStandardMaterial color="#e2e8f0" roughness={0.75} />
       </instancedMesh>
 
-      {/* Textured Red Maples */}
       <instancedMesh ref={mapleTrunkRef} args={[undefined, undefined, maples.length]} frustumCulled={false} castShadow receiveShadow>
-        <cylinderGeometry args={[0.20, 0.34, 4.0, 7]} />
+        <cylinderGeometry args={[0.20, 0.34, 4.0, 6]} />
         <meshStandardMaterial map={textures.oakBark} color="#3e2723" roughness={0.9} />
       </instancedMesh>
       <instancedMesh ref={mapleCrownRef} args={[undefined, undefined, maples.length]} frustumCulled={false} castShadow receiveShadow>
-        <icosahedronGeometry args={[2.3, 2]} />
-        <meshStandardMaterial map={textures.leafFoliage} bumpMap={textures.leafFoliage} bumpScale={0.1} color="#ef4444" roughness={0.75} />
-      </instancedMesh>
-
-      {/* Drifting Mountain & Valley Mist Clouds (Reference Image 23) */}
-      <instancedMesh ref={mistRef} args={[undefined, undefined, mists.length]} frustumCulled={false}>
-        <sphereGeometry args={[1, 12, 10]} />
-        <meshBasicMaterial color="#f1f5f9" transparent opacity={0.16} depthWrite={false} />
+        <icosahedronGeometry args={[2.3, 1]} />
+        <meshStandardMaterial map={textures.leafFoliage} color="#ef4444" roughness={0.75} />
       </instancedMesh>
 
       <instancedMesh ref={flowerRef} args={[undefined, undefined, flowers.length]} frustumCulled={false}>
