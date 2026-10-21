@@ -7,10 +7,6 @@ import { getTerrainHeight, getTerrainSlope, getRoadFactor } from "@/utils/noise"
 import { globalUniforms } from "@/game/systems/globalUniforms";
 import { playerFrameState } from "@/game/state/usePlayerStore";
 
-const GRASS_GRID = 96; // 96 x 96 = 9,216 world-locked grass tufts
-const GRASS_COUNT = GRASS_GRID * GRASS_GRID;
-const GRASS_SPAN = 96.0; // Wraps seamlessly every 96m in world space (ZERO snapping/jumping!)
-
 export default function Vegetation() {
   const grassMeshRef = useRef<THREE.InstancedMesh>(null);
   const oakTrunkRef = useRef<THREE.InstancedMesh>(null);
@@ -22,12 +18,14 @@ export default function Vegetation() {
   const mapleCrownRef = useRef<THREE.InstancedMesh>(null);
   const flowerRef = useRef<THREE.InstancedMesh>(null);
 
-  const { oaks, pines, snowPines, maples, flowers } = useMemo(() => {
+  // Pre-compute ALL trees, flowers, AND static world grass ONCE at startup (Zero CPU work in useFrame!)
+  const { oaks, pines, snowPines, maples, flowers, grassList } = useMemo(() => {
     const oakList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const pineList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const snowPineList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const mapleList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const flowerList: { x: number; y: number; z: number; s: number; color: THREE.Color }[] = [];
+    const gList: { x: number; y: number; z: number; s: number; r: number }[] = [];
 
     let seed = 4042026;
     const rand = () => {
@@ -43,8 +41,8 @@ export default function Vegetation() {
       new THREE.Color("#f8fafc"),
     ];
 
-    // Central & Forest Oaks (never spawn on roads, village, or kingdom)
-    for (let i = 0; i < 360; i++) {
+    // 1. Oaks
+    for (let i = 0; i < 340; i++) {
       const x = (rand() - 0.5) * 900;
       const z = (rand() - 0.5) * 760;
       if (Math.hypot(x, z) > 540) continue;
@@ -52,64 +50,75 @@ export default function Vegetation() {
       if (Math.hypot(x, z - 390) < 145) continue;
       if (z < -160 || getRoadFactor(x, z) > 0.1) continue;
       const y = getTerrainHeight(x, z);
-      const slope = getTerrainSlope(x, z);
-      if (y > 4.5 && y < 24 && slope < 0.65) {
+      if (y > 4.5 && y < 24) {
         oakList.push({ x, y, z, s: 0.85 + rand() * 0.95, r: rand() * Math.PI * 2 });
       }
     }
 
-    // Northern Pines & Snowy Mountain Pines
-    for (let i = 0; i < 680; i++) {
+    // 2. Pines & Snow Pines
+    for (let i = 0; i < 620; i++) {
       const x = (rand() - 0.5) * 1050;
       const z = -120 - rand() * 480;
       if (Math.hypot(x, z) > 610) continue;
       if (Math.hypot(x + 310, z + 310) < 120) continue;
       if (getRoadFactor(x, z) > 0.1) continue;
       const y = getTerrainHeight(x, z);
-      const slope = getTerrainSlope(x, z);
-      if (y > 6 && slope < 0.78) {
+      if (y > 6) {
         const s = 0.75 + rand() * 0.75;
-        if (y > 26 || z < -310) {
-          snowPineList.push({ x, y, z, s, r: rand() * Math.PI * 2 });
-        } else {
-          pineList.push({ x, y, z, s, r: rand() * Math.PI * 2 });
-        }
+        if (y > 26 || z < -310) snowPineList.push({ x, y, z, s, r: rand() * Math.PI * 2 });
+        else pineList.push({ x, y, z, s, r: rand() * Math.PI * 2 });
       }
     }
 
-    // NW Shrine Red Maple Trees (keep stairs & courtyard clear)
-    for (let i = 0; i < 130; i++) {
+    // 3. Red Maples at Shrine
+    for (let i = 0; i < 125; i++) {
       const angle = rand() * Math.PI * 2;
       const rad = 22 + rand() * 110;
       const x = -310 + Math.cos(angle) * rad;
       const z = -310 + Math.sin(angle) * rad;
       if (Math.abs(x + 310) < 11 && z > -325 && z < -250) continue;
       const y = getTerrainHeight(x, z);
-      if (y > 8) {
-        mapleList.push({ x, y, z, s: 0.85 + rand() * 0.65, r: rand() * Math.PI * 2 });
-      }
+      if (y > 8) mapleList.push({ x, y, z, s: 0.85 + rand() * 0.65, r: rand() * Math.PI * 2 });
     }
 
-    // Wildflowers
-    for (let i = 0; i < 600; i++) {
+    // 4. Wildflowers
+    for (let i = 0; i < 550; i++) {
       const x = (rand() - 0.5) * 950;
       const z = (rand() - 0.4) * 750;
       if (Math.hypot(x, z) > 560 || getRoadFactor(x, z) > 0.15) continue;
       const y = getTerrainHeight(x, z);
       if (y > 4.2 && y < 20) {
-        flowerList.push({
-          x, y, z,
-          s: 0.7 + rand() * 0.6,
-          color: flowerColors[Math.floor(rand() * flowerColors.length)],
-        });
+        flowerList.push({ x, y, z, s: 0.7 + rand() * 0.6, color: flowerColors[Math.floor(rand() * flowerColors.length)] });
       }
     }
 
-    return { oaks: oakList, pines: pineList, snowPines: snowPineList, maples: mapleList, flowers: flowerList };
+    // 5. Static World-Locked Grass Tufts (8,000 tufts placed ONCE at startup -> NEVER moves or lags CPU!)
+    for (let i = 0; i < 8000; i++) {
+      const x = (rand() - 0.5) * 1180;
+      const z = (rand() - 0.5) * 1050;
+      if (Math.hypot(x, z) > 590) continue;
+      const y = getTerrainHeight(x, z);
+      if (y > 3.5 && y < 25.0 && getRoadFactor(x, z) < 0.2) {
+        gList.push({ x, y, z, s: 0.85 + rand() * 0.65, r: rand() * Math.PI * 2 });
+      }
+    }
+
+    return { oaks: oakList, pines: pineList, snowPines: snowPineList, maples: mapleList, flowers: flowerList, grassList: gList };
   }, []);
 
   useEffect(() => {
     const dummy = new THREE.Object3D();
+
+    if (grassMeshRef.current) {
+      grassList.forEach((g, i) => {
+        dummy.position.set(g.x, g.y, g.z);
+        dummy.rotation.set(0, g.r, 0);
+        dummy.scale.set(g.s, g.s, g.s);
+        dummy.updateMatrix();
+        grassMeshRef.current!.setMatrixAt(i, dummy.matrix);
+      });
+      grassMeshRef.current.instanceMatrix.needsUpdate = true;
+    }
 
     if (oakTrunkRef.current && oakCrownRef.current) {
       oaks.forEach((t, i) => {
@@ -181,62 +190,11 @@ export default function Vegetation() {
       flowerRef.current.instanceMatrix.needsUpdate = true;
       if (flowerRef.current.instanceColor) flowerRef.current.instanceColor.needsUpdate = true;
     }
-  }, [oaks, pines, snowPines, maples, flowers]);
+  }, [grassList, oaks, pines, snowPines, maples, flowers]);
 
-  // World-Space Toroidal Grass Update (Each blade stays locked to its exact 1m world cell!)
-  const lastCellRef = useRef({ cx: -9999, cz: -9999 });
-  const dummyRef = useRef(new THREE.Object3D());
-
+  // Only update 1 vector uniform per frame (0.001ms CPU cost!)
   useFrame(() => {
     globalUniforms.uPlayerPos.value.set(playerFrameState.x, playerFrameState.y, playerFrameState.z);
-
-    const centerCellX = Math.floor(playerFrameState.x / 2) * 2;
-    const centerCellZ = Math.floor(playerFrameState.z / 2) * 2;
-    if (centerCellX !== lastCellRef.current.cx || centerCellZ !== lastCellRef.current.cz) {
-      lastCellRef.current = { cx: centerCellX, cz: centerCellZ };
-      if (!grassMeshRef.current) return;
-      const dummy = dummyRef.current;
-      const half = GRASS_GRID / 2;
-
-      let idx = 0;
-      for (let gx = -half; gx < half; gx++) {
-        for (let gz = -half; gz < half; gz++) {
-          // Absolute world coordinate of this grid cell (never shifts when player moves!)
-          const cellWorldX = centerCellX + gx;
-          const cellWorldZ = centerCellZ + gz;
-          // Deterministic jitter inside the 1m cell based on world coordinates
-          const hash = Math.sin(cellWorldX * 12.9898 + cellWorldZ * 78.233) * 43758.5453;
-          const jx = (hash - Math.floor(hash)) - 0.5;
-          const hash2 = Math.sin(cellWorldX * 39.346 + cellWorldZ * 11.135) * 43758.5453;
-          const jz = (hash2 - Math.floor(hash2)) - 0.5;
-
-          const wx = cellWorldX + jx * 0.85;
-          const wz = cellWorldZ + jz * 0.85;
-          const distSq = (wx - playerFrameState.x) * (wx - playerFrameState.x) + (wz - playerFrameState.z) * (wz - playerFrameState.z);
-
-          if (distSq < 46 * 46) {
-            const wy = getTerrainHeight(wx, wz);
-            const slope = getTerrainSlope(wx, wz);
-            const road = getRoadFactor(wx, wz);
-            if (wy > 3.4 && wy < 25.5 && slope < 0.70 && road < 0.25) {
-              const edgeFade = 1.0 - THREE.MathUtils.smoothstep(Math.sqrt(distSq), 34, 46);
-              const s = (0.75 + (Math.abs(cellWorldX * 7 + cellWorldZ * 13) % 5) * 0.12) * edgeFade;
-              dummy.position.set(wx, wy, wz);
-              dummy.rotation.set(0, (cellWorldX * 3 + cellWorldZ * 5) % 6.28, 0);
-              dummy.scale.set(s, s, s);
-              dummy.updateMatrix();
-              grassMeshRef.current.setMatrixAt(idx++, dummy.matrix);
-              continue;
-            }
-          }
-          dummy.position.set(0, -200, 0);
-          dummy.scale.set(0, 0, 0);
-          dummy.updateMatrix();
-          grassMeshRef.current.setMatrixAt(idx++, dummy.matrix);
-        }
-      }
-      grassMeshRef.current.instanceMatrix.needsUpdate = true;
-    }
   });
 
   const grassMaterial = useMemo(() => {
@@ -245,18 +203,23 @@ export default function Vegetation() {
         uTime: globalUniforms.uTime,
         uWindStrength: globalUniforms.uWindStrength,
         uNightFactor: globalUniforms.uNightFactor,
+        uPlayerPos: globalUniforms.uPlayerPos,
       },
       side: THREE.DoubleSide,
       vertexShader: [
         "uniform float uTime;",
         "uniform float uWindStrength;",
+        "uniform vec3 uPlayerPos;",
         "varying float vHeightFrac;",
         "varying float vColorVar;",
+        "varying float vDistFade;",
         "void main() {",
         "  vec4 instPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);",
-        "  vHeightFrac = clamp(position.y / 0.85, 0.0, 1.0);",
+        "  float dist = distance(instPos.xz, uPlayerPos.xz);",
+        "  vDistFade = 1.0 - smoothstep(75.0, 110.0, dist);",
+        "  vHeightFrac = clamp(position.y / 0.9, 0.0, 1.0);",
         "  vColorVar = fract(sin(dot(instPos.xz, vec2(12.9898, 78.233))) * 43758.5453);",
-        "  vec3 pos = position;",
+        "  vec3 pos = position * vDistFade;",
         "  float windWave = sin(instPos.x * 0.22 + instPos.z * 0.18 + uTime * 2.5) * uWindStrength;",
         "  pos.x += windWave * vHeightFrac * vHeightFrac * 0.35;",
         "  pos.z += cos(instPos.z * 0.16 + uTime * 2.0) * uWindStrength * vHeightFrac * 0.20;",
@@ -268,7 +231,9 @@ export default function Vegetation() {
         "uniform float uNightFactor;",
         "varying float vHeightFrac;",
         "varying float vColorVar;",
+        "varying float vDistFade;",
         "void main() {",
+        "  if (vDistFade < 0.05) discard;",
         "  vec3 baseGreen = mix(vec3(0.16, 0.38, 0.15), vec3(0.22, 0.48, 0.18), vColorVar);",
         "  vec3 tipGreen = mix(vec3(0.44, 0.74, 0.26), vec3(0.58, 0.82, 0.32), vColorVar);",
         "  vec3 col = mix(baseGreen, tipGreen, vHeightFrac);",
@@ -280,14 +245,14 @@ export default function Vegetation() {
   }, []);
 
   const grassBladeGeo = useMemo(() => {
-    const geo = new THREE.ConeGeometry(0.10, 0.82, 3, 2);
-    geo.translate(0, 0.41, 0);
+    const geo = new THREE.ConeGeometry(0.14, 0.9, 3, 2);
+    geo.translate(0, 0.45, 0);
     return geo;
   }, []);
 
   return (
     <group name="world-vegetation">
-      <instancedMesh ref={grassMeshRef} args={[grassBladeGeo, grassMaterial, GRASS_COUNT]} frustumCulled={false} />
+      <instancedMesh ref={grassMeshRef} args={[grassBladeGeo, grassMaterial, grassList.length]} frustumCulled={false} />
 
       <instancedMesh ref={oakTrunkRef} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
         <cylinderGeometry args={[0.28, 0.45, 4.5, 7]} />

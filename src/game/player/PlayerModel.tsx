@@ -10,9 +10,9 @@ export default function PlayerModel() {
   const rootRef = useRef<THREE.Group>(null);
   const torsoRef = useRef<THREE.Group>(null);
   const headRef = useRef<THREE.Group>(null);
+  const ponytailRef = useRef<THREE.Group>(null);
   const capeRef = useRef<THREE.Mesh>(null);
 
-  // Upper & lower limbs for natural knee and elbow bending
   const leftThighRef = useRef<THREE.Group>(null);
   const leftShinRef = useRef<THREE.Group>(null);
   const rightThighRef = useRef<THREE.Group>(null);
@@ -22,8 +22,7 @@ export default function PlayerModel() {
   const leftForearmRef = useRef<THREE.Group>(null);
   const rightUpperArmRef = useRef<THREE.Group>(null);
   const rightForearmRef = useRef<THREE.Group>(null);
-
-  const lanternMatRef = useRef<THREE.MeshStandardMaterial>(null);
+  const crystalMatRef = useRef<THREE.MeshStandardMaterial>(null);
 
   const phaseRef = useRef(0);
   const moveBlendRef = useRef(0);
@@ -38,257 +37,180 @@ export default function PlayerModel() {
     const isGrounded = playerFrameState.isGrounded;
     const isSwimming = playerFrameState.isSwimming && !playerFrameState.isInBoat;
 
-    const targetBlend = isMoving ? (isRunning ? 1.25 : 0.82) : isSwimming ? 0.7 : 0.0;
-    moveBlendRef.current = THREE.MathUtils.lerp(moveBlendRef.current, targetBlend, dt * 10);
+    const targetBlend = isMoving ? (isRunning ? 1.3 : 0.88) : isSwimming ? 0.75 : 0.0;
+    moveBlendRef.current = THREE.MathUtils.lerp(moveBlendRef.current, targetBlend, dt * 11);
     const m = moveBlendRef.current;
 
-    const cycleSpeed = isSwimming ? 6.0 : isRunning ? 14.0 : 8.5;
+    const cycleSpeed = isSwimming ? 6.5 : isRunning ? 14.5 : 9.0;
     if (isMoving || isSwimming) {
       phaseRef.current += dt * cycleSpeed;
     } else {
-      phaseRef.current = THREE.MathUtils.lerp(
-        phaseRef.current,
-        Math.round(phaseRef.current / Math.PI) * Math.PI,
-        dt * 7
-      );
+      phaseRef.current = THREE.MathUtils.lerp(phaseRef.current, Math.round(phaseRef.current / Math.PI) * Math.PI, dt * 8);
     }
 
     const p = phaseRef.current;
     const sinP = Math.sin(p);
     const cosP = Math.cos(p);
 
-    // 1. Root vertical bounce & swim pitch
-    const bounce = isGrounded && !isSwimming ? Math.abs(sinP) * 0.075 * m : 0;
-    const breath = Math.sin(t * 2.4) * 0.015;
-    rootRef.current.position.y = isSwimming ? -0.32 + breath * 2 : bounce + breath;
+    const bounce = isGrounded && !isSwimming ? Math.abs(sinP) * 0.08 * m : 0;
+    const breath = Math.sin(t * 2.5) * 0.016;
+    rootRef.current.position.y = isSwimming ? -0.35 + breath * 2 : bounce + breath;
 
-    const targetPitch = isSwimming
-      ? (isMoving ? 1.25 : 0.45)
-      : !isGrounded
-      ? 0.12
-      : isMoving
-      ? (isRunning ? 0.22 : 0.09)
-      : 0;
-    rootRef.current.rotation.x = THREE.MathUtils.lerp(rootRef.current.rotation.x, targetPitch, dt * 9);
-    rootRef.current.rotation.z = THREE.MathUtils.lerp(rootRef.current.rotation.z, cosP * 0.04 * m, dt * 10);
+    const targetPitch = isSwimming ? (isMoving ? 1.2 : 0.45) : !isGrounded ? 0.14 : isMoving ? (isRunning ? 0.20 : 0.08) : 0;
+    rootRef.current.rotation.x = THREE.MathUtils.lerp(rootRef.current.rotation.x, targetPitch, dt * 10);
+    rootRef.current.rotation.z = THREE.MathUtils.lerp(rootRef.current.rotation.z, cosP * 0.045 * m, dt * 10);
 
-    // 2. Torso counter-twist & head look stabilizer
-    torsoRef.current.rotation.y = sinP * 0.14 * m;
-    headRef.current.rotation.y = -sinP * 0.10 * m + (m < 0.05 ? Math.sin(t * 0.9) * 0.08 : 0);
-    headRef.current.rotation.x = isSwimming ? -0.65 : -rootRef.current.rotation.x * 0.5 + Math.cos(t * 1.8) * 0.02;
+    torsoRef.current.rotation.y = sinP * 0.16 * m;
+    headRef.current.rotation.y = -sinP * 0.12 * m + (m < 0.05 ? Math.sin(t * 1.1) * 0.09 : 0);
+    headRef.current.rotation.x = isSwimming ? -0.6 : -rootRef.current.rotation.x * 0.45;
 
-    // 3. Articulated Legs (Thigh + Knee/Shin bending)
+    if (ponytailRef.current) {
+      ponytailRef.current.rotation.x = 0.25 + m * 0.45 + Math.sin(t * 10.0) * (0.06 + m * 0.12);
+      ponytailRef.current.rotation.z = cosP * 0.15 * m;
+    }
+
     if (leftThighRef.current && rightThighRef.current && leftShinRef.current && rightShinRef.current) {
       if (!isGrounded && !isSwimming) {
-        // Mid-air jump pose
-        leftThighRef.current.rotation.x = THREE.MathUtils.lerp(leftThighRef.current.rotation.x, -0.45, dt * 12);
-        leftShinRef.current.rotation.x = THREE.MathUtils.lerp(leftShinRef.current.rotation.x, 0.75, dt * 12);
-        rightThighRef.current.rotation.x = THREE.MathUtils.lerp(rightThighRef.current.rotation.x, 0.25, dt * 12);
-        rightShinRef.current.rotation.x = THREE.MathUtils.lerp(rightShinRef.current.rotation.x, 0.45, dt * 12);
+        leftThighRef.current.rotation.x = THREE.MathUtils.lerp(leftThighRef.current.rotation.x, -0.5, dt * 12);
+        leftShinRef.current.rotation.x = THREE.MathUtils.lerp(leftShinRef.current.rotation.x, 0.8, dt * 12);
+        rightThighRef.current.rotation.x = THREE.MathUtils.lerp(rightThighRef.current.rotation.x, 0.3, dt * 12);
+        rightShinRef.current.rotation.x = THREE.MathUtils.lerp(rightShinRef.current.rotation.x, 0.5, dt * 12);
       } else {
-        const leftSwing = sinP * 0.68 * m;
-        const rightSwing = -sinP * 0.68 * m;
-        leftThighRef.current.rotation.x = leftSwing;
-        rightThighRef.current.rotation.x = rightSwing;
-
-        // Knee only bends backward (positive X rotation) during leg lift
-        const leftKnee = Math.max(0, -cosP) * 0.85 * m + (m * 0.08);
-        const rightKnee = Math.max(0, cosP) * 0.85 * m + (m * 0.08);
-        leftShinRef.current.rotation.x = leftKnee;
-        rightShinRef.current.rotation.x = rightKnee;
+        leftThighRef.current.rotation.x = sinP * 0.72 * m;
+        rightThighRef.current.rotation.x = -sinP * 0.72 * m;
+        leftShinRef.current.rotation.x = Math.max(0, -cosP) * 0.88 * m + m * 0.08;
+        rightShinRef.current.rotation.x = Math.max(0, cosP) * 0.88 * m + m * 0.08;
       }
     }
 
-    // 4. Articulated Arms (Shoulder + Forearm elbow bend)
     if (leftUpperArmRef.current && rightUpperArmRef.current && leftForearmRef.current && rightForearmRef.current) {
       if (isSwimming) {
-        // Breaststroke arm motion
         leftUpperArmRef.current.rotation.x = -0.9 + sinP * 0.7;
         leftUpperArmRef.current.rotation.z = 0.35 + Math.max(0, cosP) * 0.5;
         rightUpperArmRef.current.rotation.x = -0.9 + sinP * 0.7;
         rightUpperArmRef.current.rotation.z = -0.35 - Math.max(0, cosP) * 0.5;
         leftForearmRef.current.rotation.x = -0.4;
         rightForearmRef.current.rotation.x = -0.4;
-      } else if (!isGrounded) {
-        leftUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.z, 0.55, dt * 10);
-        rightUpperArmRef.current.rotation.z = THREE.MathUtils.lerp(rightUpperArmRef.current.rotation.z, -0.55, dt * 10);
       } else {
-        const armSwing = -sinP * 0.58 * m;
+        const armSwing = -sinP * 0.62 * m;
         leftUpperArmRef.current.rotation.x = armSwing;
         rightUpperArmRef.current.rotation.x = -armSwing;
-        leftUpperArmRef.current.rotation.z = 0.08 + Math.sin(t * 2.0) * 0.02;
-        rightUpperArmRef.current.rotation.z = -0.08 - Math.sin(t * 2.0) * 0.02;
-
-        // Elbows bend naturally forward, especially when running
-        const runElbow = isRunning ? -0.65 : -0.22;
-        leftForearmRef.current.rotation.x = runElbow * Math.min(1, m + 0.2) + Math.min(0, armSwing * 0.4);
-        rightForearmRef.current.rotation.x = runElbow * Math.min(1, m + 0.2) + Math.min(0, -armSwing * 0.4);
+        leftUpperArmRef.current.rotation.z = 0.10;
+        rightUpperArmRef.current.rotation.z = -0.10;
+        const runElbow = isRunning ? -0.7 : -0.25;
+        leftForearmRef.current.rotation.x = runElbow * Math.min(1, m + 0.2);
+        rightForearmRef.current.rotation.x = runElbow * Math.min(1, m + 0.2);
       }
     }
 
-    // 5. Flowing Traveler Cape
     if (capeRef.current) {
-      const targetCapeAngle = 0.16 + m * 0.48 + Math.sin(t * 9.0) * (0.04 + m * 0.08);
+      const targetCapeAngle = 0.18 + m * 0.52 + Math.sin(t * 9.5) * (0.05 + m * 0.1);
       capeRef.current.rotation.x = THREE.MathUtils.lerp(capeRef.current.rotation.x, targetCapeAngle, dt * 10);
     }
 
-    // 6. Waist Lantern auto-glow at dusk/night
-    if (lanternMatRef.current) {
-      lanternMatRef.current.emissiveIntensity = globalUniforms.uNightFactor.value * 2.8;
+    if (crystalMatRef.current) {
+      crystalMatRef.current.emissiveIntensity = 1.4 + globalUniforms.uNightFactor.value * 2.5;
     }
   });
 
   return (
     <group ref={rootRef}>
-      {/* TORSO & UPPER BODY */}
-      <group ref={torsoRef} position={[0, 0.02, 0]}>
-        {/* Tunic Coat */}
-        <mesh castShadow receiveShadow position={[0, 0.06, 0]}>
-          <cylinderGeometry args={[0.17, 0.23, 0.54, 12]} />
-          <meshStandardMaterial color="#1e3a5f" roughness={0.75} />
+      <group ref={torsoRef} position={[0, 0.04, 0]}>
+        {/* Stylized Adventurer Jacket & Pleated Tunic Skirt */}
+        <mesh castShadow receiveShadow position={[0, 0.12, 0]}>
+          <cylinderGeometry args={[0.14, 0.17, 0.42, 14]} />
+          <meshStandardMaterial color="#1e3a8a" roughness={0.65} />
         </mesh>
-        {/* Leather Belt & Gold Buckle */}
-        <mesh castShadow position={[0, -0.08, 0]}>
-          <cylinderGeometry args={[0.205, 0.21, 0.08, 12]} />
-          <meshStandardMaterial color="#451a03" roughness={0.8} />
+        <mesh castShadow receiveShadow position={[0, -0.14, 0]}>
+          <cylinderGeometry args={[0.16, 0.26, 0.28, 16]} />
+          <meshStandardMaterial color="#172554" roughness={0.7} />
         </mesh>
-        <mesh castShadow position={[0, -0.08, 0.20]}>
-          <boxGeometry args={[0.08, 0.08, 0.03]} />
-          <meshStandardMaterial color="#fbbf24" metalness={0.6} roughness={0.3} />
+        {/* Gold Waist Belt */}
+        <mesh castShadow position={[0, -0.02, 0]}>
+          <cylinderGeometry args={[0.168, 0.172, 0.06, 14]} />
+          <meshStandardMaterial color="#d97706" metalness={0.5} roughness={0.3} />
         </mesh>
-        {/* Warm Red/Amber Traveler Scarf */}
-        <mesh castShadow position={[0, 0.31, 0]}>
-          <torusGeometry args={[0.15, 0.055, 8, 16]} rotation={[Math.PI / 2, 0, 0]} />
-          <meshStandardMaterial color="#dc2626" roughness={0.7} />
+        {/* Crimson Traveler Collar & Flowing Cloak */}
+        <mesh castShadow position={[0, 0.32, 0]} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.14, 0.048, 10, 18]} />
+          <meshStandardMaterial color="#dc2626" roughness={0.65} />
         </mesh>
-        {/* Flowing Cape */}
-        <mesh ref={capeRef} castShadow position={[0, 0.28, -0.15]}>
-          <boxGeometry args={[0.38, 0.68, 0.03]} />
-          <meshStandardMaterial color="#991b1b" roughness={0.85} />
+        <mesh ref={capeRef} castShadow position={[0, 0.28, -0.14]}>
+          <boxGeometry args={[0.36, 0.65, 0.025]} />
+          <meshStandardMaterial color="#b91c1c" roughness={0.8} />
         </mesh>
-        {/* Explorer Backpack & Bedroll */}
-        <group position={[0, 0.12, -0.22]}>
-          <mesh castShadow receiveShadow>
-            <boxGeometry args={[0.28, 0.34, 0.16]} />
-            <meshStandardMaterial color="#78350f" roughness={0.85} />
+
+        {/* Magic Wayfarer Staff & glowing Sky-Crystal on Back */}
+        <group position={[0.06, 0.15, -0.18]} rotation={[0, 0, -0.38]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[0.022, 0.026, 1.35, 8]} />
+            <meshStandardMaterial color="#78350f" roughness={0.8} />
           </mesh>
-          <mesh castShadow position={[0, 0.21, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <cylinderGeometry args={[0.065, 0.065, 0.32, 10]} />
-            <meshStandardMaterial color="#d97706" roughness={0.8} />
-          </mesh>
-          {/* Waist Lantern (glows automatically at night) */}
-          <mesh castShadow position={[0.17, -0.18, 0.08]}>
-            <cylinderGeometry args={[0.045, 0.035, 0.12, 8]} />
-            <meshStandardMaterial
-              ref={lanternMatRef}
-              color="#fef08a"
-              emissive="#f59e0b"
-              emissiveIntensity={0}
-            />
+          <mesh position={[0, 0.74, 0]}>
+            <octahedronGeometry args={[0.095, 0]} />
+            <meshStandardMaterial ref={crystalMatRef} color="#38bdf8" emissive="#0284c7" emissiveIntensity={1.8} />
           </mesh>
         </group>
 
-        {/* HEAD, HAIR & ADVENTURER HAT */}
+        {/* Anime-Proportioned Head, Hair & Ponytail */}
         <group ref={headRef} position={[0, 0.48, 0]}>
           <mesh castShadow receiveShadow>
-            <sphereGeometry args={[0.165, 16, 16]} />
-            <meshStandardMaterial color="#fde68a" roughness={0.55} />
+            <sphereGeometry args={[0.17, 20, 20]} />
+            <meshStandardMaterial color="#ffedd5" roughness={0.45} />
           </mesh>
-          {/* Eyes */}
-          <mesh position={[-0.055, 0.02, 0.145]}>
-            <sphereGeometry args={[0.022, 8, 8]} />
-            <meshStandardMaterial color="#0f172a" />
+          {/* Expressive Eyes */}
+          <mesh position={[-0.058, 0.01, 0.15]}><sphereGeometry args={[0.026, 10, 10]} /><meshStandardMaterial color="#1e3a8a" /></mesh>
+          <mesh position={[0.058, 0.01, 0.15]}><sphereGeometry args={[0.026, 10, 10]} /><meshStandardMaterial color="#1e3a8a" /></mesh>
+          {/* Stylized Dark-Brown/Auburn Hair Dome & Side Bangs */}
+          <mesh castShadow position={[0, 0.04, -0.02]}>
+            <sphereGeometry args={[0.182, 18, 18]} />
+            <meshStandardMaterial color="#3b1d11" roughness={0.7} />
           </mesh>
-          <mesh position={[0.055, 0.02, 0.145]}>
-            <sphereGeometry args={[0.022, 8, 8]} />
-            <meshStandardMaterial color="#0f172a" />
+          <mesh castShadow position={[-0.13, -0.04, 0.09]} rotation={[0, 0, 0.2]}>
+            <capsuleGeometry args={[0.038, 0.14, 6, 8]} />
+            <meshStandardMaterial color="#3b1d11" roughness={0.7} />
           </mesh>
-          {/* Stylized Hair Back */}
-          <mesh castShadow position={[0, -0.02, -0.06]}>
-            <sphereGeometry args={[0.16, 12, 12]} />
-            <meshStandardMaterial color="#3b2314" roughness={0.8} />
+          <mesh castShadow position={[0.13, -0.04, 0.09]} rotation={[0, 0, -0.2]}>
+            <capsuleGeometry args={[0.038, 0.14, 6, 8]} />
+            <meshStandardMaterial color="#3b1d11" roughness={0.7} />
           </mesh>
-          {/* Explorer Hat Brim & Crown */}
-          <mesh castShadow position={[0, 0.12, 0]} rotation={[-0.12, 0, 0]}>
-            <cylinderGeometry args={[0.28, 0.28, 0.025, 16]} />
-            <meshStandardMaterial color="#78350f" roughness={0.85} />
-          </mesh>
-          <mesh castShadow position={[0, 0.22, -0.02]} rotation={[-0.18, 0, 0]}>
-            <coneGeometry args={[0.17, 0.24, 12]} />
-            <meshStandardMaterial color="#92400e" roughness={0.85} />
-          </mesh>
-        </group>
-
-        {/* LEFT ARM (Shoulder -> Upper Arm -> Elbow -> Forearm -> Hand) */}
-        <group ref={leftUpperArmRef} position={[-0.24, 0.24, 0]}>
-          <mesh castShadow position={[0, -0.11, 0]}>
-            <capsuleGeometry args={[0.055, 0.16, 6, 10]} />
-            <meshStandardMaterial color="#1e3a5f" roughness={0.75} />
-          </mesh>
-          <group ref={leftForearmRef} position={[0, -0.22, 0]}>
-            <mesh castShadow position={[0, -0.10, 0]}>
-              <capsuleGeometry args={[0.048, 0.14, 6, 10]} />
-              <meshStandardMaterial color="#fde68a" roughness={0.6} />
-            </mesh>
-            <mesh castShadow position={[0, -0.21, 0]}>
-              <sphereGeometry args={[0.052, 8, 8]} />
-              <meshStandardMaterial color="#78350f" roughness={0.8} />
+          {/* Animated Flowing Ponytail */}
+          <group ref={ponytailRef} position={[0, 0.02, -0.17]}>
+            <mesh castShadow position={[0, -0.16, -0.04]}>
+              <coneGeometry args={[0.075, 0.38, 10]} />
+              <meshStandardMaterial color="#3b1d11" roughness={0.7} />
             </mesh>
           </group>
         </group>
 
-        {/* RIGHT ARM */}
-        <group ref={rightUpperArmRef} position={[0.24, 0.24, 0]}>
-          <mesh castShadow position={[0, -0.11, 0]}>
-            <capsuleGeometry args={[0.055, 0.16, 6, 10]} />
-            <meshStandardMaterial color="#1e3a5f" roughness={0.75} />
-          </mesh>
-          <group ref={rightForearmRef} position={[0, -0.22, 0]}>
-            <mesh castShadow position={[0, -0.10, 0]}>
-              <capsuleGeometry args={[0.048, 0.14, 6, 10]} />
-              <meshStandardMaterial color="#fde68a" roughness={0.6} />
-            </mesh>
-            <mesh castShadow position={[0, -0.21, 0]}>
-              <sphereGeometry args={[0.052, 8, 8]} />
-              <meshStandardMaterial color="#78350f" roughness={0.8} />
-            </mesh>
+        {/* Arms */}
+        <group ref={leftUpperArmRef} position={[-0.21, 0.24, 0]}>
+          <mesh castShadow position={[0, -0.10, 0]}><capsuleGeometry args={[0.046, 0.15, 6, 10]} /><meshStandardMaterial color="#1e3a8a" /></mesh>
+          <group ref={leftForearmRef} position={[0, -0.21, 0]}>
+            <mesh castShadow position={[0, -0.09, 0]}><capsuleGeometry args={[0.040, 0.13, 6, 10]} /><meshStandardMaterial color="#ffedd5" /></mesh>
+          </group>
+        </group>
+        <group ref={rightUpperArmRef} position={[0.21, 0.24, 0]}>
+          <mesh castShadow position={[0, -0.10, 0]}><capsuleGeometry args={[0.046, 0.15, 6, 10]} /><meshStandardMaterial color="#1e3a8a" /></mesh>
+          <group ref={rightForearmRef} position={[0, -0.21, 0]}>
+            <mesh castShadow position={[0, -0.09, 0]}><capsuleGeometry args={[0.040, 0.13, 6, 10]} /><meshStandardMaterial color="#ffedd5" /></mesh>
           </group>
         </group>
       </group>
 
-      {/* LEFT LEG (Hip -> Thigh -> Knee -> Shin -> Boot) */}
-      <group ref={leftThighRef} position={[-0.10, -0.22, 0]}>
-        <mesh castShadow position={[0, -0.16, 0]}>
-          <capsuleGeometry args={[0.072, 0.22, 6, 10]} />
-          <meshStandardMaterial color="#334155" roughness={0.85} />
-        </mesh>
-        <group ref={leftShinRef} position={[0, -0.34, 0]}>
-          <mesh castShadow position={[0, -0.15, 0]}>
-            <capsuleGeometry args={[0.062, 0.20, 6, 10]} />
-            <meshStandardMaterial color="#451a03" roughness={0.8} />
-          </mesh>
-          <mesh castShadow position={[0, -0.30, 0.04]}>
-            <boxGeometry args={[0.11, 0.09, 0.20]} />
-            <meshStandardMaterial color="#291202" roughness={0.85} />
-          </mesh>
+      {/* Legs & Tall Adventurer Boots */}
+      <group ref={leftThighRef} position={[-0.095, -0.20, 0]}>
+        <mesh castShadow position={[0, -0.15, 0]}><capsuleGeometry args={[0.058, 0.20, 6, 10]} /><meshStandardMaterial color="#ffedd5" /></mesh>
+        <group ref={leftShinRef} position={[0, -0.33, 0]}>
+          <mesh castShadow position={[0, -0.15, 0]}><capsuleGeometry args={[0.054, 0.20, 6, 10]} /><meshStandardMaterial color="#451a03" /></mesh>
+          <mesh castShadow position={[0, -0.30, 0.035]}><boxGeometry args={[0.095, 0.085, 0.18]} /><meshStandardMaterial color="#291202" /></mesh>
         </group>
       </group>
-
-      {/* RIGHT LEG */}
-      <group ref={rightThighRef} position={[0.10, -0.22, 0]}>
-        <mesh castShadow position={[0, -0.16, 0]}>
-          <capsuleGeometry args={[0.072, 0.22, 6, 10]} />
-          <meshStandardMaterial color="#334155" roughness={0.85} />
-        </mesh>
-        <group ref={rightShinRef} position={[0, -0.34, 0]}>
-          <mesh castShadow position={[0, -0.15, 0]}>
-            <capsuleGeometry args={[0.062, 0.20, 6, 10]} />
-            <meshStandardMaterial color="#451a03" roughness={0.8} />
-          </mesh>
-          <mesh castShadow position={[0, -0.30, 0.04]}>
-            <boxGeometry args={[0.11, 0.09, 0.20]} />
-            <meshStandardMaterial color="#291202" roughness={0.85} />
-          </mesh>
+      <group ref={rightThighRef} position={[0.095, -0.20, 0]}>
+        <mesh castShadow position={[0, -0.15, 0]}><capsuleGeometry args={[0.058, 0.20, 6, 10]} /><meshStandardMaterial color="#ffedd5" /></mesh>
+        <group ref={rightShinRef} position={[0, -0.33, 0]}>
+          <mesh castShadow position={[0, -0.15, 0]}><capsuleGeometry args={[0.054, 0.20, 6, 10]} /><meshStandardMaterial color="#451a03" /></mesh>
+          <mesh castShadow position={[0, -0.30, 0.035]}><boxGeometry args={[0.095, 0.085, 0.18]} /><meshStandardMaterial color="#291202" /></mesh>
         </group>
       </group>
     </group>

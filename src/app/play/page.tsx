@@ -2,14 +2,14 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { usePlayerStore } from "@/game/state/usePlayerStore";
+import { usePlayerStore, playerFrameState } from "@/game/state/usePlayerStore";
 import { useTimeStore, formatGameClock } from "@/game/state/useTimeStore";
 import { useJournalStore } from "@/game/state/useJournalStore";
 import { useWeatherStore } from "@/game/state/useWeatherStore";
+import { BIOME_CENTERS, getWalkableHeight } from "@/utils/noise";
 import GameOverlayUI from "@/ui/GameOverlayUI";
 import PhotoMode from "@/ui/PhotoMode";
 import PauseAndSettingsModal from "@/ui/PauseAndSettingsModal";
-import { saveGameProgress } from "@/game/core/save";
 
 const GameCanvas = dynamic(() => import("@/game/GameCanvas"), {
   ssr: false,
@@ -25,6 +25,8 @@ export default function PlayPage() {
   const position = usePlayerStore((s) => s.position);
   const isSwimming = usePlayerStore((s) => s.isSwimming);
   const isInBoat = usePlayerStore((s) => s.isInBoat);
+  const setInBoat = usePlayerStore((s) => s.setInBoat);
+  const requestTeleport = usePlayerStore((s) => s.requestTeleport);
   const interactionPrompt = usePlayerStore((s) => s.interactionPrompt);
 
   const hour = useTimeStore((s) => s.hour);
@@ -32,6 +34,8 @@ export default function PlayPage() {
   const phaseLabel = useTimeStore((s) => s.phaseLabel);
   const timeScale = useTimeStore((s) => s.timeScale);
   const isBloodMoon = useTimeStore((s) => s.isBloodMoon);
+  const setHour = useTimeStore((s) => s.setHour);
+  const setBloodMoon = useTimeStore((s) => s.setBloodMoon);
 
   const weatherLabel = useWeatherStore((s) => s.weatherLabel);
   const isMuted = useWeatherStore((s) => s.isMuted);
@@ -44,6 +48,12 @@ export default function PlayPage() {
   const toggleJournal = useJournalStore((s) => s.toggleJournal);
   const isNight = hour >= 19 || hour < 5;
 
+  const jumpTo = (x: number, z: number) => {
+    playerFrameState.isInBoat = false;
+    setInBoat(false);
+    requestTeleport([x, Math.max(0, getWalkableHeight(x, z)), z]);
+  };
+
   return (
     <main className="relative w-screen h-screen overflow-hidden select-none">
       <GameCanvas />
@@ -53,6 +63,28 @@ export default function PlayPage() {
       {!isHudHidden && !isPhotoMode && (
         <>
           <GameOverlayUI />
+
+          {/* Top-Left Quick Teleport & Time Switcher Bar */}
+          <div className="absolute top-4 left-4 z-10 p-3 bg-slate-950/85 border border-amber-600/60 rounded-2xl text-xs text-amber-100 space-y-2 backdrop-blur-md shadow-xl max-w-xs">
+            <div className="font-bold text-amber-300">⚡ Teleport Lokasi Cepat:</div>
+            <div className="flex flex-wrap gap-1.5">
+              <button onClick={() => jumpTo(BIOME_CENTERS.westBeach.x, BIOME_CENTERS.westBeach.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏖️ Pantai</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.centralMeadow.x, BIOME_CENTERS.centralMeadow.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🌿 Padang</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.eastVillage.x, BIOME_CENTERS.eastVillage.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏡 Desa</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.southKingdom.x, BIOME_CENTERS.southKingdom.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏰 Kastil</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.nwShrine.x, BIOME_CENTERS.nwShrine.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">⛩️ Kuil</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.northMountains.x, BIOME_CENTERS.northMountains.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏔️ Salju</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.southHarbor.x, BIOME_CENTERS.southHarbor.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">⚓ Pelabuhan</button>
+            </div>
+            <div className="font-bold text-amber-300 pt-1">🕒 Ubah Suasana Waktu:</div>
+            <div className="flex flex-wrap gap-1.5">
+              <button onClick={() => { setBloodMoon(false); setHour(8.0); }} className="px-2 py-1 bg-sky-900 hover:bg-sky-700 rounded">☀️ Pagi</button>
+              <button onClick={() => { setBloodMoon(false); setHour(16.25); }} className="px-2 py-1 bg-orange-900 hover:bg-orange-700 rounded">🌅 Sore</button>
+              <button onClick={() => { setBloodMoon(false); setHour(18.2); }} className="px-2 py-1 bg-purple-900 hover:bg-purple-700 rounded">🌆 Senja</button>
+              <button onClick={() => { setBloodMoon(false); setHour(22.0); }} className="px-2 py-1 bg-indigo-950 hover:bg-indigo-800 rounded">🌌 Malam Aurora</button>
+              <button onClick={() => { setHour(22.0); setBloodMoon(true); }} className="px-2 py-1 bg-rose-950 hover:bg-rose-800 rounded">🩸 Bulan Merah</button>
+            </div>
+          </div>
 
           {/* Top-Center World Clock & Weather HUD */}
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-5 py-2 bg-amber-950/90 border-2 border-amber-500/70 rounded-2xl text-amber-100 shadow-xl backdrop-blur-md">
@@ -81,34 +113,22 @@ export default function PlayPage() {
 
           {/* Top-Right Status & Quick Action Buttons */}
           <div className="absolute top-4 right-4 z-10 px-4 py-2.5 text-xs text-amber-100 bg-amber-950/85 border-2 border-amber-700/60 rounded-xl backdrop-blur-sm space-y-2 shadow-lg">
-            <div className="font-semibold text-amber-300">Wayfarer Realm v1.0 (M8 Rilis)</div>
+            <div className="font-semibold text-amber-300">Wayfarer Realm v1.0</div>
             <div>Posisi: X: {position[0]}m | Y: {position[1]}m | Z: {position[2]}m</div>
             <div className="flex flex-wrap gap-1.5 pt-1">
-              <button onClick={toggleMap} className="px-2.5 py-1 bg-amber-700 hover:bg-amber-600 rounded font-semibold">
-                🗺️ Peta (M)
-              </button>
-              <button onClick={toggleJournal} className="px-2.5 py-1 bg-amber-700 hover:bg-amber-600 rounded font-semibold">
-                📖 Jurnal (J)
-              </button>
-              <button onClick={togglePhotoMode} className="px-2.5 py-1 bg-sky-700 hover:bg-sky-600 rounded font-semibold">
-                📷 Foto (P)
-              </button>
-              <button onClick={toggleMute} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded font-semibold">
-                {isMuted ? "🔇 Bisu" : "🔊 Suara"}
-              </button>
+              <button onClick={toggleMap} className="px-2.5 py-1 bg-amber-700 hover:bg-amber-600 rounded font-semibold">🗺️ Peta (M)</button>
+              <button onClick={toggleJournal} className="px-2.5 py-1 bg-amber-700 hover:bg-amber-600 rounded font-semibold">📖 Jurnal (J)</button>
+              <button onClick={togglePhotoMode} className="px-2.5 py-1 bg-sky-700 hover:bg-sky-600 rounded font-semibold">📷 Foto (P)</button>
+              <button onClick={toggleMute} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded font-semibold">{isMuted ? "🔇 Bisu" : "🔊 Suara"}</button>
             </div>
           </div>
 
           <div className="absolute bottom-4 left-4 z-10 flex flex-wrap items-center gap-3">
-            <Link
-              href="/"
-              onClick={() => saveGameProgress(false)}
-              className="px-4 py-2 text-sm font-medium text-amber-100 bg-amber-950/85 border border-amber-600/60 rounded-lg hover:bg-amber-900 transition"
-            >
-              Simpan & Menu
+            <Link href="/" className="px-4 py-2 text-sm font-medium text-amber-100 bg-amber-950/85 border border-amber-600/60 rounded-lg hover:bg-amber-900 transition">
+              Menu Utama
             </Link>
             <div className="px-3.5 py-2 text-xs text-amber-100/90 bg-slate-900/85 rounded-lg border border-slate-700/80">
-              <b>WASD</b> Gerak • <b>E</b> Interaksi • <b>M</b> Peta • <b>J</b> Jurnal • <b>P</b> Foto • <b>O</b> Pengaturan • <b>T</b> Waktu 30x
+              <b>WASD</b> Jalan • <b>Shift</b> Lari • <b>Spasi</b> Lompat • <b>E</b> Interaksi • <b>M</b> Peta • <b>J</b> Jurnal • <b>P</b> Foto
             </div>
           </div>
         </>
