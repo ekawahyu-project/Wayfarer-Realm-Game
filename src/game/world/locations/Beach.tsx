@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { getTerrainHeight } from "@/utils/noise";
+import { getExactMeshTerrainHeight } from "@/utils/noise";
 import { playerFrameState } from "@/game/state/usePlayerStore";
 
 export default function Beach() {
@@ -28,7 +28,7 @@ export default function Beach() {
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       if (Math.abs(z) < 16 && x < -490) continue;
-      const y = getTerrainHeight(x, z);
+      const y = getExactMeshTerrainHeight(x, z);
       if (y > 0.6 && y < 9.5) {
         const scale = 0.85 + rand() * 0.55;
         palmList.push({ x, y, z, scale, rotY: rand() * Math.PI * 2, tiltZ: (rand() - 0.5) * 0.24 });
@@ -42,7 +42,7 @@ export default function Beach() {
       const x = Math.cos(angle) * radius;
       const z = Math.sin(angle) * radius;
       if (Math.abs(z) < 20) continue;
-      const y = getTerrainHeight(x, z);
+      const y = getExactMeshTerrainHeight(x, z);
       rockList.push({ x, y: y - 0.3, z, scaleX: 1.5 + rand() * 3.5, scaleY: 1.0 + rand() * 2.4, scaleZ: 1.5 + rand() * 3.5, rotY: rand() * Math.PI });
     }
 
@@ -125,53 +125,31 @@ export default function Beach() {
         <meshStandardMaterial color="#787c82" roughness={0.92} />
       </instancedMesh>
 
-      {/* Wooden Pier extending from Shore (-542m) into Turquoise Sea (-588m) */}
-      <group position={[-565, 1.35, 0]}>
+      {/* Wooden Pier: Top surface at exact Y = 2.4m */}
+      <group position={[-563, 2.2, 0]}>
         <mesh castShadow receiveShadow>
-          <boxGeometry args={[46, 0.35, 4.8]} />
+          <boxGeometry args={[50, 0.4, 5.2]} />
           <meshStandardMaterial color="#7c4d2b" roughness={0.85} />
         </mesh>
         {[-20, -12, -4, 4, 12, 20].map((px, i) => (
-          <group key={i} position={[px, -1.6, 0]}>
-            <mesh castShadow position={[0, 0, 2.1]}><cylinderGeometry args={[0.2, 0.2, 3.8, 8]} /><meshStandardMaterial color="#4a2c18" /></mesh>
-            <mesh castShadow position={[0, 0, -2.1]}><cylinderGeometry args={[0.2, 0.2, 3.8, 8]} /><meshStandardMaterial color="#4a2c18" /></mesh>
+          <group key={i} position={[px, -1.8, 0]}>
+            <mesh castShadow position={[0, 0, 2.2]}><cylinderGeometry args={[0.22, 0.22, 4.0, 8]} /><meshStandardMaterial color="#4a2c18" /></mesh>
+            <mesh castShadow position={[0, 0, -2.2]}><cylinderGeometry args={[0.22, 0.22, 4.0, 8]} /><meshStandardMaterial color="#4a2c18" /></mesh>
           </group>
         ))}
       </group>
 
-      {/* Tugboat floating in crystal-clear turquoise water at X = -596 (Reference Image 1) */}
+      {/* Tugboat at X = -596 */}
       <group ref={boatGroupRef} position={[-596, 0.35, 0]}>
-        <mesh castShadow receiveShadow position={[0, -0.05, 0]}>
-          <boxGeometry args={[3.4, 0.7, 7.0]} />
-          <meshStandardMaterial color="#b91c1c" roughness={0.55} />
-        </mesh>
-        <mesh castShadow receiveShadow position={[0, 0.65, 0]}>
-          <boxGeometry args={[3.7, 0.9, 7.4]} />
-          <meshStandardMaterial color="#18181b" roughness={0.5} />
-        </mesh>
-        <mesh castShadow receiveShadow position={[0, 1.8, -0.5]}>
-          <boxGeometry args={[2.4, 1.6, 2.8]} />
-          <meshStandardMaterial color="#f59e0b" roughness={0.45} />
-        </mesh>
-        <mesh castShadow position={[0, 2.5, -2.2]}>
-          <cylinderGeometry args={[0.35, 0.42, 1.8, 12]} />
-          <meshStandardMaterial color="#d97706" />
-        </mesh>
-        <mesh castShadow position={[0, 3.4, 0.8]}>
-          <cylinderGeometry args={[0.09, 0.12, 3.4, 8]} />
-          <meshStandardMaterial color="#18181b" />
-        </mesh>
+        <mesh castShadow receiveShadow position={[0, -0.05, 0]}><boxGeometry args={[3.4, 0.7, 7.0]} /><meshStandardMaterial color="#b91c1c" /></mesh>
+        <mesh castShadow receiveShadow position={[0, 0.65, 0]}><boxGeometry args={[3.7, 0.9, 7.4]} /><meshStandardMaterial color="#18181b" /></mesh>
+        <mesh castShadow receiveShadow position={[0, 1.8, -0.5]}><boxGeometry args={[2.4, 1.6, 2.8]} /><meshStandardMaterial color="#f59e0b" /></mesh>
+        <mesh castShadow position={[0, 2.5, -2.2]}><cylinderGeometry args={[0.35, 0.42, 1.8, 12]} /><meshStandardMaterial color="#d97706" /></mesh>
+        <mesh castShadow position={[0, 3.4, 0.8]}><cylinderGeometry args={[0.09, 0.12, 3.4, 8]} /><meshStandardMaterial color="#18181b" /></mesh>
         <mesh ref={wakeRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.15, 5.2]} visible={false}>
           <planeGeometry args={[3.0, 5.8]} />
           <meshBasicMaterial color="#ffffff" transparent opacity={0.65} />
         </mesh>
-      </group>
-
-      {/* Distant Islets (Reference Image 1) */}
-      <group position={[-780, 0, -140]}>
-        <mesh castShadow receiveShadow position={[0, 1.5, 0]}><cylinderGeometry args={[24, 38, 6, 12]} /><meshStandardMaterial color="#e6cf95" /></mesh>
-        <mesh castShadow receiveShadow position={[-4, 8, -2]}><dodecahedronGeometry args={[9, 0]} /><meshStandardMaterial color="#7c8087" /></mesh>
-        <mesh castShadow position={[5, 6.5, 4]}><boxGeometry args={[6, 5, 6]} /><meshStandardMaterial color="#92400e" /></mesh>
       </group>
     </group>
   );

@@ -64,14 +64,16 @@ export default function PlayPage() {
         <>
           <GameOverlayUI />
 
-          {/* Top-Left Quick Teleport & Time Switcher Bar */}
-          <div className="absolute top-4 left-4 z-10 p-3 bg-slate-950/85 border border-amber-600/60 rounded-2xl text-xs text-amber-100 space-y-2 backdrop-blur-md shadow-xl max-w-xs">
+          {/* Top-Left Quick Teleport (Sekarang dengan 3 Desa & Pasar + Hutan Birch + Kastil Besar) */}
+          <div className="absolute top-4 left-4 z-10 p-3 bg-slate-950/85 border border-amber-600/60 rounded-2xl text-xs text-amber-100 space-y-2 backdrop-blur-md shadow-xl max-w-sm">
             <div className="font-bold text-amber-300">⚡ Teleport Lokasi Cepat:</div>
             <div className="flex flex-wrap gap-1.5">
               <button onClick={() => jumpTo(BIOME_CENTERS.westBeach.x, BIOME_CENTERS.westBeach.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏖️ Pantai</button>
-              <button onClick={() => jumpTo(BIOME_CENTERS.centralMeadow.x, BIOME_CENTERS.centralMeadow.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🌿 Padang</button>
-              <button onClick={() => jumpTo(BIOME_CENTERS.eastVillage.x, BIOME_CENTERS.eastVillage.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏡 Desa</button>
-              <button onClick={() => jumpTo(BIOME_CENTERS.southKingdom.x, BIOME_CENTERS.southKingdom.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏰 Kastil</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.centralMeadow.x, BIOME_CENTERS.centralMeadow.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🌳 Hutan Birch</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.eastVillage.x, BIOME_CENTERS.eastVillage.z)} className="px-2 py-1 bg-emerald-800 hover:bg-emerald-600 rounded font-semibold">🏪 Desa & Pasar Timur</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.swVillage.x, BIOME_CENTERS.swVillage.z)} className="px-2 py-1 bg-emerald-900/90 hover:bg-emerald-700 rounded">🏘️ Desa Barat Daya</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.westForestVillage.x, BIOME_CENTERS.westForestVillage.z)} className="px-2 py-1 bg-emerald-900/90 hover:bg-emerald-700 rounded">🌾 Desa Hutan Barat</button>
+              <button onClick={() => jumpTo(BIOME_CENTERS.southKingdom.x, BIOME_CENTERS.southKingdom.z)} className="px-2 py-1 bg-purple-900 hover:bg-purple-700 rounded font-semibold">🏰 Kerajaan Besar</button>
               <button onClick={() => jumpTo(BIOME_CENTERS.nwShrine.x, BIOME_CENTERS.nwShrine.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">⛩️ Kuil</button>
               <button onClick={() => jumpTo(BIOME_CENTERS.northMountains.x, BIOME_CENTERS.northMountains.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏔️ Salju</button>
               <button onClick={() => jumpTo(BIOME_CENTERS.southHarbor.x, BIOME_CENTERS.southHarbor.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">⚓ Pelabuhan</button>

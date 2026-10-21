@@ -38,45 +38,51 @@ function distToSegment(px: number, pz: number, ax: number, az: number, bx: numbe
   return Math.hypot(px - (ax + t * (bx - ax)), pz - (az + t * (bz - az)));
 }
 
+// Koordinat Teleport Lengkap (Termasuk 3 Desa & Pasar, Hutan Birch, dan Kerajaan Besar)
 export const BIOME_CENTERS = {
   westBeach: { x: -535, z: 0, label: "Pantai Barat & Dermaga" },
-  centralMeadow: { x: 0, z: 0, label: "Persimpangan Padang Rumput" },
-  eastVillage: { x: 310, z: 0, label: "Desa Medieval (Timur)" },
-  southKingdom: { x: 0, z: 325, label: "Kota Kerajaan (Selatan)" },
-  southHarbor: { x: 0, z: 545, label: "Pelabuhan Selatan" },
+  centralMeadow: { x: 0, z: 0, label: "Hutan Birch & Padang Rumput" },
+  eastVillage: { x: 318, z: 0, label: "Desa Pasar Utama (Timur)" },
+  swVillage: { x: -255, z: 240, label: "Desa Nelayan (Barat Daya)" },
+  westForestVillage: { x: -245, z: -85, label: "Desa Lembah Hutan (Barat)" },
+  southKingdom: { x: 0, z: 312, label: "Kota Kerajaan Besar (Selatan)" },
+  southHarbor: { x: 0, z: 525, label: "Pelabuhan Selatan" },
   nwShrine: { x: -310, z: -252, label: "Kuil Maple (Barat Laut)" },
   northMountains: { x: 0, z: -365, label: "Pegunungan Salju (Utara)" },
 };
 
 export function getRoadFactor(x: number, z: number): number {
-  const wobbleX = noise2D(x * 0.014, z * 0.014) * 6.5;
-  const wobbleZ = noise2D(x * 0.014 + 100, z * 0.014 + 100) * 6.5;
+  const wobbleX = noise2D(x * 0.014, z * 0.014) * 5.5;
+  const wobbleZ = noise2D(x * 0.014 + 100, z * 0.014 + 100) * 5.5;
   const wx = x + wobbleX;
   const wz = z + wobbleZ;
 
-  const dWestEast = distToSegment(wx, wz, -545, 0, 410, 0);
-  const dNorthSouth = distToSegment(wx, wz, 0, -440, 0, 560);
+  const dWestEast = distToSegment(wx, wz, -545, 0, 425, 0);
+  const dNorthSouth = distToSegment(wx, wz, 0, -440, 0, 540);
   const dShrine = distToSegment(wx, wz, -60, -60, -310, -265);
-  const minRoadDist = Math.min(dWestEast, dNorthSouth, dShrine);
+  const dSwVillage = distToSegment(wx, wz, 0, 120, -280, 240);
+  const dWestVillage = distToSegment(wx, wz, -245, 0, -245, -110);
+  const minRoadDist = Math.min(dWestEast, dNorthSouth, dShrine, dSwVillage, dWestVillage);
 
-  const dVillagePlaza = Math.hypot(x - 360, z) - 46;
-  const dKingdomPlaza = Math.hypot(x, z - 390) - 82;
+  const dVillage1 = Math.hypot(x - 365, z) - 58;
+  const dVillage2 = Math.hypot(x + 280, z - 240) - 42;
+  const dVillage3 = Math.hypot(x + 245, z + 95) - 40;
+  const dKingdomPlaza = Math.hypot(x, z - 395) - 96;
 
-  const d = Math.min(minRoadDist, Math.max(0, dVillagePlaza), Math.max(0, dKingdomPlaza));
-  return 1.0 - smoothstep(4.2, 8.0, d);
+  const d = Math.min(minRoadDist, Math.max(0, dVillage1), Math.max(0, dVillage2), Math.max(0, dVillage3), Math.max(0, dKingdomPlaza));
+  return 1.0 - smoothstep(4.2, 8.2, d);
 }
 
 export function getTerrainHeight(x: number, z: number): number {
-  const islandRadius = 640; // Shoreline sits cleanly around ~555m so piers & boats are in deep water!
+  const islandRadius = 640;
   const dist = Math.hypot(x, z);
   const normDist = dist / islandRadius;
 
   const westDockMask = Math.exp(-Math.pow(z / 110, 2)) * (x < -380 ? 1 : 0);
-  const southHarborMask = Math.exp(-Math.pow(x / 100, 2)) * (z > 380 ? 1 : 0);
-  const coastNoise = fbm(x * 0.002, z * 0.002, 3) * 0.07 * (1 - Math.max(westDockMask, southHarborMask) * 0.9);
+  const southHarborMask = Math.exp(-Math.pow(x / 120, 2)) * (z > 380 ? 1 : 0);
+  const coastNoise = fbm(x * 0.002, z * 0.002, 3) * 0.07 * (1 - Math.max(westDockMask, southHarborMask) * 0.92);
   const effectiveDist = normDist - coastNoise;
 
-  // Laut & Pantai Dangkal (effectiveDist >= 0.85 -> shoreline at ~555m)
   if (effectiveDist >= 0.85) {
     const shallowSpan = 0.14;
     const shoreT = smoothstep(0.85, 0.85 + shallowSpan, effectiveDist);
@@ -89,22 +95,29 @@ export function getTerrainHeight(x: number, z: number): number {
   const rollingNoise = (fbm(x * 0.0025, z * 0.0025, 4) + 1.0) * 0.5;
   let height = 3.5 + rollingNoise * 10.5 * inlandFactor;
 
-  // Dataran Rata Desa Medieval Timur (+8.5m)
-  const distVillage = Math.hypot(x - 360, z);
-  const villageMask = 1.0 - smoothstep(115, 200, distVillage);
-  height = height * (1 - villageMask) + 8.5 * villageMask;
+  // 1. Dataran Rata Desa Pasar Utama Timur (+8.5m)
+  const v1Mask = 1.0 - smoothstep(125, 205, Math.hypot(x - 365, z));
+  height = height * (1 - v1Mask) + 8.5 * v1Mask;
 
-  // Dataran Rata Kota Kerajaan Selatan (+24m)
+  // 2. Dataran Rata Desa Nelayan Barat Daya (+6.0m)
+  const v2Mask = 1.0 - smoothstep(75, 135, Math.hypot(x + 280, z - 240));
+  height = height * (1 - v2Mask) + 6.0 * v2Mask;
+
+  // 3. Dataran Rata Desa Lembah Hutan Barat (+7.5m)
+  const v3Mask = 1.0 - smoothstep(70, 130, Math.hypot(x + 245, z + 95));
+  height = height * (1 - v3Mask) + 7.5 * v3Mask;
+
+  // 4. Dataran Rata Kota Kerajaan Raksasa Selatan (+22.0m, tetapi melandai halus ke Pelabuhan Selatan di Z > 485)
   const distKingdom = Math.hypot(x, z - 390);
-  const kingdomMask = 1.0 - smoothstep(135, 230, distKingdom);
-  height = height * (1 - kingdomMask) + 24.0 * kingdomMask;
+  const southHarborSlope = z > 475 ? smoothstep(475, 535, z) : 0;
+  const kingdomMask = (1.0 - smoothstep(140, 225, distKingdom)) * (1.0 - southHarborSlope);
+  height = height * (1 - kingdomMask) + 22.0 * kingdomMask;
 
-  // Teras Kuil Maple Barat Laut (+18.5m)
-  const distShrine = Math.hypot(x + 310, z + 310);
-  const shrineMask = 1.0 - smoothstep(75, 145, distShrine);
+  // 5. Teras Kuil Maple Barat Laut (+18.5m)
+  const shrineMask = 1.0 - smoothstep(75, 145, Math.hypot(x + 310, z + 310));
   height = height * (1 - shrineMask) + 18.5 * shrineMask;
 
-  // Pegunungan Salju Utara (Hanya di Z < -260 & X > -210 agar Kuil Maple bebas salju!)
+  // 6. Pegunungan Salju Utara
   if (z < -220 && x > -220) {
     const northT = smoothstep(-220, -490, z) * smoothstep(-220, -140, x);
     const valleyPassMask = Math.exp(-Math.pow(x / 52, 2));
@@ -113,15 +126,44 @@ export function getTerrainHeight(x: number, z: number): number {
   }
 
   if (x < -360) {
-    const westBeachT = smoothstep(-360, -550, x);
+    const westBeachT = smoothstep(-360, -545, x);
     height = height * (1 - westBeachT * 0.62);
+  }
+  if (z > 480 && Math.abs(x) < 120) {
+    const southBeachT = smoothstep(480, 545, z);
+    height = height * (1 - southBeachT * 0.62);
   }
 
   return Math.max(3.2, height);
 }
 
+// Interpolasi Segitiga Barycentric Eksak (Sama persis dengan jaring PlaneGeometry 1600m / 200 segmen = 8m grid)
+// Mencegah karakter tenggelam/tembus pada lereng miring!
+export function getExactMeshTerrainHeight(x: number, z: number): number {
+  const step = 8.0; // 1600 / 200
+  const gx = (x + 800) / step;
+  const gz = (z + 800) / step;
+  const ix = Math.floor(gx);
+  const iz = Math.floor(gz);
+  const fx = gx - ix;
+  const fz = gz - iz;
+
+  const x0 = ix * step - 800;
+  const z0 = iz * step - 800;
+  const h00 = getTerrainHeight(x0, z0);
+  const h10 = getTerrainHeight(x0 + step, z0);
+  const h01 = getTerrainHeight(x0, z0 + step);
+  const h11 = getTerrainHeight(x0 + step, z0 + step);
+
+  if (fx + fz <= 1.0) {
+    return h00 + fx * (h10 - h00) + fz * (h01 - h00);
+  } else {
+    return h11 + (1.0 - fx) * (h01 - h11) + (1.0 - fz) * (h10 - h11);
+  }
+}
+
 export function getTerrainSlope(x: number, z: number): number {
-  const eps = 1.0;
+  const eps = 1.5;
   const hL = getTerrainHeight(x - eps, z);
   const hR = getTerrainHeight(x + eps, z);
   const hD = getTerrainHeight(x, z - eps);
@@ -129,58 +171,78 @@ export function getTerrainSlope(x: number, z: number): number {
   return Math.hypot((hR - hL) / (2 * eps), (hU - hD) / (2 * eps));
 }
 
+// Tinggi Pijakan Kaki Termasuk Dermaga Barat & Dermaga Pelabuhan Selatan (Anti-Tenggelam!)
 export function getWalkableHeight(x: number, z: number): number {
-  let h = getTerrainHeight(x, z);
-  // Dermaga Kayu Pantai Barat (X: -545 s/d -588, Z: -2.6 s/d +2.6)
-  if (x >= -588 && x <= -542 && Math.abs(z) <= 2.7) {
-    h = Math.max(h, 1.5);
+  let h = getExactMeshTerrainHeight(x, z);
+  // 1. Dermaga Kayu Pantai Barat (X: -538 s/d -588, Z: -2.8 s/d +2.8) -> Lantai Dermaga di Y = 2.4m
+  if (x >= -588 && x <= -538 && Math.abs(z) <= 2.8) {
+    return Math.max(h, 2.4);
   }
-  // Dermaga Pelabuhan Selatan (X: -6 s/d +6, Z: 545 s/d 595)
-  if (Math.abs(x) <= 6.0 && z >= 542 && z <= 595) {
-    h = Math.max(h, 1.6);
+  // 2. Dermaga Pelabuhan Selatan (X: -6.2 s/d +6.2, Z: 535 s/d 592) -> Lantai Dermaga di Y = 2.4m
+  if (Math.abs(x) <= 6.2 && z >= 535 && z <= 592) {
+    return Math.max(h, 2.4);
   }
   return h;
 }
 
-export interface SolidObstacle { x: number; z: number; r: number; }
-export const SOLID_OBSTACLES: SolidObstacle[] = [
-  // Sumur & Rumah-Rumah Desa Medieval
-  { x: 360, z: 0, r: 2.3 },
-  { x: 336, z: -18, r: 5.5 }, { x: 362, z: -20, r: 5.5 }, { x: 388, z: -18, r: 5.5 },
-  { x: 336, z: 18, r: 5.5 },  { x: 362, z: 20, r: 5.5 },  { x: 388, z: 18, r: 5.5 },
-  { x: 320, z: -36, r: 5.5 }, { x: 355, z: -42, r: 6.0 }, { x: 392, z: -38, r: 5.5 },
-  { x: 320, z: 36, r: 5.5 },  { x: 355, z: 42, r: 6.0 },  { x: 392, z: 38, r: 5.5 },
-  { x: 416, z: 0, r: 6.2 },
-  // Pohon Raksasa Desa
-  { x: 324, z: -8, r: 2.2 },  { x: 376, z: 9, r: 2.2 },   { x: 346, z: -28, r: 2.2 },
-  // Pagoda Kuil Maple
-  { x: -310, z: -315, r: 12.0 },
-  // Bangunan, Menara Jam, Patung & Peti Kota Kerajaan
-  { x: -27, z: 366, r: 5.0 }, { x: -9, z: 366, r: 5.0 },
-  { x: 20, z: 382, r: 6.2 },  { x: 38, z: 374, r: 7.5 },
-  { x: 0, z: 432, r: 18.0 },  { x: -25, z: 428, r: 6.0 }, { x: 25, z: 428, r: 6.0 },
-  { x: -36, z: 396, r: 9.0 }, { x: 36, z: 396, r: 9.0 },
-  { x: -11, z: 392, r: 2.8 }, { x: 11, z: 392, r: 2.8 },
-  { x: -21, z: 395, r: 2.4 },
-  // Mercusuar & Kapal Galleon Pelabuhan Selatan (Anti-Tembus!)
-  { x: 26, z: 562, r: 4.2 },
-  { x: -14, z: 588, r: 8.5 },
-];
+export interface SolidBox { minX: number; maxX: number; minZ: number; maxZ: number; }
+export interface SolidCircle { x: number; z: number; r: number; }
 
-export function resolveObstacleCollisions(x: number, z: number, playerRadius = 0.6): [number, number] {
+export const SOLID_BOXES: SolidBox[] = [];
+export const SOLID_CIRCLES: SolidCircle[] = [];
+
+export function clearWorldColliders() {
+  SOLID_BOXES.length = 0;
+  SOLID_CIRCLES.length = 0;
+}
+
+export function addBoxCollider(cx: number, cz: number, widthX: number, depthZ: number) {
+  const hx = widthX * 0.5;
+  const hz = depthZ * 0.5;
+  SOLID_BOXES.push({ minX: cx - hx, maxX: cx + hx, minZ: cz - hz, maxZ: cz + hz });
+}
+
+export function addCircleCollider(x: number, z: number, r: number) {
+  SOLID_CIRCLES.push({ x, z, r });
+}
+
+export function resolveObstacleCollisions(x: number, z: number, radius = 0.65): [number, number] {
   let nx = x;
   let nz = z;
-  for (let i = 0; i < SOLID_OBSTACLES.length; i++) {
-    const ob = SOLID_OBSTACLES[i];
-    const dx = nx - ob.x;
-    const dz = nz - ob.z;
+
+  // 1. Resolve Circle Colliders
+  for (let i = 0; i < SOLID_CIRCLES.length; i++) {
+    const c = SOLID_CIRCLES[i];
+    const dx = nx - c.x;
+    const dz = nz - c.z;
     const dist = Math.hypot(dx, dz);
-    const minDist = ob.r + playerRadius;
+    const minDist = c.r + radius;
     if (dist < minDist && dist > 0.0001) {
       const push = (minDist - dist) / dist;
       nx += dx * push;
       nz += dz * push;
     }
   }
+
+  // 2. Resolve AABB Box Colliders (Houses, Market Stalls, Ships, Castle Walls)
+  for (let i = 0; i < SOLID_BOXES.length; i++) {
+    const b = SOLID_BOXES[i];
+    const exMinX = b.minX - radius;
+    const exMaxX = b.maxX + radius;
+    const exMinZ = b.minZ - radius;
+    const exMaxZ = b.maxZ + radius;
+    if (nx > exMinX && nx < exMaxX && nz > exMinZ && nz < exMaxZ) {
+      const dLeft = nx - exMinX;
+      const dRight = exMaxX - nx;
+      const dTop = nz - exMinZ;
+      const dBottom = exMaxZ - nz;
+      const minPen = Math.min(dLeft, dRight, dTop, dBottom);
+      if (minPen === dLeft) nx = exMinX;
+      else if (minPen === dRight) nx = exMaxX;
+      else if (minPen === dTop) nz = exMinZ;
+      else nz = exMaxZ;
+    }
+  }
+
   return [nx, nz];
 }
