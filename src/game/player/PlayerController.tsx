@@ -225,7 +225,7 @@ export default function PlayerController() {
 
       let nextX = p.x + moveDir.x * speed * dt;
       let nextZ = p.z + moveDir.z * speed * dt;
-      [nextX, nextZ] = resolveObstacleCollisions(nextX, nextZ, isRiding ? 0.85 : 0.55);
+      [nextX, nextZ] = resolveObstacleCollisions(nextX, nextZ, isRiding ? 0.85 : 0.55, p.y);
 
       const dxBoat = nextX - playerFrameState.boatX;
       const dzBoat = nextZ - playerFrameState.boatZ;
@@ -263,7 +263,7 @@ export default function PlayerController() {
       playerFrameState.isSwimming = isSwimming;
     }
 
-    const mountYOffset = playerFrameState.mountedHorseIndex !== -1 ? FOOT_OFFSET + 0.92 : FOOT_OFFSET;
+    const mountYOffset = playerFrameState.mountedHorseIndex !== -1 ? FOOT_OFFSET + 0.62 : FOOT_OFFSET;
     if (playerGroupRef.current) {
       playerGroupRef.current.position.set(p.x, p.y + mountYOffset, p.z);
     }

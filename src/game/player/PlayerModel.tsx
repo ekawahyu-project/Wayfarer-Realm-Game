@@ -156,14 +156,24 @@ export function DigitalHumanCharacter({
       capeSeg2Ref.current.rotation.x = THREE.MathUtils.lerp(capeSeg2Ref.current.rotation.x, wave2, dt * 12);
     }
 
-    // Articulated Legs & Knees
+    // Articulated Legs & Knees (Including Natural Astride Horse-Riding Posture!)
+    const isRidingHorse = !isNpc && playerFrameState.mountedHorseIndex !== -1;
     if (leftThighRef.current && rightThighRef.current && leftShinRef.current && rightShinRef.current) {
-      if (!isGrounded && !isSwimming) {
+      if (isRidingHorse) {
+        leftThighRef.current.rotation.set(-0.68, 0, 0.42);
+        rightThighRef.current.rotation.set(-0.68, 0, -0.42);
+        leftShinRef.current.rotation.x = 0.85;
+        rightShinRef.current.rotation.x = 0.85;
+      } else if (!isGrounded && !isSwimming) {
+        leftThighRef.current.rotation.z = 0;
+        rightThighRef.current.rotation.z = 0;
         leftThighRef.current.rotation.x = THREE.MathUtils.lerp(leftThighRef.current.rotation.x, -0.45, dt * 12);
         leftShinRef.current.rotation.x = THREE.MathUtils.lerp(leftShinRef.current.rotation.x, 0.75, dt * 12);
         rightThighRef.current.rotation.x = THREE.MathUtils.lerp(rightThighRef.current.rotation.x, 0.25, dt * 12);
         rightShinRef.current.rotation.x = THREE.MathUtils.lerp(rightShinRef.current.rotation.x, 0.45, dt * 12);
       } else {
+        leftThighRef.current.rotation.z = 0;
+        rightThighRef.current.rotation.z = 0;
         leftThighRef.current.rotation.x = sinP * 0.68 * m;
         rightThighRef.current.rotation.x = -sinP * 0.68 * m;
         leftShinRef.current.rotation.x = Math.max(0, -cosP) * 0.82 * m + m * 0.06;

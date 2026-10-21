@@ -115,9 +115,7 @@ export default function InteractionSystem() {
     nearestNpcRef.current = foundNpc;
 
     if (foundNpc) {
-      setInteractionPrompt("Tekan E untuk Bicara dengan " + foundNpc.name);
-    } else {
-      setInteractionPrompt(null);
+      setInteractionPrompt("💬 Tekan E untuk Bicara dengan " + foundNpc.name);
     }
   });
 
