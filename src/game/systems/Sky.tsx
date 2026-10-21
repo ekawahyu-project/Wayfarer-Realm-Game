@@ -59,16 +59,21 @@ const fragmentShader = [
   "void main() {",
   "  vec3 dir = normalize(vWorldDir);",
   "  float y = clamp(dir.y, 0.0, 1.0);",
-  "  vec3 skyColor = mix(uSkyHorizon, uSkyTop, pow(y, 0.55));",
+  "  vec3 sunNorm = normalize(uSunDir);",
+
+  "  vec3 skyColor = mix(uSkyHorizon, uSkyTop, pow(y, 0.52));",
   "  vec3 bloodTint = vec3(0.30, 0.03, 0.07);",
   "  skyColor = mix(skyColor, bloodTint, uNightFactor * uBloodMoon * 0.65);",
 
-  "  float sunAlignment = max(dot(dir, normalize(uSunDir)), 0.0);",
-  "  float sunDisc = smoothstep(0.9982, 0.9994, sunAlignment);",
-  "  float sunHalo = pow(sunAlignment, 10.0) * 0.42 + pow(sunAlignment, 64.0) * 0.55;",
-  "  float sunVisible = smoothstep(-0.15, 0.08, uSunDir.y);",
-  "  skyColor += uSunColor * (sunDisc * 2.2 + sunHalo) * sunVisible;",
+  "  // Smooth Natural Atmospheric Sun (Zero starburst/pinwheel lines!)",
+  "  float sunCos = clamp(dot(dir, sunNorm), 0.0, 1.0);",
+  "  float sunDisc = smoothstep(0.9991, 0.9996, sunCos);",
+  "  float sunCoreGlow = pow(sunCos, 180.0) * 0.55;",
+  "  float sunAtmosHalo = pow(sunCos, 14.0) * 0.22;",
+  "  float sunVisible = smoothstep(-0.08, 0.10, sunNorm.y);",
+  "  skyColor += (vec3(1.0, 0.98, 0.92) * sunDisc * 1.4 + uSunColor * (sunCoreGlow + sunAtmosHalo)) * sunVisible;",
 
+  "  // Moon disc with craters",
   "  float moonAlignment = max(dot(dir, normalize(uMoonDir)), 0.0);",
   "  float moonRadius = mix(0.9972, 0.9942, uBloodMoon);",
   "  float moonDisc = smoothstep(moonRadius, moonRadius + 0.0007, moonAlignment);",
@@ -81,7 +86,7 @@ const fragmentShader = [
   "  skyColor += moonCol * moonDisc * uNightFactor * 1.65;",
   "  skyColor += mix(vec3(0.32, 0.52, 0.82), vec3(0.82, 0.14, 0.18), uBloodMoon) * moonHalo * uNightFactor;",
 
-  "  if (uNightFactor > 0.02 && dir.y > 0.05) {",
+  "  if (uNightFactor > 0.05 && dir.y > 0.05) {",
   "    float theta = atan(dir.z, dir.x);",
   "    float phi = acos(clamp(dir.y, -1.0, 1.0));",
   "    vec2 sphereUv = vec2(theta / 6.283185 + 0.5, phi / 3.14159);",
@@ -91,7 +96,6 @@ const fragmentShader = [
   "    skyColor += vec3(0.92, 0.96, 1.0) * (s1 + s2) * uNightFactor * horizonFade * 1.5;",
   "  }",
 
-  "  // Natural Aurora Borealis (Strictly Night Only: uNightFactor > 0.85)",
   "  if (uNightFactor > 0.85 && dir.y > 0.05 && uBloodMoon < 0.5) {",
   "    float strictNightMask = smoothstep(0.85, 0.98, uNightFactor);",
   "    float northMask = smoothstep(0.35, -0.35, dir.z);",
@@ -108,17 +112,20 @@ const fragmentShader = [
   "    skyColor += auroraCol * intensity * 1.2;",
   "  }",
 
-  "  if (dir.y > 0.12) {",
-  "    vec2 cloudUv = dir.xz / (dir.y + 0.28) * 1.15 + vec2(uTime * 0.008, uTime * 0.004);",
-  "    float c1 = fbm(cloudUv);",
-  "    float c2 = fbm(cloudUv * 2.1 - vec2(uTime * 0.005, 0.0));",
-  "    float cloudShape = smoothstep(0.50, 0.78, c1 * 0.65 + c2 * 0.35);",
-  "    float skyFade = smoothstep(0.12, 0.32, dir.y);",
-  "    vec3 cloudDay = mix(uSkyHorizon, vec3(1.0, 0.99, 0.97), 0.75);",
-  "    vec3 cloudNight = vec3(0.09, 0.14, 0.24);",
-  "    vec3 cloudCol = mix(cloudDay, cloudNight, uNightFactor);",
-  "    float nightCloudOpacity = mix(0.65, 0.15, uNightFactor);",
-  "    skyColor = mix(skyColor, cloudCol, cloudShape * skyFade * nightCloudOpacity);",
+  "  if (dir.y > 0.08) {",
+  "    vec2 cloudUv = dir.xz / (dir.y + 0.28) * 0.95 + vec2(uTime * 0.006, uTime * 0.003);",
+  "    float baseDensity = fbm(cloudUv);",
+  "    float litSample = fbm(cloudUv + sunNorm.xz * 0.06);",
+  "    float cloudMask = smoothstep(0.49, 0.76, baseDensity);",
+  "    float selfShadow = clamp((baseDensity - litSample) * 4.0 + 0.65, 0.0, 1.0);",
+  "    vec3 cloudBright = mix(vec3(1.0, 0.99, 0.97), uSunColor, 0.25);",
+  "    vec3 cloudShadow = mix(uSkyTop * 0.78, vec3(0.58, 0.66, 0.78), 0.5);",
+  "    vec3 dayCloudCol = mix(cloudShadow, cloudBright, selfShadow);",
+  "    vec3 nightCloudCol = vec3(0.06, 0.10, 0.18);",
+  "    vec3 finalCloudCol = mix(dayCloudCol, nightCloudCol, uNightFactor);",
+  "    float horizonFade = smoothstep(0.08, 0.24, dir.y);",
+  "    float cloudOpacity = mix(0.75, 0.15, uNightFactor);",
+  "    skyColor = mix(skyColor, finalCloudCol, cloudMask * horizonFade * cloudOpacity);",
   "  }",
 
   "  gl_FragColor = vec4(skyColor, 1.0);",
@@ -133,8 +140,8 @@ export default function Sky() {
     }
   });
   return (
-    <mesh ref={meshRef} scale={[1600, 1600, 1600]} frustumCulled={false}>
-      <sphereGeometry args={[1, 48, 32]} />
+    <mesh ref={meshRef} scale={[1100, 1100, 1100]} frustumCulled={false}>
+      <sphereGeometry args={[1, 40, 28]} />
       <shaderMaterial side={THREE.BackSide} depthWrite={false} uniforms={globalUniforms} vertexShader={vertexShader} fragmentShader={fragmentShader} />
     </mesh>
   );

@@ -7,35 +7,33 @@ import { POIS } from "@/config/pois";
 import { COLLECTIBLES } from "@/config/collectibles";
 import { NPCS, NPCDef } from "@/game/npc/npcData";
 import { npcLivePositions } from "@/game/npc/NPCSystem";
-import { playerFrameState, usePlayerStore } from "@/game/state/usePlayerStore";
+import { playerFrameState } from "@/game/state/usePlayerStore";
 import { useJournalStore } from "@/game/state/useJournalStore";
+
+export const interactionTargetState = {
+  nearestCollectibleId: null as string | null,
+  nearestCollectibleName: "",
+  nearestNpc: null as NPCDef | null,
+};
 
 export default function InteractionSystem() {
   const meshRefs = useRef<(THREE.Mesh | null)[]>([]);
-  const nearestNpcRef = useRef<NPCDef | null>(null);
-  const nearestCollectibleRef = useRef<string | null>(null);
   const lastCheckRef = useRef(0);
-
   const collectedItems = useJournalStore((s) => s.collectedItems);
-  const setInteractionPrompt = usePlayerStore((s) => s.setInteractionPrompt);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       const jStore = useJournalStore.getState();
-      if (e.code === "KeyM") {
-        jStore.toggleMap();
-      } else if (e.code === "KeyJ") {
-        jStore.toggleJournal();
-      } else if (e.code === "KeyH") {
-        jStore.toggleHud();
-      } else if (e.code === "Escape") {
-        jStore.closePanels();
-      } else if (e.code === "KeyE") {
-        if (nearestCollectibleRef.current) {
-          jStore.collectItem(nearestCollectibleRef.current);
-          nearestCollectibleRef.current = null;
-        } else if (nearestNpcRef.current) {
-          jStore.openDialogue(nearestNpcRef.current);
+      if (e.code === "KeyM") jStore.toggleMap();
+      else if (e.code === "KeyJ") jStore.toggleJournal();
+      else if (e.code === "KeyH") jStore.toggleHud();
+      else if (e.code === "Escape") jStore.closePanels();
+      else if (e.code === "KeyE") {
+        if (interactionTargetState.nearestCollectibleId) {
+          jStore.collectItem(interactionTargetState.nearestCollectibleId);
+          interactionTargetState.nearestCollectibleId = null;
+        } else if (interactionTargetState.nearestNpc) {
+          jStore.openDialogue(interactionTargetState.nearestNpc);
         }
       }
     };
@@ -45,8 +43,6 @@ export default function InteractionSystem() {
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-
-    // Rotate floating collectible crystals
     for (let i = 0; i < COLLECTIBLES.length; i++) {
       const m = meshRefs.current[i];
       if (m && m.visible) {
@@ -58,85 +54,52 @@ export default function InteractionSystem() {
     if (t - lastCheckRef.current < 0.2) return;
     lastCheckRef.current = t;
 
-    const px = playerFrameState.x;
-    const pz = playerFrameState.z;
+    const px = playerFrameState.x, pz = playerFrameState.z;
     const jStore = useJournalStore.getState();
 
-    // 1. Auto-discover POIs within radius
     for (let i = 0; i < POIS.length; i++) {
       const p = POIS[i];
       if (!jStore.discoveredPOIs.includes(p.id)) {
-        const dx = px - p.position[0];
-        const dz = pz - p.position[2];
-        if (dx * dx + dz * dz <= p.discoverRadius * p.discoverRadius) {
+        if (Math.hypot(px - p.position[0], pz - p.position[2]) <= p.discoverRadius) {
           jStore.discoverPOI(p.id);
         }
       }
     }
 
-    // Keep boat prompt priority if near tugboat
-    const boatDistSq = Math.pow(px - playerFrameState.boatX, 2) + Math.pow(pz - playerFrameState.boatZ, 2);
-    if (playerFrameState.isInBoat || boatDistSq < 90) return;
-
-    // 2. Check nearest uncollected item (< 3.5m)
     let foundCol: string | null = null;
     let foundColName = "";
     for (let i = 0; i < COLLECTIBLES.length; i++) {
       const c = COLLECTIBLES[i];
       if (jStore.collectedItems.includes(c.id)) continue;
-      const dx = px - c.position[0];
-      const dz = pz - c.position[2];
-      if (dx * dx + dz * dz < 12.25) {
+      if (Math.hypot(px - c.position[0], pz - c.position[2]) < 3.6) {
         foundCol = c.id;
         foundColName = c.name;
         break;
       }
     }
-    nearestCollectibleRef.current = foundCol;
+    interactionTargetState.nearestCollectibleId = foundCol;
+    interactionTargetState.nearestCollectibleName = foundColName;
 
-    if (foundCol) {
-      nearestNpcRef.current = null;
-      setInteractionPrompt("Tekan E untuk Mengambil " + foundColName);
-      return;
-    }
-
-    // 3. Check nearest NPC (< 4.0m)
     let foundNpc: NPCDef | null = null;
     for (let i = 0; i < NPCS.length; i++) {
       const n = NPCS[i];
       const live = npcLivePositions[n.id] || { x: n.position[0], z: n.position[2] };
-      const dx = px - live.x;
-      const dz = pz - live.z;
-      if (dx * dx + dz * dz < 16.0) {
+      if (Math.hypot(px - live.x, pz - live.z) < 4.0) {
         foundNpc = n;
         break;
       }
     }
-    nearestNpcRef.current = foundNpc;
-
-    if (foundNpc) {
-      setInteractionPrompt("💬 Tekan E untuk Bicara dengan " + foundNpc.name);
-    }
+    interactionTargetState.nearestNpc = foundNpc;
   });
 
   return (
     <group name="world-collectibles">
-      {COLLECTIBLES.map((c, idx) => {
-        const isCollected = collectedItems.includes(c.id);
-        return (
-          <mesh
-            key={c.id}
-            ref={(el) => {
-              meshRefs.current[idx] = el;
-            }}
-            position={c.position}
-            visible={!isCollected}
-          >
-            <octahedronGeometry args={[0.35, 0]} />
-            <meshStandardMaterial color={c.color} emissive={c.color} emissiveIntensity={2.2} roughness={0.2} />
-          </mesh>
-        );
-      })}
+      {COLLECTIBLES.map((c, idx) => (
+        <mesh key={c.id} ref={(el) => { meshRefs.current[idx] = el; }} position={c.position} visible={!collectedItems.includes(c.id)}>
+          <octahedronGeometry args={[0.35, 0]} />
+          <meshStandardMaterial color={c.color} emissive={c.color} emissiveIntensity={2.2} roughness={0.2} />
+        </mesh>
+      ))}
     </group>
   );
 }

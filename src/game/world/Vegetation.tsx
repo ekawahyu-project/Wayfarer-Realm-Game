@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { getExactMeshTerrainHeight, getRoadFactor } from "@/utils/noise";
+import { getExactMeshTerrainHeight, getRoadFactor, getRiverDistance } from "@/utils/noise";
 import { getWorldTextures } from "@/utils/proceduralTextures";
 import { globalUniforms } from "@/game/systems/globalUniforms";
 import { playerFrameState } from "@/game/state/usePlayerStore";
@@ -17,101 +17,83 @@ export default function Vegetation() {
   const birchCrownRef = useRef<THREE.InstancedMesh>(null);
   const pineTrunkRef = useRef<THREE.InstancedMesh>(null);
   const pineCone1Ref = useRef<THREE.InstancedMesh>(null);
-  const pineCone2Ref = useRef<THREE.InstancedMesh>(null);
   const snowPineRef = useRef<THREE.InstancedMesh>(null);
   const mapleTrunkRef = useRef<THREE.InstancedMesh>(null);
   const mapleCrownRef = useRef<THREE.InstancedMesh>(null);
-  const flowerRef = useRef<THREE.InstancedMesh>(null);
 
   const textures = useMemo(() => getWorldTextures(), []);
 
-  const { oaks, birches, pines, snowPines, maples, flowers, grassList } = useMemo(() => {
+  const { oaks, birches, pines, snowPines, maples, grassList } = useMemo(() => {
     const oakList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const birchList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const pineList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const snowPineList: { x: number; y: number; z: number; s: number; r: number }[] = [];
     const mapleList: { x: number; y: number; z: number; s: number; r: number }[] = [];
-    const flowerList: { x: number; y: number; z: number; s: number; color: THREE.Color }[] = [];
     const gList: { x: number; y: number; z: number; s: number; r: number }[] = [];
 
     let seed = 4042026;
     const rand = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
 
-    const isInsideSettlement = (x: number, z: number) => {
-      if (Math.hypot(x - 365, z) < 115) return true;
-      if (Math.hypot(x + 280, z - 240) < 88) return true;
-      if (Math.hypot(x + 245, z + 95) < 85) return true;
-      if (Math.hypot(x, z - 395) < 165) return true;
+    const isClearZone = (x: number, z: number) => {
+      if (getRiverDistance(x, z) < 16.5) return true; // Keep river & bridge 100% clear!
+      if (Math.hypot(x - 365, z) < 92) return true;
+      if (Math.hypot(x + 280, z - 240) < 90) return true;
+      if (Math.hypot(x + 245, z + 95) < 88) return true;
+      if (Math.hypot(x, z - 395) < 145) return true;
       return false;
     };
 
-    const flowerColors = [
-      new THREE.Color("#f43f5e"),
-      new THREE.Color("#facc15"),
-      new THREE.Color("#c084fc"),
-      new THREE.Color("#38bdf8"),
-      new THREE.Color("#ffffff"),
-    ];
-
-    for (let i = 0; i < 820; i++) {
-      const x = (rand() - 0.5) * 960;
-      const z = (rand() - 0.5) * 820;
-      if (Math.hypot(x, z) > 515 || isInsideSettlement(x, z)) continue;
-      if (z < -190 || getRoadFactor(x, z) > 0.14) continue;
+    for (let i = 0; i < 650; i++) {
+      const x = (rand() - 0.5) * 940;
+      const z = (rand() - 0.5) * 800;
+      if (Math.hypot(x, z) > 510 || isClearZone(x, z)) continue;
+      if (z < -190 || getRoadFactor(x, z) > 0.12) continue;
       const y = getExactMeshTerrainHeight(x, z);
-      if (y > 4.0 && y < 26) {
-        if (i % 3 === 0) birchList.push({ x, y, z, s: 0.95 + rand() * 0.9, r: rand() * Math.PI * 2 });
-        else oakList.push({ x, y, z, s: 1.05 + rand() * 1.2, r: rand() * Math.PI * 2 });
+      if (y > 3.6 && y < 25) {
+        if (i % 3 === 0) birchList.push({ x, y, z, s: 0.95 + rand() * 0.85, r: rand() * Math.PI * 2 });
+        else oakList.push({ x, y, z, s: 1.0 + rand() * 1.15, r: rand() * Math.PI * 2 });
       }
     }
 
-    for (let i = 0; i < 780; i++) {
-      const x = (rand() - 0.5) * 980;
-      const z = -160 + (rand() - 0.65) * 600;
-      if (Math.hypot(x, z) > 545 || isInsideSettlement(x, z)) continue;
-      if (Math.hypot(x + 310, z + 310) < 115 || getRoadFactor(x, z) > 0.14) continue;
+    for (let i = 0; i < 680; i++) {
+      const x = (rand() - 0.5) * 960;
+      const z = -160 + (rand() - 0.65) * 580;
+      if (Math.hypot(x, z) > 540 || isClearZone(x, z)) continue;
+      if (Math.hypot(x + 310, z + 310) < 110 || getRoadFactor(x, z) > 0.12) continue;
+      // Keep snow village road & chalets clear
+      if (z < -300 && Math.abs(x) < 16) continue;
       const y = getExactMeshTerrainHeight(x, z);
-      if (y > 5.0) {
-        const s = 0.85 + rand() * 0.85;
-        if (z < -280 && x > -190) snowPineList.push({ x, y, z, s, r: rand() * Math.PI * 2 });
+      if (y > 4.5) {
+        const s = 0.85 + rand() * 0.9;
+        if (z < -205 && x > -210 && y > 14.5) snowPineList.push({ x, y, z, s, r: rand() * Math.PI * 2 });
         else pineList.push({ x, y, z, s, r: rand() * Math.PI * 2 });
       }
     }
 
-    for (let i = 0; i < 140; i++) {
+    for (let i = 0; i < 120; i++) {
       const angle = rand() * Math.PI * 2;
-      const rad = 22 + rand() * 110;
+      const rad = 24 + rand() * 95;
       const x = -310 + Math.cos(angle) * rad;
-      const z = -310 + Math.sin(angle) * rad;
-      if (Math.abs(x + 310) < 11 && z > -325 && z < -250) continue;
+      const z = -312 + Math.sin(angle) * rad;
+      if (Math.abs(x + 310) < 12 && z > -328 && z < -250) continue;
       const y = getExactMeshTerrainHeight(x, z);
-      if (y > 8) mapleList.push({ x, y, z, s: 0.95 + rand() * 0.7, r: rand() * Math.PI * 2 });
+      if (y > 8) mapleList.push({ x, y, z, s: 0.95 + rand() * 0.65, r: rand() * Math.PI * 2 });
     }
 
-    for (let i = 0; i < 550; i++) {
-      const x = (rand() - 0.5) * 860;
-      const z = (rand() - 0.4) * 720;
-      if (Math.hypot(x, z) > 500 || isInsideSettlement(x, z) || getRoadFactor(x, z) > 0.2) continue;
+    // 12,000 Ultra-Fast Curved Grass Clumps (Never spawns in river, roads, or villages!)
+    for (let i = 0; i < 12000; i++) {
+      const x = (rand() - 0.5) * 940;
+      const z = (rand() - 0.5) * 840;
+      if (Math.hypot(x, z) > 505) continue;
+      if (z < -205 && x > -210) continue;
+      if (getRoadFactor(x, z) > 0.25 || isClearZone(x, z)) continue;
       const y = getExactMeshTerrainHeight(x, z);
-      if (y > 4.0 && y < 20) {
-        flowerList.push({ x, y, z, s: 0.7 + rand() * 0.6, color: flowerColors[Math.floor(rand() * flowerColors.length)] });
-      }
-    }
-
-    // 18,000 Optimized Curved Grass Clumps (Ultra-fast GPU vertex count!)
-    for (let i = 0; i < 18000; i++) {
-      const x = (rand() - 0.5) * 960;
-      const z = (rand() - 0.5) * 860;
-      if (Math.hypot(x, z) > 515) continue;
-      if (z < -260 && x > -190) continue;
-      if (getRoadFactor(x, z) > 0.32 || isInsideSettlement(x, z)) continue;
-      const y = getExactMeshTerrainHeight(x, z);
-      if (y > 3.5 && y < 22.0) {
+      if (y > 3.3 && y < 22.0) {
         gList.push({ x, y, z, s: 0.85 + rand() * 0.65, r: rand() * Math.PI * 2 });
       }
     }
 
-    return { oaks: oakList, birches: birchList, pines: pineList, snowPines: snowPineList, maples: mapleList, flowers: flowerList, grassList: gList };
+    return { oaks: oakList, birches: birchList, pines: pineList, snowPines: snowPineList, maples: mapleList, grassList: gList };
   }, []);
 
   useEffect(() => {
@@ -167,30 +149,25 @@ export default function Vegetation() {
       birchCrownRef.current.instanceMatrix.needsUpdate = true;
     }
 
-    if (pineTrunkRef.current && pineCone1Ref.current && pineCone2Ref.current) {
+    if (pineTrunkRef.current && pineCone1Ref.current) {
       pines.forEach((t, i) => {
         dummy.position.set(t.x, t.y + 1.6 * t.s, t.z);
         dummy.rotation.set(0, t.r, 0);
         dummy.scale.set(t.s, t.s, t.s);
         dummy.updateMatrix();
         pineTrunkRef.current!.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(t.x, t.y + 3.8 * t.s, t.z);
-        dummy.scale.set(t.s * 1.2, t.s, t.s * 1.2);
+        dummy.position.set(t.x, t.y + 4.4 * t.s, t.z);
+        dummy.scale.set(t.s * 1.2, t.s * 1.2, t.s * 1.2);
         dummy.updateMatrix();
         pineCone1Ref.current!.setMatrixAt(i, dummy.matrix);
-        dummy.position.set(t.x, t.y + 5.8 * t.s, t.z);
-        dummy.scale.set(t.s * 0.88, t.s * 0.92, t.s * 0.88);
-        dummy.updateMatrix();
-        pineCone2Ref.current!.setMatrixAt(i, dummy.matrix);
       });
       pineTrunkRef.current.instanceMatrix.needsUpdate = true;
       pineCone1Ref.current.instanceMatrix.needsUpdate = true;
-      pineCone2Ref.current.instanceMatrix.needsUpdate = true;
     }
 
     if (snowPineRef.current) {
       snowPines.forEach((t, i) => {
-        dummy.position.set(t.x, t.y + 3.4 * t.s, t.z);
+        dummy.position.set(t.x, t.y, t.z);
         dummy.rotation.set(0, t.r, 0);
         dummy.scale.set(t.s, t.s, t.s);
         dummy.updateMatrix();
@@ -214,37 +191,51 @@ export default function Vegetation() {
       mapleTrunkRef.current.instanceMatrix.needsUpdate = true;
       mapleCrownRef.current.instanceMatrix.needsUpdate = true;
     }
-
-    if (flowerRef.current) {
-      flowers.forEach((f, i) => {
-        dummy.position.set(f.x, f.y + 0.14, f.z);
-        dummy.rotation.set(0, i * 1.1, 0);
-        dummy.scale.set(f.s, f.s, f.s);
-        dummy.updateMatrix();
-        flowerRef.current!.setMatrixAt(i, dummy.matrix);
-        flowerRef.current!.setColorAt(i, f.color);
-      });
-      flowerRef.current.instanceMatrix.needsUpdate = true;
-      if (flowerRef.current.instanceColor) flowerRef.current.instanceColor.needsUpdate = true;
-    }
-  }, [grassList, oaks, birches, pines, snowPines, maples, flowers]);
+  }, [grassList, oaks, birches, pines, snowPines, maples]);
 
   useFrame(() => {
     globalUniforms.uPlayerPos.value.set(playerFrameState.x, playerFrameState.y, playerFrameState.z);
   });
 
-  // Lightweight 6-Blade 2-Segment Curved Grass Clump (6x Faster GPU rendering, identical arched look!)
+  // Soft Pillowy 5-Tier Rounded Snow Spruce Geometry (Matches fluffy snow trees in Reference Image 31!)
+  const snowSpruceGeo = useMemo(() => {
+    const parts = [
+      { rTop: 0.2, rBot: 0.32, h: 1.8, y: 0.9 }, // Trunk base
+      { rTop: 0.1, rBot: 2.1,  h: 2.8, y: 2.6 }, // Lower pine cone
+      { rTop: 0.1, rBot: 1.6,  h: 2.5, y: 4.1 }, // Mid pine cone
+      { rTop: 0.0, rBot: 1.1,  h: 2.2, y: 5.5 }, // Top sharp pine peak
+    ];
+    const positions: number[] = [];
+    const normals: number[] = [];
+    const indices: number[] = [];
+    let vOff = 0;
+    parts.forEach((pt) => {
+      const c = new THREE.CylinderGeometry(pt.rTop, pt.rBot, pt.h, 7);
+      c.translate(0, pt.y, 0);
+      const p = c.attributes.position.array as Float32Array;
+      const n = c.attributes.normal.array as Float32Array;
+      for (let i = 0; i < p.length; i++) { positions.push(p[i]); normals.push(n[i]); }
+      const idx = c.index!.array;
+      for (let i = 0; i < idx.length; i++) indices.push(idx[i] + vOff);
+      vOff += c.attributes.position.count;
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    g.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    g.setIndex(indices);
+    return g;
+  }, []);
+
   const curvedGrassClumpGeo = useMemo(() => {
     const positions: number[] = [];
     const indices: number[] = [];
-    const bladeCount = 6;
+    const bladeCount = 5;
     const segs = 2;
     let vOffset = 0;
     for (let b = 0; b < bladeCount; b++) {
       const angle = (b / bladeCount) * Math.PI * 2 + (b % 2) * 0.3;
       const radOffset = 0.04 + (b % 3) * 0.04;
-      const bx = Math.cos(angle) * radOffset;
-      const bz = Math.sin(angle) * radOffset;
+      const bx = Math.cos(angle) * radOffset, bz = Math.sin(angle) * radOffset;
       const bladeHeight = 0.40 + (b % 3) * 0.12;
       const archDist = 0.22 + (b % 2) * 0.08;
       const baseHalfWidth = 0.032;
@@ -290,7 +281,7 @@ export default function Vegetation() {
         "void main() {",
         "  vec4 instPos = instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0);",
         "  float dist = distance(instPos.xz, uPlayerPos.xz);",
-        "  vDistFade = 1.0 - smoothstep(65.0, 92.0, dist);",
+        "  vDistFade = 1.0 - smoothstep(52.0, 76.0, dist);",
         "  vHeightFrac = clamp(position.y / 0.45, 0.0, 1.0);",
         "  vColorVar = fract(sin(dot(instPos.xz, vec2(12.9898, 78.233))) * 43758.5453);",
         "  vec3 pos = position * vDistFade;",
@@ -322,58 +313,49 @@ export default function Vegetation() {
     <group name="world-vegetation">
       <instancedMesh ref={grassMeshRef} args={[curvedGrassClumpGeo, grassMaterial, grassList.length]} frustumCulled={false} />
 
-      <instancedMesh ref={oakTrunkRef} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
-        <cylinderGeometry args={[0.34, 0.65, 5.0, 7]} />
+      <instancedMesh ref={oakTrunkRef} args={[undefined, undefined, oaks.length]} frustumCulled={false}>
+        <cylinderGeometry args={[0.34, 0.65, 5.0, 6]} />
         <meshStandardMaterial map={textures.oakBark} color="#7c5333" roughness={0.9} />
       </instancedMesh>
-      <instancedMesh ref={oakCrown1Ref} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
+      <instancedMesh ref={oakCrown1Ref} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow>
         <icosahedronGeometry args={[2.7, 1]} />
         <meshStandardMaterial map={textures.leafFoliage} color="#529e3e" roughness={0.78} />
       </instancedMesh>
-      <instancedMesh ref={oakCrown2Ref} args={[undefined, undefined, oaks.length]} frustumCulled={false} castShadow receiveShadow>
+      <instancedMesh ref={oakCrown2Ref} args={[undefined, undefined, oaks.length]} frustumCulled={false}>
         <icosahedronGeometry args={[2.3, 1]} />
         <meshStandardMaterial map={textures.leafFoliage} color="#68b849" roughness={0.75} />
       </instancedMesh>
 
-      <instancedMesh ref={birchTrunkRef} args={[undefined, undefined, birches.length]} frustumCulled={false} castShadow receiveShadow>
-        <cylinderGeometry args={[0.15, 0.25, 5.6, 7]} />
+      <instancedMesh ref={birchTrunkRef} args={[undefined, undefined, birches.length]} frustumCulled={false}>
+        <cylinderGeometry args={[0.15, 0.25, 5.6, 6]} />
         <meshStandardMaterial map={textures.birchBark} color="#f8fafc" roughness={0.72} />
       </instancedMesh>
-      <instancedMesh ref={birchCrownRef} args={[undefined, undefined, birches.length]} frustumCulled={false} castShadow receiveShadow>
+      <instancedMesh ref={birchCrownRef} args={[undefined, undefined, birches.length]} frustumCulled={false} castShadow>
         <icosahedronGeometry args={[2.2, 1]} />
         <meshStandardMaterial map={textures.leafFoliage} color="#84cc16" roughness={0.74} />
       </instancedMesh>
 
-      <instancedMesh ref={pineTrunkRef} args={[undefined, undefined, pines.length]} frustumCulled={false} castShadow receiveShadow>
+      <instancedMesh ref={pineTrunkRef} args={[undefined, undefined, pines.length]} frustumCulled={false}>
         <cylinderGeometry args={[0.18, 0.30, 3.2, 6]} />
         <meshStandardMaterial map={textures.oakBark} color="#4a2f1b" roughness={0.9} />
       </instancedMesh>
-      <instancedMesh ref={pineCone1Ref} args={[undefined, undefined, pines.length]} frustumCulled={false} castShadow receiveShadow>
-        <coneGeometry args={[2.2, 4.5, 7]} />
+      <instancedMesh ref={pineCone1Ref} args={[undefined, undefined, pines.length]} frustumCulled={false} castShadow>
+        <coneGeometry args={[2.2, 5.2, 6]} />
         <meshStandardMaterial map={textures.leafFoliage} color="#2d6a31" roughness={0.82} />
       </instancedMesh>
-      <instancedMesh ref={pineCone2Ref} args={[undefined, undefined, pines.length]} frustumCulled={false} castShadow receiveShadow>
-        <coneGeometry args={[1.7, 3.8, 7]} />
-        <meshStandardMaterial map={textures.leafFoliage} color="#3d823b" roughness={0.82} />
+
+      {/* Soft Fluffy Pillowy Snow Spruces (Reference Image 31) */}
+      <instancedMesh ref={snowPineRef} args={[snowSpruceGeo, undefined, snowPines.length]} frustumCulled={false} castShadow>
+        <meshStandardMaterial map={textures.snowFrost} color="#e2eef8" roughness={0.72} />
       </instancedMesh>
 
-      <instancedMesh ref={snowPineRef} args={[undefined, undefined, snowPines.length]} frustumCulled={false} castShadow receiveShadow>
-        <coneGeometry args={[2.1, 6.2, 8]} />
-        <meshStandardMaterial map={textures.snowFrost} bumpMap={textures.snowFrost} bumpScale={0.08} color="#f1f5f9" roughness={0.72} />
-      </instancedMesh>
-
-      <instancedMesh ref={mapleTrunkRef} args={[undefined, undefined, maples.length]} frustumCulled={false} castShadow receiveShadow>
+      <instancedMesh ref={mapleTrunkRef} args={[undefined, undefined, maples.length]} frustumCulled={false}>
         <cylinderGeometry args={[0.20, 0.34, 4.0, 6]} />
         <meshStandardMaterial map={textures.oakBark} color="#3e2723" roughness={0.9} />
       </instancedMesh>
-      <instancedMesh ref={mapleCrownRef} args={[undefined, undefined, maples.length]} frustumCulled={false} castShadow receiveShadow>
+      <instancedMesh ref={mapleCrownRef} args={[undefined, undefined, maples.length]} frustumCulled={false} castShadow>
         <icosahedronGeometry args={[2.3, 1]} />
         <meshStandardMaterial map={textures.leafFoliage} color="#ef4444" roughness={0.75} />
-      </instancedMesh>
-
-      <instancedMesh ref={flowerRef} args={[undefined, undefined, flowers.length]} frustumCulled={false}>
-        <dodecahedronGeometry args={[0.22, 0]} />
-        <meshStandardMaterial roughness={0.6} />
       </instancedMesh>
     </group>
   );

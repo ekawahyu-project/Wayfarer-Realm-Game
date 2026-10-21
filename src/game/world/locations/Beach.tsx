@@ -126,7 +126,7 @@ export default function Beach() {
       </instancedMesh>
 
       {/* Textured Wooden Pier extending into Deep Ocean */}
-      <group position={[-557, 2.2, 0]}>
+      <group position={[-555, 1.6, 0]}>
         <mesh castShadow receiveShadow>
           <boxGeometry args={[58, 0.4, 5.4]} />
           <meshStandardMaterial map={textures.woodPlanks} color="#8c5830" roughness={0.85} />

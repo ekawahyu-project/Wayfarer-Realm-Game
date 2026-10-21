@@ -12,6 +12,7 @@ import {
 } from "@/utils/noise";
 import { getWorldTextures } from "@/utils/proceduralTextures";
 import { globalUniforms } from "@/game/systems/globalUniforms";
+import { playerFrameState } from "@/game/state/usePlayerStore";
 import { npcLivePositions } from "@/game/npc/NPCSystem";
 
 // 8 Genuinely Distinct House Architectural Silhouettes!
@@ -58,7 +59,7 @@ function MarketStall({ stall, textures, woodMat }: { stall: MarketStallItem; tex
 
   return (
     <group position={[stall.x, stall.y, stall.z]} rotation={[0, stall.rotY, 0]}>
-      <mesh castShadow receiveShadow position={[0, 0.9, 0]} material={woodMat}>
+      <mesh receiveShadow position={[0, 0.9, 0]} material={woodMat}>
         <boxGeometry args={[4.4, 1.1, 2.2]} />
       </mesh>
       {[-2.0, 2.0].map((px, i) => (
@@ -125,19 +126,22 @@ export default function Village() {
   const textures = useMemo(() => getWorldTextures(), []);
   const doorPivotRefs = useRef<Record<string, THREE.Group | null>>({});
   const windmillBladesRef = useRef<THREE.Group>(null);
+  const eastGroupRef = useRef<THREE.Group>(null);
+  const swGroupRef = useRef<THREE.Group>(null);
+  const westGroupRef = useRef<THREE.Group>(null);
 
   // Rich Palette of Shared Materials for Diverse House Styles (Zero per-house material overhead!)
-  const windowMaterial = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef08a", emissive: "#f59e0b", emissiveIntensity: 2.0 }), []);
+  const windowMaterial = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.windowLattice, color: "#fef08a", emissive: "#f59e0b", emissiveMap: textures.windowLattice, emissiveIntensity: 1.8, roughness: 0.4 }), [textures.windowLattice]);
   const beamMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#3e2411", roughness: 0.9 }), []);
   const doorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#7c4d2b", roughness: 0.8 }), [textures.woodPlanks]);
   const floorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#5c3a21", roughness: 0.9 }), [textures.woodPlanks]);
 
   const palette = useMemo(() => ({
     walls: [
-      new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#94a3b8", roughness: 0.88 }),
-      new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#cbd5e1", roughness: 0.86 }),
-      new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#a16207", roughness: 0.85 }),
-      new THREE.MeshStandardMaterial({ map: textures.kingdomStone, color: "#d6d3d1", roughness: 0.88 }),
+      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#ffffff", roughness: 0.78 }),
+      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#fff8eb", roughness: 0.80 }),
+      new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#f8fafc", roughness: 0.82 }),
+      new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#d99b66", roughness: 0.80 }),
     ],
     uppers: [
       new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#f8fafc", roughness: 0.82 }),
@@ -188,9 +192,9 @@ export default function Village() {
         const wx = vc.cx + dx, wz = vc.cz + dz;
         const variant = variants[(seedIdx * 3 + vIdx * 2) % variants.length];
         // Varied proportions per house so adjacent houses have distinct heights & depths!
-        const scaleX = 0.95 + ((seedIdx * 7) % 5) * 0.06;
+        const scaleX = 1.0;
         const scaleY = 0.90 + ((seedIdx * 11) % 6) * 0.08;
-        const scaleZ = 0.92 + ((seedIdx * 13) % 5) * 0.06;
+        const scaleZ = 1.0;
         const wallMat = palette.walls[(seedIdx + vIdx) % palette.walls.length];
         const upperMat = palette.uppers[vc.themeUpper[seedIdx % vc.themeUpper.length]];
         const roofMat = palette.roofs[vc.themeRoof[(seedIdx + 1) % vc.themeRoof.length]];
@@ -211,10 +215,22 @@ export default function Village() {
         });
       };
 
-      [-48, -36, -24, -12, 0, 12, 24, 36, 48].forEach((dx, i) => addHouse(dx, -18, 0, i));
-      [-48, -36, -24, -12, 0, 12, 24, 36, 48].forEach((dx, i) => addHouse(dx, 18, Math.PI, i + 5));
-      [-36, -24, -12, 0, 12, 24, 36].forEach((dx, i) => addHouse(dx, -38, 0, i + 11));
-      [-36, -24, -12, 0, 12, 24, 36].forEach((dx, i) => addHouse(dx, 38, Math.PI, i + 17));
+      // Organic Medieval Town Layout: Mix of aligned terraces, staggered depths, and angled corner houses!
+      const zOffsetsN = [-18, -18, -21, -17, -19, -19, -16, -22, -18];
+      const rotOffsetsN = [0.22, 0.0, -0.14, 0.0, 0.0, 0.18, -0.08, 0.25, -0.32];
+      [-50, -37, -24, -12, 0, 12, 25, 38, 52].forEach((dx, i) => addHouse(dx, zOffsetsN[i], rotOffsetsN[i], i));
+
+      const zOffsetsS = [19, 17, 17, 21, 18, 22, 17, 19, 23];
+      const rotOffsetsS = [Math.PI - 0.25, Math.PI, Math.PI, Math.PI + 0.16, Math.PI - 0.12, Math.PI + 0.22, Math.PI, Math.PI - 0.18, Math.PI + 0.35];
+      [-50, -37, -25, -12, 0, 13, 25, 38, 52].forEach((dx, i) => addHouse(dx, zOffsetsS[i], rotOffsetsS[i], i + 5));
+
+      const zOuterN = [-38, -42, -37, -37, -41, -36, -43];
+      const rotOuterN = [0.35, -0.18, 0.0, 0.0, 0.24, -0.15, -0.38];
+      [-40, -26, -13, 0, 14, 28, 42].forEach((dx, i) => addHouse(dx, zOuterN[i], rotOuterN[i], i + 11));
+
+      const zOuterS = [42, 37, 37, 41, 38, 43, 39];
+      const rotOuterS = [Math.PI - 0.32, Math.PI, Math.PI, Math.PI + 0.20, Math.PI - 0.15, Math.PI + 0.28, Math.PI + 0.38];
+      [-40, -26, -13, 0, 14, 28, 42].forEach((dx, i) => addHouse(dx, zOuterS[i], rotOuterS[i], i + 17));
       addHouse(64, -12, -Math.PI / 2, 23);
       addHouse(64, 12,  -Math.PI / 2, 29);
 
@@ -252,6 +268,10 @@ export default function Village() {
     const dt = Math.min(delta, 0.05);
     const t = state.clock.elapsedTime;
     windowMaterial.emissiveIntensity = 0.55 + globalUniforms.uNightFactor.value * 3.5;
+    const px = playerFrameState.x, pz = playerFrameState.z;
+    if (eastGroupRef.current) eastGroupRef.current.visible = Math.hypot(px - 365, pz) < 210;
+    if (swGroupRef.current) swGroupRef.current.visible = Math.hypot(px + 280, pz - 240) < 210;
+    if (westGroupRef.current) westGroupRef.current.visible = Math.hypot(px + 245, pz + 95) < 210;
     if (windmillBladesRef.current) windmillBladesRef.current.rotation.z += dt * 0.9;
 
     if (t - lastNpcDoorCheck.current > 0.5) {
@@ -283,9 +303,9 @@ export default function Village() {
   return (
     <group name="three-distinct-medieval-villages">
       {plazas.map((p, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[p.x, p.y + 0.04, p.z]} receiveShadow>
-          <circleGeometry args={[p.r, 36]} />
-          <meshStandardMaterial map={textures.cobblestone} color="#94a3b8" roughness={0.9} />
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[p.x, p.y + 0.08, p.z]} receiveShadow>
+          <circleGeometry args={[p.r, 40]} />
+          <meshStandardMaterial map={textures.cobblestone} color="#cbd5e1" roughness={0.85} polygonOffset polygonOffsetFactor={-4} />
         </mesh>
       ))}
 
@@ -293,24 +313,50 @@ export default function Village() {
         <MarketStall key={idx} stall={st} textures={textures} woodMat={doorMat} />
       ))}
 
-      {houses.map((h, idx) => (
+      {(['east', 'sw', 'west'] as const).map((vPrefix) => (
+        <group key={vPrefix} ref={vPrefix === 'east' ? eastGroupRef : vPrefix === 'sw' ? swGroupRef : westGroupRef}>
+          {houses.filter((h) => h.id.startsWith(vPrefix)).map((h, idx) => (
         <group key={h.id} position={[h.x, h.y, h.z]} rotation={[0, h.rotY, 0]} scale={[h.scaleX, h.scaleY, h.scaleZ]}>
-          {/* Walkable Interior Floor & Table */}
+          {/* Walkable Interior Floor, Table, Cozy Bed, Bookshelf & Glowing Hearth Fireplace */}
           <mesh position={[0, 0.08, 0]} receiveShadow material={floorMat}><boxGeometry args={[9.2, 0.14, 7.2]} /></mesh>
-          <mesh position={[0, 0.85, -1.5]} material={doorMat}><boxGeometry args={[2.2, 0.9, 1.4]} /></mesh>
+          <mesh position={[0, 0.85, -1.2]} material={doorMat}><boxGeometry args={[2.2, 0.9, 1.4]} /></mesh>
+          {/* Cozy Bed with Red Blanket on Left Wall */}
+          <mesh position={[-3.2, 0.55, -1.8]} material={doorMat}><boxGeometry args={[2.2, 0.55, 3.0]} /></mesh>
+          <mesh position={[-3.2, 0.88, -1.5]} material={palette.roofs[0]}><boxGeometry args={[2.0, 0.18, 2.2]} /></mesh>
+          {/* Wooden Bookshelf on Right Wall */}
+          <mesh position={[3.6, 1.6, -2.2]} material={beamMat}><boxGeometry args={[1.4, 2.8, 0.8]} /></mesh>
+          {/* Warm Glowing Hearth Fireplace at Back Wall */}
+          <mesh position={[0, 0.8, -3.1]} material={windowMaterial}><boxGeometry args={[1.6, 1.1, 0.5]} /></mesh>
 
           {/* Ground Floor Hollow Walls */}
-          <mesh castShadow receiveShadow position={[0, 2.2, -3.6]} material={h.wallMat}><boxGeometry args={[9.6, 4.4, 0.45]} /></mesh>
-          <mesh castShadow receiveShadow position={[-4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.45, 4.4, 7.6]} /></mesh>
-          <mesh castShadow receiveShadow position={[4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.45, 4.4, 7.6]} /></mesh>
-          <mesh castShadow receiveShadow position={[-2.85, 2.2, 3.6]} material={h.wallMat}><boxGeometry args={[3.9, 4.4, 0.45]} /></mesh>
-          <mesh castShadow receiveShadow position={[2.85, 2.2, 3.6]} material={h.wallMat}><boxGeometry args={[3.9, 4.4, 0.45]} /></mesh>
+          <mesh receiveShadow position={[0, 2.2, -3.6]} material={h.wallMat}><boxGeometry args={[9.6, 4.4, 0.45]} /></mesh>
+          <mesh receiveShadow position={[-4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.45, 4.4, 7.6]} /></mesh>
+          <mesh receiveShadow position={[4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.45, 4.4, 7.6]} /></mesh>
+          <mesh receiveShadow position={[-2.85, 2.2, 3.6]} material={h.wallMat}><boxGeometry args={[3.9, 4.4, 0.45]} /></mesh>
+          <mesh receiveShadow position={[2.85, 2.2, 3.6]} material={h.wallMat}><boxGeometry args={[3.9, 4.4, 0.45]} /></mesh>
           <mesh position={[0, 3.55, 3.6]} material={h.wallMat}><boxGeometry args={[1.9, 1.7, 0.45]} /></mesh>
 
-          {/* Hinged Interactive Wooden Door */}
-          <group position={[-0.9, 0, 3.65]} ref={(el) => { doorPivotRefs.current[h.id] = el; }}>
+          {/* Hinged Recessed Wooden Plank Door with Heavy Timber Arch Frame */}
+          <mesh position={[0, 1.45, 3.68]} material={beamMat}><boxGeometry args={[2.15, 2.9, 0.22]} /></mesh>
+          <group position={[-0.9, 0, 3.72]} ref={(el) => { doorPivotRefs.current[h.id] = el; }}>
             <mesh position={[0.9, 1.35, 0]} material={doorMat}><boxGeometry args={[1.8, 2.7, 0.14]} /></mesh>
           </group>
+
+          {/* Reference image_8a19c7.jpg Details: Ground-Floor Wooden Colonnade Posts, Corbel Brackets, Jetty Overhang Beams & Outdoor Tavern Bench/Barrel! */}
+          {[-4.4, -1.5, 1.5, 4.4].map((px, pIdx) => (
+            <group key={"col_" + pIdx} position={[px, 0, 4.18]}>
+              {/* Heavy Vertical Timber Colonnade Pillar */}
+              <mesh castShadow position={[0, 2.15, 0]} material={beamMat}><boxGeometry args={[0.34, 4.3, 0.34]} /></mesh>
+              {/* Angled Wooden Corbel Bracket holding up 2nd floor overhang */}
+              <mesh position={[0, 3.85, -0.22]} rotation={[0.65, 0, 0]} material={beamMat}><boxGeometry args={[0.26, 0.85, 0.24]} /></mesh>
+            </group>
+          ))}
+          {/* Heavy Horizontal Jetty Overhang Beam & Protruding Floor Joist Ends */}
+          <mesh position={[0, 4.25, 4.05]} material={beamMat}><boxGeometry args={[10.4, 0.36, 0.55]} /></mesh>
+          {/* Outdoor Wooden Tavern Table & Barrel under the Overhang (Like Reference image_8a19c7.jpg!) */}
+          <mesh position={[-2.9, 0.65, 4.45]} material={doorMat}><boxGeometry args={[1.8, 0.12, 0.85]} /></mesh>
+          <mesh position={[-2.9, 0.32, 4.45]} material={beamMat}><boxGeometry args={[1.4, 0.64, 0.5]} /></mesh>
+          <mesh position={[3.2, 0.55, 4.35]} material={doorMat}><cylinderGeometry args={[0.38, 0.42, 1.1, 10]} /></mesh>
 
           {/* --- 8 DISTINCT ARCHITECTURAL SILHOUETTES --- */}
           {/* 1. Low Cozy Cottage with Front Porch Awning & Flower Boxes */}
@@ -401,11 +447,21 @@ export default function Village() {
             </group>
           )}
 
-          {/* Glowing Ground & Second Floor Windows */}
-          <mesh position={[-2.8, 2.2, 3.85]} material={windowMaterial}><planeGeometry args={[1.4, 1.2]} /></mesh>
-          <mesh position={[2.8, 2.2, 3.85]} material={windowMaterial}><planeGeometry args={[1.4, 1.2]} /></mesh>
-          <mesh position={[-2.2, 6.0, 4.18]} material={windowMaterial}><planeGeometry args={[1.8, 1.3]} /></mesh>
-          <mesh position={[2.2, 6.0, 4.18]} material={windowMaterial}><planeGeometry args={[1.8, 1.3]} /></mesh>
+          {/* Flush 3D-Framed Mullion Lattice Windows (Never floats on round windmills or low cottages!) */}
+          <mesh position={[-2.8, 2.2, 3.84]} material={windowMaterial}><planeGeometry args={[1.4, 1.25]} /></mesh>
+          <mesh position={[-2.8, 1.55, 3.88]} material={beamMat}><boxGeometry args={[1.55, 0.14, 0.18]} /></mesh>
+          <mesh position={[2.8, 2.2, 3.84]} material={windowMaterial}><planeGeometry args={[1.4, 1.25]} /></mesh>
+          <mesh position={[2.8, 1.55, 3.88]} material={beamMat}><boxGeometry args={[1.55, 0.14, 0.18]} /></mesh>
+          {(h.variant === "tall_manor" || h.variant === "round_wizard_tower" || h.variant === "tavern_L_inn" || h.variant === "stepped_guildhall" || h.variant === "blacksmith_forge") && (
+            <group>
+              <mesh position={[-2.2, 5.9, 4.04]} material={windowMaterial}><planeGeometry args={[1.8, 1.3]} /></mesh>
+              <mesh position={[-2.2, 5.22, 4.08]} material={beamMat}><boxGeometry args={[1.95, 0.15, 0.18]} /></mesh>
+              <mesh position={[2.2, 5.9, 4.04]} material={windowMaterial}><planeGeometry args={[1.8, 1.3]} /></mesh>
+              <mesh position={[2.2, 5.22, 4.08]} material={beamMat}><boxGeometry args={[1.95, 0.15, 0.18]} /></mesh>
+            </group>
+          )}
+        </group>
+          ))}
         </group>
       ))}
     </group>

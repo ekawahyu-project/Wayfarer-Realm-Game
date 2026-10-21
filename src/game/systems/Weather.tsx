@@ -59,7 +59,7 @@ export default function Weather() {
     const pz = playerFrameState.z;
 
     // Strictly check if player is inside the Northern Snow Mountains biome (Z < -290 and X > -190)
-    const inSnowMountains = pz < -290 && px > -190;
+    const inSnowMountains = pz < -205 && px > -210 && getTerrainHeight(px, pz) > 14.5;
 
     if (inSnowMountains && weather !== "snow") {
       setWeather("snow");

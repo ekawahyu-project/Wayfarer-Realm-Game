@@ -159,21 +159,38 @@ export default function AudioManager() {
         ambientGainRef.current.gain.value = master * store.ambientVolume * (0.03 + nearCoast * 0.07 * waveSurge + rainBoost * 0.08);
       }
 
-      // Footsteps
-      const stepInterval = playerFrameState.isRunning ? 0.28 : 0.45;
+      // Footsteps & Horse Hoofbeats ("Clop-Clop")
+      const isRiding = playerFrameState.mountedHorseIndex !== -1;
+      const stepInterval = isRiding ? (playerFrameState.isRunning ? 0.22 : 0.34) : (playerFrameState.isRunning ? 0.28 : 0.45);
       if (playerFrameState.isMoving && (playerFrameState.isGrounded || playerFrameState.isSwimming) && !playerFrameState.isInBoat) {
         if (t - lastStepTimeRef.current > stepInterval) {
           lastStepTimeRef.current = t;
-          const h = getTerrainHeight(playerFrameState.x, playerFrameState.z);
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = h < 0.3 ? "triangle" : "sine";
-          osc.frequency.setValueAtTime(h < 0.3 ? 220 : 125, ctx.currentTime);
-          osc.frequency.exponentialRampToValueAtTime(55, ctx.currentTime + 0.08);
-          gain.gain.setValueAtTime(master * store.sfxVolume * 0.1, ctx.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-          osc.connect(gain); gain.connect(ctx.destination);
-          osc.start(); osc.stop(ctx.currentTime + 0.09);
+          if (isRiding) {
+            // Dual-beat horse hoof clop-clop sound
+            [0, 0.075].forEach((delay, idx) => {
+              const t0 = ctx.currentTime + delay;
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.type = "triangle";
+              osc.frequency.setValueAtTime(idx === 0 ? 185 : 155, t0);
+              osc.frequency.exponentialRampToValueAtTime(65, t0 + 0.055);
+              gain.gain.setValueAtTime(master * store.sfxVolume * 0.14, t0);
+              gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.06);
+              osc.connect(gain); gain.connect(ctx.destination);
+              osc.start(t0); osc.stop(t0 + 0.065);
+            });
+          } else {
+            const h = getTerrainHeight(playerFrameState.x, playerFrameState.z);
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = h < 0.3 ? "triangle" : "sine";
+            osc.frequency.setValueAtTime(h < 0.3 ? 220 : 125, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(55, ctx.currentTime + 0.08);
+            gain.gain.setValueAtTime(master * store.sfxVolume * 0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+            osc.connect(gain); gain.connect(ctx.destination);
+            osc.start(); osc.stop(ctx.currentTime + 0.09);
+          }
         }
       }
 

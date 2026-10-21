@@ -36,36 +36,34 @@ function distToSegment(px: number, pz: number, ax: number, az: number, bx: numbe
 }
 
 export const BIOME_CENTERS = {
-  westBeach: { x: -532, z: 0, label: "Pantai Barat & Dermaga" },
-  centralMeadow: { x: 0, z: 0, label: "Hutan Birch & Padang Rumput" },
-  eastVillage: { x: 292, z: 0, label: "Desa Pasar Utama (Timur)" },
+  westBeach: { x: -520, z: 0, label: "Pantai Barat & Dermaga" },
+  centralMeadow: { x: 215, z: 0, label: "Sungai Teratai & Jembatan" },
+  eastVillage: { x: 295, z: 0, label: "Desa Pasar Utama (Timur)" },
   swVillage: { x: -280, z: 175, label: "Desa Pesisir (Barat Daya)" },
   westForestVillage: { x: -245, z: -32, label: "Desa Hutan (Barat)" },
-  southKingdom: { x: 0, z: 302, label: "Gerbang Benteng Kerajaan" },
+  southKingdom: { x: 0, z: 300, label: "Gerbang Benteng Kerajaan" },
   southHarbor: { x: 0, z: 530, label: "Pelabuhan Selatan" },
-  nwShrine: { x: -310, z: -252, label: "Kuil Maple (Barat Laut)" },
-  northMountains: { x: 0, z: -365, label: "Desa Lembah Salju (Utara)" },
+  nwShrine: { x: -310, z: -260, label: "Kuil Maple (Barat Laut)" },
+  northMountains: { x: 0, z: -355, label: "Desa Chalet Salju (Utara)" },
 };
 
+export function getRiverCenterX(z: number): number {
+  return 245 + Math.sin(z * 0.015) * 18.0;
+}
+
+export function getRiverDistance(x: number, z: number): number {
+  if (z < -240 || z > 220) return 999;
+  return Math.abs(x - getRiverCenterX(z));
+}
+
 export function getRoadFactor(x: number, z: number): number {
-  const wobbleX = noise2D(x * 0.014, z * 0.014) * 5.0;
-  const wobbleZ = noise2D(x * 0.014 + 100, z * 0.014 + 100) * 5.0;
-  const wx = x + wobbleX, wz = z + wobbleZ;
-
-  const dWestEast = distToSegment(wx, wz, -535, 0, 435, 0);
-  const dNorthSouth = distToSegment(wx, wz, 0, -450, 0, 540);
-  const dShrine = distToSegment(wx, wz, -60, -60, -310, -265);
-  const dSwVillage = distToSegment(wx, wz, 0, 120, -280, 240);
-  const dWestVillage = distToSegment(wx, wz, -245, 0, -245, -110);
+  const dWestEast = distToSegment(x, z, -535, 0, 435, 0);
+  const dNorthSouth = distToSegment(x, z, 0, -450, 0, 540);
+  const dShrine = distToSegment(x, z, -60, -60, -310, -265);
+  const dSwVillage = distToSegment(x, z, 0, 120, -280, 240);
+  const dWestVillage = distToSegment(x, z, -245, 0, -245, -110);
   const minRoadDist = Math.min(dWestEast, dNorthSouth, dShrine, dSwVillage, dWestVillage);
-
-  const dVillage1 = Math.hypot(x - 365, z) - 76;
-  const dVillage2 = Math.hypot(x + 280, z - 240) - 76;
-  const dVillage3 = Math.hypot(x + 245, z + 95) - 74;
-  const dKingdomPlaza = Math.hypot(x, z - 395) - 105;
-
-  const d = Math.min(minRoadDist, Math.max(0, dVillage1), Math.max(0, dVillage2), Math.max(0, dVillage3), Math.max(0, dKingdomPlaza));
-  return 1.0 - smoothstep(4.2, 8.2, d);
+  return 1.0 - smoothstep(4.5, 8.2, minRoadDist);
 }
 
 export function getTerrainHeight(x: number, z: number): number {
@@ -78,38 +76,44 @@ export function getTerrainHeight(x: number, z: number): number {
   const coastNoise = fbm(x * 0.002, z * 0.002, 3) * 0.06 * (1 - Math.max(westDockMask, southHarborMask) * 0.92);
   const effectiveDist = normDist - coastNoise;
 
-  if (effectiveDist >= 0.84) {
-    const beachSlope = smoothstep(0.84, 0.89, effectiveDist);
-    const deepOcean = smoothstep(0.89, 1.25, effectiveDist);
-    return 3.0 * (1.0 - beachSlope) - 5.5 * beachSlope - deepOcean * 18.0;
+  if (effectiveDist >= 0.85) {
+    const beachSlope = smoothstep(0.85, 0.92, effectiveDist);
+    const deepOcean = smoothstep(0.92, 1.25, effectiveDist);
+    return 1.8 * (1.0 - beachSlope) - 4.5 * beachSlope - deepOcean * 18.0;
   }
 
-  const inlandFactor = smoothstep(0.84, 0.68, effectiveDist);
-  const rollingNoise = (fbm(x * 0.0022, z * 0.0022, 4) + 1.0) * 0.5;
-  let height = 3.5 + rollingNoise * 10.0 * inlandFactor;
+  const inlandFactor = smoothstep(0.85, 0.68, effectiveDist);
+  const rollingNoise = (fbm(x * 0.0022, z * 0.0022, 3) + 1.0) * 0.5;
+  let height = 3.2 + rollingNoise * 9.0 * inlandFactor;
 
-  const v1Mask = 1.0 - smoothstep(105, 195, Math.hypot(x - 365, z));
+  // Wide Flat Terraces for all 3 Villages & River Bridge Approaches (Y = 8.5m)
+  const dV1 = Math.hypot(x - 345, z);
+  const v1Mask = dV1 < 125 ? 1.0 : 1.0 - smoothstep(125, 195, dV1);
   height = height * (1 - v1Mask) + 8.5 * v1Mask;
 
-  const v2Mask = 1.0 - smoothstep(105, 190, Math.hypot(x + 280, z - 240));
+  const dV2 = Math.hypot(x + 280, z - 240);
+  const v2Mask = dV2 < 95 ? 1.0 : 1.0 - smoothstep(95, 160, dV2);
   height = height * (1 - v2Mask) + 7.5 * v2Mask;
 
-  const v3Mask = 1.0 - smoothstep(100, 185, Math.hypot(x + 245, z + 95));
+  const dV3 = Math.hypot(x + 245, z + 95);
+  const v3Mask = dV3 < 92 ? 1.0 : 1.0 - smoothstep(92, 155, dV3);
   height = height * (1 - v3Mask) + 8.0 * v3Mask;
 
-  const distKingdom = Math.hypot(x, z - 395);
+  const dKing = Math.hypot(x, z - 395);
   const southHarborSlope = z > 480 ? smoothstep(480, 535, z) : 0;
-  const kingdomMask = (1.0 - smoothstep(135, 220, distKingdom)) * (1.0 - southHarborSlope);
+  const kingdomMask = (dKing < 110 ? 1.0 : 1.0 - smoothstep(110, 190, dKing)) * (1.0 - southHarborSlope);
   height = height * (1 - kingdomMask) + 22.0 * kingdomMask;
 
-  const shrineMask = 1.0 - smoothstep(75, 145, Math.hypot(x + 310, z + 310));
+  const dShrine = Math.hypot(x + 310, z + 310);
+  const shrineMask = dShrine < 72 ? 1.0 : 1.0 - smoothstep(72, 135, dShrine);
   height = height * (1 - shrineMask) + 18.5 * shrineMask;
 
-  if (z < -210 && x > -220) {
-    const northT = smoothstep(-210, -480, z) * smoothstep(-220, -130, x);
-    const smoothWave = (fbm(x * 0.0032, z * 0.0032, 3) + 1.0) * 0.5;
-    const valleyPassMask = Math.exp(-Math.pow(x / 68, 2));
-    const alpineElevation = 18.0 + smoothWave * 68.0 * (1.0 - valleyPassMask * 0.72);
+  // Ultra-Smooth Soft Pillowy Snow Mountains & Gently Sloped Valley (Reference Image 31)
+  if (z < -200 && x > -220) {
+    const northT = smoothstep(-200, -460, z) * smoothstep(-220, -130, x);
+    const softRolling = (fbm(x * 0.0022, z * 0.0022, 2) + 1.0) * 0.5;
+    const valleyBasin = Math.exp(-Math.pow(x / 95, 2));
+    const alpineElevation = 15.0 + softRolling * 52.0 * (1.0 - valleyBasin * 0.85);
     height += alpineElevation * northT * inlandFactor;
   }
 
@@ -122,7 +126,18 @@ export function getTerrainHeight(x: number, z: number): number {
     height = height * (1 - southBeachT * 0.62);
   }
 
-  return Math.max(3.0, height);
+  // Ensure riverbanks along the entire river corridor are at least 8.4m high before carving the 4.6m channel!
+  const rDist = getRiverDistance(x, z);
+  if (rDist < 42.0) {
+    const bankLift = 1.0 - smoothstep(14.0, 42.0, rDist);
+    height = Math.max(height, height * (1.0 - bankLift) + 8.45 * bankLift);
+  }
+  if (rDist < 22.0) {
+    const rMask = rDist < 11.5 ? 1.0 : 1.0 - smoothstep(11.5, 22.0, rDist);
+    height = height * (1.0 - rMask) + 6.95 * rMask;
+  }
+
+  return height;
 }
 
 export function getExactMeshTerrainHeight(x: number, z: number): number {
@@ -157,31 +172,40 @@ export function getTerrainSlope(x: number, z: number): number {
   return Math.hypot((hR - hL) / (2 * eps), (hU - hD) / (2 * eps));
 }
 
-// Walkable surface height including Piers, Fortress Rampart Stairs & Walls, and Palace Interior!
-export function getWalkableHeight(x: number, z: number): number {
+export function getWalkableHeight(x: number, z: number, currentY = 22.0): number {
   let h = getExactMeshTerrainHeight(x, z);
 
-  // 1. West Beach Pier
-  if (x >= -586 && x <= -528 && Math.abs(z) <= 2.8) return Math.max(h, 2.4);
-  // 2. South Harbor Pier
-  if (Math.abs(x) <= 6.2 && z >= 525 && z <= 592) return Math.max(h, 2.4);
+  // 1. West Beach Pier & South Harbor Pier (Top at Y = 1.8m)
+  if (x >= -586 && x <= -525 && Math.abs(z) <= 2.8) return Math.max(h, 1.8);
+  if (Math.abs(x) <= 6.2 && z >= 525 && z <= 592) return Math.max(h, 1.8);
 
-  // 3. Royal Kingdom Fortress Ramparts & Wide Stone Stairs (Base Y = 22.0m, Top of Wall = 38.0m)
+  // 2. Solid Flush River Bridge at X: 224..266, Z: -4.6..+4.6 -> Exact Top Deck at Y = 8.55m (Zero sinking!)
+  if (x >= 224 && x <= 266 && Math.abs(z) <= 4.6) {
+    return Math.max(h, 8.55);
+  }
+
+  // 3. Enterable Maple Shrine Steps & Interior Hall (X: -324..-296, Z: -326..-298)
+  if (x >= -323 && x <= -297 && z >= -324 && z <= -298) {
+    return 19.3;
+  }
+  if (x >= -315 && x <= -305 && z > -298 && z <= -292) {
+    const stepT = 1.0 - (z - -298) / 6.0;
+    return 18.5 + stepT * 0.8;
+  }
+
+  // 4. Royal Kingdom Fortress Ramparts & Palace Interior
   const kBase = 22.0;
-  // Left & Right Interior Stone Staircases leading up to North Wall (Z: 318..324, |X|: 18..36)
   if (z >= 317.5 && z <= 324.5 && Math.abs(x) >= 18 && Math.abs(x) <= 36) {
     const t = (Math.abs(x) - 18) / 18.0;
-    return kBase + t * 16.0;
+    const stairY = kBase + t * 16.0;
+    if (currentY >= stairY - 3.5) return stairY;
   }
-  // Top of North, South, East & West Fortress Battlement Walkways (Y = 38.0m)
-  const onNorthWall = Math.abs(z - 315) <= 3.6 && Math.abs(x) >= 14 && Math.abs(x) <= 86;
-  const onSouthWall = Math.abs(z - 472) <= 3.6 && Math.abs(x) >= 14 && Math.abs(x) <= 86;
-  const onSideWall = Math.abs(Math.abs(x) - 84) <= 3.6 && z >= 312 && z <= 475;
-  if (onNorthWall || onSouthWall || onSideWall) {
-    return kBase + 16.0;
+  if (currentY > 31.0) {
+    const onNorthWall = Math.abs(z - 315) <= 3.6 && Math.abs(x) >= 14 && Math.abs(x) <= 86;
+    const onSouthWall = Math.abs(z - 472) <= 3.6 && Math.abs(x) >= 14 && Math.abs(x) <= 86;
+    const onSideWall = Math.abs(Math.abs(x) - 84) <= 3.6 && z >= 312 && z <= 475;
+    if (onNorthWall || onSouthWall || onSideWall) return kBase + 16.0;
   }
-
-  // 4. Inside Royal Palace Great Hall (X: -32..32, Z: 428..462)
   if (Math.abs(x) <= 32 && z >= 428 && z <= 462) {
     if (Math.abs(x) <= 9 && z >= 452 && z <= 461) {
       const stepT = Math.min(1, (z - 452) / 3.5);
@@ -189,9 +213,10 @@ export function getWalkableHeight(x: number, z: number): number {
     }
     if (Math.abs(x) >= 22 && Math.abs(x) <= 30 && z >= 432 && z <= 448) {
       const stairT = (z - 432) / 16.0;
-      return kBase + 0.3 + stairT * 8.2;
+      const stairY = kBase + 0.3 + stairT * 8.2;
+      if (currentY >= stairY - 2.5) return stairY;
     }
-    if (Math.abs(x) >= 14 && z >= 448 && z <= 461) {
+    if (currentY > 28.0 && Math.abs(x) >= 14 && z >= 448 && z <= 461) {
       return kBase + 8.5;
     }
     return kBase + 0.3;
@@ -200,7 +225,6 @@ export function getWalkableHeight(x: number, z: number): number {
   return h;
 }
 
-// --- GROUPED 3D COLLIDER & INTERACTIVE DOOR SYSTEM (Never Wipes Other Biomes!) ---
 export interface SolidBox { group: string; minX: number; maxX: number; minZ: number; maxZ: number; maxY?: number; }
 export interface SolidCircle { group: string; x: number; z: number; r: number; }
 export interface InteractiveDoor {
@@ -319,7 +343,6 @@ export function resolveObstacleCollisions(x: number, z: number, radius = 0.55, p
 
   for (let i = 0; i < SOLID_BOXES.length; i++) {
     const b = SOLID_BOXES[i];
-    // If player is standing on top of a fortress wall or stairs (playerY >= b.maxY), do NOT block!
     if (b.maxY !== undefined && playerY >= b.maxY - 0.6) continue;
     const exMinX = b.minX - radius, exMaxX = b.maxX + radius;
     const exMinZ = b.minZ - radius, exMaxZ = b.maxZ + radius;
@@ -335,4 +358,10 @@ export function resolveObstacleCollisions(x: number, z: number, radius = 0.55, p
   }
 
   return [nx, nz];
+}
+
+// Fallback export for noise2D used by Terrain.tsx
+export function noise2D(x: number, y: number): number {
+  if (typeof getNoise === 'function') return getNoise(x, y);
+  return Math.sin(x * 1.5) * Math.cos(y * 1.5);
 }

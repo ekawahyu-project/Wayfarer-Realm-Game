@@ -3,7 +3,9 @@
 import { useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { getExactMeshTerrainHeight } from "@/utils/noise";
+import { getWalkableHeight } from "@/utils/noise";
+import { playerFrameState } from "@/game/state/usePlayerStore";
+import { getSculptedHumanGeometries } from "@/game/player/PlayerModel";
 import { NPCS } from "./npcData";
 
 export const npcLivePositions: Record<string, { x: number; y: number; z: number }> = {};
@@ -18,29 +20,28 @@ interface CrowdPerson {
   capeColor: string;
   hairColor: string;
   isInteractive: boolean;
-  hasStaff: boolean;
+  hasCrown: boolean;
 }
 
-// Shared geometries so 42 articulated human NPCs render with minimal memory & 60 FPS!
-const headGeo = new THREE.SphereGeometry(0.165, 12, 12);
-const hairGeo = new THREE.SphereGeometry(0.175, 12, 12);
-const eyeGeo = new THREE.SphereGeometry(0.025, 8, 8);
-const torsoGeo = new THREE.CylinderGeometry(0.145, 0.175, 0.44, 10);
-const skirtGeo = new THREE.CylinderGeometry(0.165, 0.26, 0.28, 12);
-const capeGeo = new THREE.BoxGeometry(0.36, 0.62, 0.025);
-const limbGeo = new THREE.CapsuleGeometry(0.052, 0.34, 6, 8);
-const skinMat = new THREE.MeshStandardMaterial({ color: "#ffdfc4", roughness: 0.45 });
+const headGeo = new THREE.SphereGeometry(0.148, 16, 16);
+const hairGeo = new THREE.SphereGeometry(0.158, 16, 14);
+const neckGeo = new THREE.CylinderGeometry(0.05, 0.06, 0.14, 10);
+const crownGeo = new THREE.CylinderGeometry(0.13, 0.11, 0.11, 8);
+const eyeGeo = new THREE.SphereGeometry(0.022, 8, 8);
+const skinMat = new THREE.MeshPhysicalMaterial({ color: "#ffe2cc", roughness: 0.4, sheen: 0.3 });
 const eyeDarkMat = new THREE.MeshStandardMaterial({ color: "#0f172a" });
-const pantMat = new THREE.MeshStandardMaterial({ color: "#1e293b", roughness: 0.8 });
+const pantMat = new THREE.MeshStandardMaterial({ color: "#1e293b", roughness: 0.78 });
+const leatherBeltMat = new THREE.MeshStandardMaterial({ color: "#451a03", roughness: 0.75 });
+const goldCrownMat = new THREE.MeshStandardMaterial({ color: "#fbbf24", metalness: 0.85, roughness: 0.2 });
 
 export default function NPCSystem() {
+  const geos = useMemo(() => getSculptedHumanGeometries(), []);
   const groupRefs = useRef<(THREE.Group | null)[]>([]);
-  const leftLegRefs = useRef<(THREE.Mesh | null)[]>([]);
-  const rightLegRefs = useRef<(THREE.Mesh | null)[]>([]);
-  const leftArmRefs = useRef<(THREE.Mesh | null)[]>([]);
-  const rightArmRefs = useRef<(THREE.Mesh | null)[]>([]);
+  const leftLegRefs = useRef<(THREE.Group | null)[]>([]);
+  const rightLegRefs = useRef<(THREE.Group | null)[]>([]);
+  const leftArmRefs = useRef<(THREE.Group | null)[]>([]);
+  const rightArmRefs = useRef<(THREE.Group | null)[]>([]);
 
-  // Combine 10 Interactive Story NPCs + 32 Bustling Townspeople across all 3 Villages, Markets & Kingdom!
   const allPeople = useMemo<CrowdPerson[]>(() => {
     const list: CrowdPerson[] = [];
     const hairs = ["#1e1b18", "#5c3317", "#9a3412", "#b45309", "#374151"];
@@ -57,25 +58,20 @@ export default function NPCSystem() {
         capeColor: n.hatColor,
         hairColor: hairs[idx % hairs.length],
         isInteractive: true,
-        hasStaff: Boolean(n.useSorceressModel),
+        hasCrown: Boolean(n.hasCrown),
       });
     });
 
-    // 32 Extra Villagers, Market Shoppers, Fishermen & Royal Citizens
     const extraCoords: [number, number, number, number][] = [
-      // East Market Village Crowd (14 people)
-      [345, 0, 12, 0], [365, -3, 8, 2], [380, 2, -10, 0], [332, -12, 6, 0],
-      [352, 12, 8, 0], [375, -12, -7, 0], [392, 12, 6, 0], [340, -25, 0, 8],
-      [388, 25, 0, -8], [405, 0, 0, 10], [322, 0, 8, 3], [360, 28, 7, 0],
-      [360, -28, -7, 0], [418, -2, 0, 6],
-      // SW Fishing Village Crowd (7 people)
-      [-292, 240, 8, 0], [-278, 242, -7, 2], [-266, 238, 6, 0], [-285, 220, 7, 0],
-      [-272, 260, -6, 0], [-302, 236, 0, 6], [-255, 242, 0, -6],
-      // West Forest Village Crowd (6 people)
-      [-256, -95, 7, 0], [-242, -93, -6, 2], [-230, -96, 6, 0], [-248, -118, 6, 0],
-      [-238, -72, -6, 0], [-265, -95, 0, 5],
-      // Royal Kingdom Plaza & Avenues Crowd (5 people)
-      [-8, 380, 0, 12], [8, 405, 0, -12], [-24, 395, 8, 0], [24, 395, -8, 0], [0, 345, 6, 6],
+      [345, -2, 12, 0], [372, 2, -10, 0], [332, -11, 7, 0], [352, 11, 8, 0],
+      [378, -11, -7, 0], [392, 11, 6, 0], [340, -26, 8, 0], [388, 26, -8, 0],
+      [405, 0, 0, 10], [322, 0, 8, 0], [360, 28, 7, 0], [360, -28, -7, 0],
+      [-295, 238, 10, 0], [-265, 242, -10, 0], [-290, 229, 7, 0], [-270, 251, -7, 0],
+      [-305, 240, 0, 8], [-255, 240, 0, -8], [-285, 212, 8, 0], [-275, 268, -8, 0],
+      [-260, -93, 10, 0], [-230, -97, -10, 0], [-255, -104, 7, 0], [-235, -86, -7, 0],
+      [-270, -95, 0, 8], [-220, -95, 0, -8], [-250, -122, 8, 0], [-240, -68, -8, 0],
+      [-4.5, 448, 0, 0], [4.5, 448, 0, 0], [-4.5, 436, 0, 0], [4.5, 436, 0, 0],
+      [-8, 380, 0, 12], [8, 405, 0, -12],
     ];
 
     extraCoords.forEach(([x, z, dx, dz], idx) => {
@@ -86,36 +82,42 @@ export default function NPCSystem() {
         capeColor: coats[(idx + 3) % coats.length],
         hairColor: hairs[idx % hairs.length],
         isInteractive: false,
-        hasStaff: false,
+        hasCrown: false,
       });
     });
 
     return list;
   }, []);
 
-  // Single centralized useFrame loop animates all 42 NPCs in < 0.15ms CPU time!
   useFrame((state) => {
     const time = state.clock.elapsedTime;
     for (let i = 0; i < allPeople.length; i++) {
       const grp = groupRefs.current[i];
       if (!grp) continue;
       const p = allPeople[i];
+      const distSq = (p.x - playerFrameState.x) * (p.x - playerFrameState.x) + (p.z - playerFrameState.z) * (p.z - playerFrameState.z);
+      grp.visible = distSq < 135 * 135;
+      if (!grp.visible) continue;
+
+      const isMoving = Math.abs(p.dx) + Math.abs(p.dz) > 0.01;
       const t = time * 0.55 + i * 1.3;
-      const wave = Math.sin(t);
+      const wave = isMoving ? Math.sin(t) : 0;
       const wx = p.x + p.dx * wave;
       const wz = p.z + p.dz * wave;
-      const wy = getExactMeshTerrainHeight(wx, wz);
+      const wy = getWalkableHeight(wx, wz);
 
       const walkPhase = time * 7.5 + i * 2.1;
-      const swing = Math.sin(walkPhase) * 0.55;
-      const bounce = Math.abs(Math.sin(walkPhase)) * 0.04;
+      const swing = isMoving ? Math.sin(walkPhase) * 0.55 : 0;
+      const bounce = isMoving ? Math.abs(Math.sin(walkPhase)) * 0.04 : Math.sin(time * 2 + i) * 0.008;
 
-      grp.position.set(wx, wy + bounce, wz);
+      grp.position.set(wx, wy + 0.74 + bounce, wz);
 
-      const vx = p.dx * Math.cos(t);
-      const vz = p.dz * Math.cos(t);
-      if (Math.abs(vx) + Math.abs(vz) > 0.01) {
+      if (isMoving) {
+        const vx = p.dx * Math.cos(t);
+        const vz = p.dz * Math.cos(t);
         grp.rotation.y = Math.atan2(vx, vz);
+      } else {
+        grp.rotation.y = Math.PI;
       }
 
       if (leftLegRefs.current[i] && rightLegRefs.current[i]) {
@@ -134,39 +136,58 @@ export default function NPCSystem() {
   });
 
   return (
-    <group name="bustling-world-npcs">
+    <group name="sculpted-human-npcs">
       {allPeople.map((p, i) => (
         <group key={p.id} ref={(el) => { groupRefs.current[i] = el; }}>
-          {/* Articulated Legs */}
-          <mesh ref={(el) => { leftLegRefs.current[i] = el; }} geometry={limbGeo} material={pantMat} position={[-0.09, 0.32, 0]} castShadow />
-          <mesh ref={(el) => { rightLegRefs.current[i] = el; }} geometry={limbGeo} material={pantMat} position={[0.09, 0.32, 0]} castShadow />
-          {/* Tunic & Coat */}
-          <mesh geometry={skirtGeo} position={[0, 0.62, 0]} castShadow>
-            <meshStandardMaterial color={p.capeColor} roughness={0.7} />
+          {/* Fitted Human Torso, Rounded Pelvis & Belt (Zero Lego cone!) */}
+          <mesh geometry={geos.torsoTunic} position={[0, 0.04, 0]} castShadow>
+            <meshPhysicalMaterial color={p.coatColor} roughness={0.55} sheen={0.35} />
           </mesh>
-          <mesh geometry={torsoGeo} position={[0, 0.88, 0]} castShadow>
-            <meshStandardMaterial color={p.coatColor} roughness={0.65} />
+          <mesh position={[0, -0.12, 0]} scale={[1.12, 0.85, 0.74]} material={pantMat}>
+            <sphereGeometry args={[0.135, 12, 10]} />
           </mesh>
-          <mesh geometry={capeGeo} position={[0, 0.82, -0.14]} rotation={[0.18, 0, 0]} castShadow>
-            <meshStandardMaterial color={p.capeColor} roughness={0.75} />
+          <mesh position={[0, -0.01, 0]} scale={[1.12, 1, 0.74]} material={leatherBeltMat}>
+            <cylinderGeometry args={[0.126, 0.130, 0.055, 14]} />
           </mesh>
-          {/* Articulated Arms */}
-          <mesh ref={(el) => { leftArmRefs.current[i] = el; }} geometry={limbGeo} material={skinMat} position={[-0.21, 0.86, 0]} castShadow />
-          <mesh ref={(el) => { rightArmRefs.current[i] = el; }} geometry={limbGeo} material={skinMat} position={[0.21, 0.86, 0]} castShadow />
-          {/* Head, Eyes & Hair */}
-          <group position={[0, 1.24, 0]}>
-            <mesh geometry={headGeo} material={skinMat} castShadow />
-            <mesh geometry={eyeGeo} material={eyeDarkMat} position={[-0.055, 0.015, 0.145]} />
-            <mesh geometry={eyeGeo} material={eyeDarkMat} position={[0.055, 0.015, 0.145]} />
-            <mesh geometry={hairGeo} position={[0, 0.04, -0.02]} castShadow>
-              <meshStandardMaterial color={p.hairColor} roughness={0.65} />
-            </mesh>
+          <mesh geometry={neckGeo} material={skinMat} position={[0, 0.43, 0]} />
+
+          {/* Articulated Human Legs */}
+          <group ref={(el) => { leftLegRefs.current[i] = el; }} position={[-0.082, -0.15, 0]}>
+            <mesh geometry={geos.thigh} material={pantMat} />
+            <mesh geometry={geos.calfBoot} material={leatherBeltMat} position={[0, -0.27, 0]} />
           </group>
-          {/* Floating Quest/Dialogue Crystal for Interactive NPCs */}
+          <group ref={(el) => { rightLegRefs.current[i] = el; }} position={[0.082, -0.15, 0]}>
+            <mesh geometry={geos.thigh} material={pantMat} />
+            <mesh geometry={geos.calfBoot} material={leatherBeltMat} position={[0, -0.27, 0]} />
+          </group>
+
+          {/* Relaxed Human Arms & Smooth Sculpted Hands */}
+          <group ref={(el) => { leftArmRefs.current[i] = el; }} position={[-0.162, 0.30, 0]} rotation={[0, 0, 0.12]}>
+            <mesh geometry={geos.upperArm}><meshStandardMaterial color={p.coatColor} roughness={0.6} /></mesh>
+            <mesh geometry={geos.forearm} material={skinMat} position={[0, -0.19, 0]} />
+            <mesh position={[0, -0.39, 0.005]} scale={[0.72, 1.25, 0.42]} material={skinMat}><sphereGeometry args={[0.036, 10, 8]} /></mesh>
+          </group>
+          <group ref={(el) => { rightArmRefs.current[i] = el; }} position={[0.162, 0.30, 0]} rotation={[0, 0, -0.12]}>
+            <mesh geometry={geos.upperArm}><meshStandardMaterial color={p.coatColor} roughness={0.6} /></mesh>
+            <mesh geometry={geos.forearm} material={skinMat} position={[0, -0.19, 0]} />
+            <mesh position={[0, -0.39, 0.005]} scale={[0.72, 1.25, 0.42]} material={skinMat}><sphereGeometry args={[0.036, 10, 8]} /></mesh>
+          </group>
+
+          {/* Contoured Oval Human Head, Eyes & Hair */}
+          <group position={[0, 0.52, 0.01]} scale={[0.84, 0.86, 0.84]}>
+            <mesh geometry={headGeo} material={skinMat} scale={[0.85, 1.04, 0.90]} />
+            <mesh geometry={eyeGeo} material={eyeDarkMat} position={[-0.048, 0.01, 0.125]} />
+            <mesh geometry={eyeGeo} material={eyeDarkMat} position={[0.048, 0.01, 0.125]} />
+            <mesh geometry={hairGeo} position={[0, 0.045, -0.015]} scale={[0.92, 1.02, 0.98]}>
+              <meshPhysicalMaterial color={p.hairColor} roughness={0.45} sheen={0.5} />
+            </mesh>
+            {p.hasCrown && <mesh geometry={crownGeo} material={goldCrownMat} position={[0, 0.19, 0]} />}
+          </group>
+
           {p.isInteractive && (
-            <mesh position={[0, 1.72, 0]}>
+            <mesh position={[0, 0.98, 0]}>
               <octahedronGeometry args={[0.11, 0]} />
-              <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={2.2} />
+              <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={2.5} />
             </mesh>
           )}
         </group>

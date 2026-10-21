@@ -9,7 +9,7 @@ import { playerFrameState } from "@/game/state/usePlayerStore";
 import { globalUniforms } from "./globalUniforms";
 
 const SHADOW_FRUSTUM = 95;
-const SHADOW_MAP_SIZE = 2048;
+const SHADOW_MAP_SIZE = 1024;
 
 export default function TimeOfDay() {
   const { gl } = useThree();
@@ -70,7 +70,7 @@ export default function TimeOfDay() {
     const sunAngle = ((currentHour - 6) / 24) * Math.PI * 2;
     const sunY = Math.sin(sunAngle);
     const sunX = Math.cos(sunAngle);
-    const sunZ = 0.32;
+    const sunZ = -0.58;
 
     globalUniforms.uSunDir.value.set(sunX, sunY, sunZ).normalize();
     globalUniforms.uMoonDir.value.set(-sunX, -sunY, -sunZ).normalize();

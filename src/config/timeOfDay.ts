@@ -21,13 +21,13 @@ export interface TimeKeyframe {
 }
 
 export const TIME_KEYFRAMES: TimeKeyframe[] = [
-  { hour: 0.0, phase: "night", labelId: "Malam", skyTop: "#0b1528", skyHorizon: "#1e3a5f", sunColor: "#bae6fd", sunIntensity: 0.65, ambientColor: "#475569", ambientGround: "#1e293b", ambientIntensity: 0.52, fogColor: "#172554", fogDensity: 0.0008, exposure: 1.12, windowGlow: 1.0, nightFactor: 1.0 },
-  { hour: 5.0, phase: "dawn", labelId: "Fajar", skyTop: "#3b2d54", skyHorizon: "#f97316", sunColor: "#fdba74", sunIntensity: 0.75, ambientColor: "#7c3aed", ambientGround: "#3b1d5e", ambientIntensity: 0.55, fogColor: "#c084fc", fogDensity: 0.0012, exposure: 1.05, windowGlow: 0.8, nightFactor: 0.55 },
-  { hour: 7.0, phase: "morning", labelId: "Pagi", skyTop: "#0284c7", skyHorizon: "#bae6fd", sunColor: "#fef08a", sunIntensity: 1.35, ambientColor: "#e0f2fe", ambientGround: "#3f6212", ambientIntensity: 0.68, fogColor: "#bae6fd", fogDensity: 0.0008, exposure: 1.12, windowGlow: 0.0, nightFactor: 0.0 },
-  { hour: 12.0, phase: "noon", labelId: "Siang", skyTop: "#0369a1", skyHorizon: "#e0f2fe", sunColor: "#ffffff", sunIntensity: 1.55, ambientColor: "#f0f9ff", ambientGround: "#4d7c0f", ambientIntensity: 0.78, fogColor: "#e0f2fe", fogDensity: 0.0006, exposure: 1.18, windowGlow: 0.0, nightFactor: 0.0 },
-  { hour: 15.5, phase: "afternoon", labelId: "Sore", skyTop: "#1d4ed8", skyHorizon: "#f59e0b", sunColor: "#fbbf24", sunIntensity: 1.25, ambientColor: "#fde68a", ambientGround: "#4c1d95", ambientIntensity: 0.65, fogColor: "#fcd34d", fogDensity: 0.0009, exposure: 1.10, windowGlow: 0.35, nightFactor: 0.2 },
-  { hour: 18.0, phase: "dusk", labelId: "Senja", skyTop: "#3b0764", skyHorizon: "#ea580c", sunColor: "#fb923c", sunIntensity: 0.85, ambientColor: "#a21caf", ambientGround: "#312e81", ambientIntensity: 0.55, fogColor: "#9a3412", fogDensity: 0.0011, exposure: 1.08, windowGlow: 0.95, nightFactor: 0.75 },
-  { hour: 20.0, phase: "night", labelId: "Malam", skyTop: "#0b1528", skyHorizon: "#1e3a5f", sunColor: "#bae6fd", sunIntensity: 0.65, ambientColor: "#475569", ambientGround: "#1e293b", ambientIntensity: 0.52, fogColor: "#172554", fogDensity: 0.0008, exposure: 1.12, windowGlow: 1.0, nightFactor: 1.0 },
+  { hour: 0.0, phase: "night", labelId: "Malam", skyTop: "#081226", skyHorizon: "#1e3a5f", sunColor: "#bae6fd", sunIntensity: 0.62, ambientColor: "#64748b", ambientGround: "#334155", ambientIntensity: 0.65, fogColor: "#0f1e36", fogDensity: 0.0005, exposure: 1.08, windowGlow: 1.0, nightFactor: 1.0 },
+  { hour: 5.0, phase: "dawn", labelId: "Fajar", skyTop: "#312e81", skyHorizon: "#fb923c", sunColor: "#fed7aa", sunIntensity: 1.15, ambientColor: "#c084fc", ambientGround: "#4c1d95", ambientIntensity: 0.78, fogColor: "#d8b4fe", fogDensity: 0.0006, exposure: 1.12, windowGlow: 0.5, nightFactor: 0.4 },
+  { hour: 7.0, phase: "morning", labelId: "Pagi", skyTop: "#0284c7", skyHorizon: "#e0f2fe", sunColor: "#fffbeb", sunIntensity: 1.85, ambientColor: "#f0f9ff", ambientGround: "#65a30d", ambientIntensity: 1.08, fogColor: "#e0f2fe", fogDensity: 0.0004, exposure: 1.24, windowGlow: 0.0, nightFactor: 0.0 },
+  { hour: 12.0, phase: "noon", labelId: "Siang", skyTop: "#0369a1", skyHorizon: "#e0f2fe", sunColor: "#ffffff", sunIntensity: 1.95, ambientColor: "#ffffff", ambientGround: "#65a30d", ambientIntensity: 1.15, fogColor: "#e0f2fe", fogDensity: 0.00035, exposure: 1.26, windowGlow: 0.0, nightFactor: 0.0 },
+  { hour: 15.5, phase: "afternoon", labelId: "Sore", skyTop: "#1d4ed8", skyHorizon: "#fbbf24", sunColor: "#fde68a", sunIntensity: 1.65, ambientColor: "#fef3c7", ambientGround: "#78350f", ambientIntensity: 0.98, fogColor: "#fde68a", fogDensity: 0.0005, exposure: 1.20, windowGlow: 0.35, nightFactor: 0.12 },
+  { hour: 18.0, phase: "dusk", labelId: "Senja", skyTop: "#3b0764", skyHorizon: "#f97316", sunColor: "#fdba74", sunIntensity: 1.05, ambientColor: "#a855f7", ambientGround: "#3b0764", ambientIntensity: 0.75, fogColor: "#c2410c", fogDensity: 0.0006, exposure: 1.12, windowGlow: 0.9, nightFactor: 0.65 },
+  { hour: 20.0, phase: "night", labelId: "Malam", skyTop: "#081226", skyHorizon: "#1e3a5f", sunColor: "#bae6fd", sunIntensity: 0.62, ambientColor: "#64748b", ambientGround: "#334155", ambientIntensity: 0.65, fogColor: "#0f1e36", fogDensity: 0.0005, exposure: 1.08, windowGlow: 1.0, nightFactor: 1.0 },
 ];
 
 export interface InterpolatedTimeSample {
@@ -62,18 +62,13 @@ export function getPhaseFromHour(hour: number): { phase: TimePhase; labelId: str
 
 export function sampleTimeOfDay(hour: number, target: InterpolatedTimeSample): void {
   const h = ((hour % 24) + 24) % 24;
-  let k0 = TIME_KEYFRAMES[0];
-  let k1 = TIME_KEYFRAMES[0];
-  let span = 24;
+  let k0 = TIME_KEYFRAMES[0], k1 = TIME_KEYFRAMES[0], span = 24;
   for (let i = 0; i < TIME_KEYFRAMES.length; i++) {
     const curr = TIME_KEYFRAMES[i];
     const next = TIME_KEYFRAMES[(i + 1) % TIME_KEYFRAMES.length];
     const nextHour = i === TIME_KEYFRAMES.length - 1 ? next.hour + 24 : next.hour;
     if (h >= curr.hour && h <= nextHour) {
-      k0 = curr;
-      k1 = next;
-      span = nextHour - curr.hour;
-      break;
+      k0 = curr; k1 = next; span = nextHour - curr.hour; break;
     }
   }
   const rawT = span > 0 ? (h - k0.hour) / span : 0;

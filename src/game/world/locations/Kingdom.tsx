@@ -12,6 +12,7 @@ import {
 } from "@/utils/noise";
 import { getWorldTextures } from "@/utils/proceduralTextures";
 import { globalUniforms } from "@/game/systems/globalUniforms";
+import { playerFrameState } from "@/game/state/usePlayerStore";
 
 const KINGDOM_X = 0;
 const KINGDOM_Z = 395;
@@ -19,29 +20,32 @@ const KINGDOM_Z = 395;
 export default function Kingdom() {
   const baseY = useMemo(() => getExactMeshTerrainHeight(KINGDOM_X, KINGDOM_Z), []);
   const textures = useMemo(() => getWorldTextures(), []);
+  const kingdomRootRef = useRef<THREE.Group>(null);
 
   const fortressGateLeftRef = useRef<THREE.Group>(null);
   const fortressGateRightRef = useRef<THREE.Group>(null);
   const palaceDoorLeftRef = useRef<THREE.Group>(null);
   const palaceDoorRightRef = useRef<THREE.Group>(null);
 
-  const stoneWallMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.kingdomStone, color: "#d8b4e2", roughness: 0.82 }), [textures.kingdomStone]);
-  const stoneAltMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.kingdomStone, color: "#c4b5fd", roughness: 0.84 }), [textures.kingdomStone]);
-  const fortressMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.kingdomStone, color: "#94a3b8", roughness: 0.88 }), [textures.kingdomStone]);
-  const redRoofMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#e11d48", roughness: 0.75 }), [textures.redRoof]);
-  const darkRoofMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#be123c", roughness: 0.76 }), [textures.redRoof]);
-  const woodDoorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#5c3818", roughness: 0.8 }), [textures.woodPlanks]);
+  // Authentic Medieval Stone, Terracotta Roof, Timber & Heraldic Banner Palette matching Foundation Reference (images_2.jpg)!
+  const medievalStoneMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#e2e8f0", roughness: 0.78 }), [textures.villageStone]);
+  const darkStoneTrimMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#cbd5e1", roughness: 0.82 }), [textures.villageStone]);
+  const terracottaRoofMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#dc2626", roughness: 0.72 }), [textures.redRoof]);
+  const darkTileRoofMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#7f271b", roughness: 0.80 }), [textures.redRoof]);
+  const timberWallMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#d6cfc2", roughness: 0.84 }), [textures.halfTimber]);
+  const woodDoorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#5c3818", roughness: 0.82 }), [textures.woodPlanks]);
+  const cypressMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.leafFoliage, color: "#2d5a27", roughness: 0.82 }), [textures.leafFoliage]);
+  const bannerBlueMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#1d4ed8", roughness: 0.7 }), []);
+  const bannerWhiteMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#f8fafc", roughness: 0.7 }), []);
   const marbleMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.royalMarble, roughness: 0.25, metalness: 0.1 }), [textures.royalMarble]);
   const goldMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fbbf24", metalness: 0.85, roughness: 0.2 }), []);
   const velvetMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#991b1b", roughness: 0.7 }), []);
-  const gothicWindowMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef08a", emissive: "#eab308", emissiveIntensity: 2.2 }), []);
-  const roseWindowMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fed7aa", emissive: "#f97316", emissiveIntensity: 2.4 }), []);
-  const clockFaceMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef9c3", emissive: "#facc15", emissiveIntensity: 3.0 }), []);
+  const warmWindowMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef08a", emissive: "#ea580c", emissiveIntensity: 1.8 }), []);
 
   useEffect(() => {
     clearGroupColliders("kingdom");
 
-    // Outer Fortress Walls with maxY = 36.5m so player can walk freely on top of the battlements (Y = 38.0m)!
+    // 1. Outer Stone Curtain Walls (Walkable on top at Y = 38.0m)
     addBoxCollider(-50, 315, 68, 5.5, "kingdom", 36.5);
     addBoxCollider(50,  315, 68, 5.5, "kingdom", 36.5);
     addBoxCollider(-84, 395, 5.5, 160, "kingdom", 36.5);
@@ -49,22 +53,21 @@ export default function Kingdom() {
     addBoxCollider(-50, 472, 68, 5.5, "kingdom", 36.5);
     addBoxCollider(50,  472, 68, 5.5, "kingdom", 36.5);
 
-    // Symmetrical Inner Twin Gatehouse Towers (Centered at X = -14 and X = +14 so X = 0 Main Avenue is 100% clear!)
-    addBoxCollider(-14, 371, 8.2, 8.2, "kingdom");
-    addBoxCollider(14,  371, 8.2, 8.2, "kingdom");
+    // 2. Inner Bailey Cloister & Guard Towers
+    addCircleCollider(-16, 368, 5.5, "kingdom");
+    addCircleCollider(16,  368, 5.5, "kingdom");
+    addBoxCollider(-48, 378, 18, 28, "kingdom");
+    addBoxCollider(48,  378, 18, 28, "kingdom");
+    addBoxCollider(-52, 422, 16, 26, "kingdom");
+    addBoxCollider(52,  422, 16, 26, "kingdom");
 
-    // Clocktower & Observatory (Placed on East Plaza Side)
-    addBoxCollider(25, 387, 10.5, 10.5, "kingdom");
-    addCircleCollider(-26, 387, 7.5, "kingdom");
-
-    // Enterable Royal Palace Cathedral Keep (Z = 428 to 463)
+    // 3. Central Multi-Towered Storrskog Citadel Keep (Enterable Great Hall at Z = 428..463)
     addBoxCollider(0,   463, 66, 2.5, "kingdom");
     addBoxCollider(-33, 445, 2.5, 36, "kingdom");
     addBoxCollider(33,  445, 2.5, 36, "kingdom");
     addBoxCollider(-19, 428, 28, 2.5, "kingdom");
     addBoxCollider(19,  428, 28, 2.5, "kingdom");
 
-    // Interactive Fortress Gate & Palace Grand Doors
     INTERACTIVE_DOORS.push({
       group: "kingdom",
       id: "kingdom_fortress_gate",
@@ -75,7 +78,7 @@ export default function Kingdom() {
       width: 12.0,
       height: 12.0,
       isOpen: true,
-      label: "Gerbang Benteng Kerajaan",
+      label: "Gerbang Benteng Batu",
     });
     INTERACTIVE_DOORS.push({
       group: "kingdom",
@@ -87,69 +90,118 @@ export default function Kingdom() {
       width: 9.0,
       height: 10.0,
       isOpen: true,
-      label: "Pintu Agung Istana Kerajaan",
+      label: "Pintu Agung Kastil Utama",
     });
 
-    // 4 Gothic Townhouse Avenues
-    addBoxCollider(-42, 399, 12.5, 108, "kingdom");
-    addBoxCollider(42,  399, 12.5, 108, "kingdom");
-    addBoxCollider(-66, 399, 12.5, 96, "kingdom");
-    addBoxCollider(66,  399, 12.5, 96, "kingdom");
-
-    // Statues, Harbor Lighthouse, Ship & NW Shrine
-    addBoxCollider(-11, 397, 3.8, 3.8, "kingdom");
-    addBoxCollider(11,  397, 3.8, 3.8, "kingdom");
+    // Harbor & Shrine Colliders
     addCircleCollider(24, 548, 4.2, "kingdom");
     addBoxCollider(-14, 578, 8.0, 20.0, "kingdom");
-    addBoxCollider(-310, -315, 26.0, 16.0, "kingdom");
   }, [baseY]);
 
   useFrame((_state, delta) => {
+    if (kingdomRootRef.current) kingdomRootRef.current.visible = playerFrameState.z > 85;
+    if (playerFrameState.z <= 85) return;
     const dt = Math.min(delta, 0.05);
     const night = globalUniforms.uNightFactor.value;
-    gothicWindowMat.emissiveIntensity = 0.75 + night * 3.4;
-    roseWindowMat.emissiveIntensity = 0.85 + night * 3.2;
-    clockFaceMat.emissiveIntensity = 1.0 + night * 3.8;
+    warmWindowMat.emissiveIntensity = 0.65 + night * 3.0;
 
     const fGate = INTERACTIVE_DOORS.find((d) => d.id === "kingdom_fortress_gate");
     if (fGate && fortressGateLeftRef.current && fortressGateRightRef.current) {
       const target = fGate.isOpen ? Math.PI * 0.48 : 0;
-      fortressGateLeftRef.current.rotation.y = THREE.MathUtils.lerp(fortressGateLeftRef.current.rotation.y, target, dt * 6);
-      fortressGateRightRef.current.rotation.y = THREE.MathUtils.lerp(fortressGateRightRef.current.rotation.y, -target, dt * 6);
+      fortressGateLeftRef.current.rotation.y = THREE.MathUtils.lerp(fortressGateLeftRef.current.rotation.y, -target, dt * 6);
+      fortressGateRightRef.current.rotation.y = THREE.MathUtils.lerp(fortressGateRightRef.current.rotation.y, target, dt * 6);
     }
-
     const pDoor = INTERACTIVE_DOORS.find((d) => d.id === "kingdom_palace_door");
     if (pDoor && palaceDoorLeftRef.current && palaceDoorRightRef.current) {
       const target = pDoor.isOpen ? Math.PI * 0.52 : 0;
-      palaceDoorLeftRef.current.rotation.y = THREE.MathUtils.lerp(palaceDoorLeftRef.current.rotation.y, target, dt * 6);
-      palaceDoorRightRef.current.rotation.y = THREE.MathUtils.lerp(palaceDoorRightRef.current.rotation.y, -target, dt * 6);
+      palaceDoorLeftRef.current.rotation.y = THREE.MathUtils.lerp(palaceDoorLeftRef.current.rotation.y, -target, dt * 6);
+      palaceDoorRightRef.current.rotation.y = THREE.MathUtils.lerp(palaceDoorRightRef.current.rotation.y, target, dt * 6);
     }
   });
 
+  // Reusable Crenellated Stone Bastion Tower (Matches Foundation Reference images_2.jpg!)
+  const BastionTower = ({ x, z, h = 22, r = 4.8, hasRoof = false, hasBanner = false }: { x: number; z: number; h?: number; r?: number; hasRoof?: boolean; hasBanner?: boolean }) => (
+    <group position={[x, 0, z]}>
+      <mesh castShadow receiveShadow position={[0, h * 0.5, 0]} material={medievalStoneMat}>
+        <cylinderGeometry args={[r, r * 1.08, h, 12]} />
+      </mesh>
+      {/* Projecting Stone Machicolation Ring & Crenellated Battlement Crown */}
+      <mesh position={[0, h - 0.8, 0]} material={darkStoneTrimMat}>
+        <cylinderGeometry args={[r * 1.14, r * 1.04, 1.8, 12]} />
+      </mesh>
+      {hasRoof ? (
+        <mesh castShadow position={[0, h + 3.6, 0]} material={terracottaRoofMat}>
+          <coneGeometry args={[r * 1.18, 7.2, 12]} />
+        </mesh>
+      ) : (
+        <mesh position={[0, h + 0.6, 0]} material={darkStoneTrimMat}>
+          <cylinderGeometry args={[r * 1.12, r * 1.12, 1.2, 10]} />
+        </mesh>
+      )}
+      {/* Blue & White Heraldic Vertical Banner (Like Foundation Reference images_2.jpg!) */}
+      {hasBanner && (
+        <group position={[0, h * 0.58, r + 0.15]}>
+          <mesh material={bannerBlueMat}><boxGeometry args={[1.4, 5.5, 0.08]} /></mesh>
+          <mesh position={[0, 0, 0.05]} material={bannerWhiteMat}><boxGeometry args={[0.7, 3.8, 0.04]} /></mesh>
+        </group>
+      )}
+    </group>
+  );
+
   return (
-    <group name="walled-fortress-kingdom-with-interior">
+    <group ref={kingdomRootRef} name="storrskog-medieval-citadel">
       <group position={[KINGDOM_X, baseY, KINGDOM_Z]}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} receiveShadow>
-          <circleGeometry args={[128, 48]} />
-          <meshStandardMaterial map={textures.cobblestone} color="#a89bb5" roughness={0.85} />
+        {/* Winding Stone Cobblestone Courtyard Paths surrounded by Green Grass Bailey (Like Reference images_2.jpg!) */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 8]} receiveShadow>
+          <circleGeometry args={[52, 36]} />
+          <meshStandardMaterial map={textures.cobblestone} color="#9ca3af" roughness={0.88} polygonOffset polygonOffsetFactor={-3} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.07, -40]} receiveShadow>
+          <planeGeometry args={[18, 82]} />
+          <meshStandardMaterial map={textures.cobblestone} color="#9ca3af" roughness={0.88} polygonOffset polygonOffsetFactor={-3} />
         </mesh>
 
-        {/* --- 1. OUTER FORTRESS WALLS, WALKABLE RAMPARTS, STAIRS & GATES --- */}
-        {[-50, 50].map((wx, i) => (
+        {/* --- 1. OUTER CRENELLATED STONE CURTAIN WALLS & 14 BASTION TOWERS (Foundation Reference images_2.jpg) --- */}
+        {[-47, 47].map((wx, i) => (
           <group key={"nw" + i} position={[wx, 0, -80]}>
-            <mesh castShadow receiveShadow position={[0, 8, 0]} material={fortressMat}><boxGeometry args={[68, 16, 6.0]} /></mesh>
+            <mesh castShadow receiveShadow position={[0, 8, 0]} material={medievalStoneMat}><boxGeometry args={[74, 16, 5.8]} /></mesh>
+            <mesh position={[0, 15.6, 0]} material={woodDoorMat}><boxGeometry args={[68, 0.6, 4.2]} /></mesh>
             {[-28, -20, -12, -4, 4, 12, 20, 28].map((cx, j) => (
-              <mesh key={j} position={[cx, 17.2, -2.2]} material={fortressMat}><boxGeometry args={[4.2, 2.4, 1.5]} /></mesh>
+              <mesh key={j} position={[cx, 17.0, -2.1]} material={darkStoneTrimMat}><boxGeometry args={[3.8, 2.2, 1.3]} /></mesh>
             ))}
           </group>
         ))}
-        {/* Wide Walkable Stone Rampart Staircases (Z = -74 -> World Z = 321, |X| = 18..36) */}
+        {/* Real 22-Step Medieval Stone Fortress Staircases with Stepped Parapets & Support Buttresses (Replaces flat ramp!) */}
         {[-1, 1].map((dir, sIdx) => (
-          <mesh key={"stair" + sIdx} receiveShadow position={[dir * 27, 8.0, -74]} rotation={[0, 0, dir * Math.atan2(16, 18)]} material={fortressMat}>
-            <boxGeometry args={[24.0, 1.5, 6.0]} />
-          </mesh>
+          <group key={"stair_" + sIdx} position={[0, 0, -74]}>
+            {Array.from({ length: 22 }).map((_, stepIdx) => {
+              const t = (stepIdx + 0.5) / 22;
+              const sx = dir * (18 + t * 18);
+              const stepH = (stepIdx + 1) * (16.0 / 22);
+              return (
+                <group key={stepIdx} position={[sx, 0, 0]}>
+                  {/* Solid Masonry Step Block from Ground up to Step Height */}
+                  <mesh castShadow receiveShadow position={[0, stepH * 0.5, 0]} material={medievalStoneMat}>
+                    <boxGeometry args={[0.92, stepH, 5.6]} />
+                  </mesh>
+                  {/* Dark Stone Step Tread Cap */}
+                  <mesh receiveShadow position={[0, stepH + 0.06, 0]} material={darkStoneTrimMat}>
+                    <boxGeometry args={[0.98, 0.14, 5.8]} />
+                  </mesh>
+                  {/* Stepped Stone Side Balustrade Parapet on Inner Courtyard Side */}
+                  {stepIdx % 2 === 0 && (
+                    <mesh castShadow position={[0, stepH + 0.65, 2.65]} material={darkStoneTrimMat}>
+                      <boxGeometry args={[1.65, 1.3, 0.55]} />
+                    </mesh>
+                  )}
+                </group>
+              );
+            })}
+          </group>
         ))}
-        {/* Interactive Double Fortress Gates at North Entrance (Z = -80) */}
+        {/* Interactive Double Fortress Gates & Stone Gatehouse Arch */}
+        <mesh castShadow position={[0, 18.0, -80]} material={medievalStoneMat}><boxGeometry args={[22, 5.5, 6.2]} /></mesh>
+        <mesh castShadow position={[0, 22.8, -80]} rotation={[0, Math.PI / 4, 0]} material={terracottaRoofMat}><coneGeometry args={[14, 5.5, 4]} /></mesh>
         <group ref={fortressGateLeftRef} position={[-6.5, 0, -80]}>
           <mesh position={[3.25, 6.5, 0]} material={woodDoorMat}><boxGeometry args={[6.5, 13.0, 0.6]} /></mesh>
         </group>
@@ -159,109 +211,113 @@ export default function Kingdom() {
 
         {[-50, 50].map((wx, i) => (
           <group key={"sw" + i} position={[wx, 0, 77]}>
-            <mesh castShadow receiveShadow position={[0, 8, 0]} material={fortressMat}><boxGeometry args={[68, 16, 6.0]} /></mesh>
+            <mesh castShadow receiveShadow position={[0, 8, 0]} material={medievalStoneMat}><boxGeometry args={[68, 16, 5.5]} /></mesh>
             {[-28, -20, -12, -4, 4, 12, 20, 28].map((cx, j) => (
-              <mesh key={j} position={[cx, 17.2, 2.2]} material={fortressMat}><boxGeometry args={[4.2, 2.4, 1.5]} /></mesh>
+              <mesh key={j} position={[cx, 17.0, 2.1]} material={darkStoneTrimMat}><boxGeometry args={[3.8, 2.2, 1.3]} /></mesh>
             ))}
           </group>
         ))}
         {[-84, 84].map((wx, i) => (
           <group key={"ew" + i} position={[wx, 0, -1.5]}>
-            <mesh castShadow receiveShadow position={[0, 8, 0]} material={fortressMat}><boxGeometry args={[6.0, 16, 158]} /></mesh>
+            <mesh castShadow receiveShadow position={[0, 8, 0]} material={medievalStoneMat}><boxGeometry args={[5.5, 16, 158]} /></mesh>
             {[-64, -48, -32, -16, 0, 16, 32, 48, 64].map((cz, j) => (
-              <mesh key={j} position={[wx < 0 ? -2.2 : 2.2, 17.2, cz]} material={fortressMat}><boxGeometry args={[1.5, 2.4, 5.5]} /></mesh>
-            ))}
-          </group>
-        ))}
-        {[
-          [-16, -80], [16, -80], [-84, -80], [84, -80],
-          [-84, 0],   [84, 0],   [-84, 77],  [84, 77],
-        ].map(([tx, tz], idx) => (
-          <group key={"ft" + idx} position={[tx, 0, tz]}>
-            <mesh castShadow receiveShadow position={[0, 12, 0]} material={fortressMat}><cylinderGeometry args={[5.2, 5.8, 24, 12]} /></mesh>
-            <mesh position={[0, 27.5, 0]} material={redRoofMat}><coneGeometry args={[6.2, 8.0, 12]} /></mesh>
-          </group>
-        ))}
-        <mesh position={[0, 18.5, -80]} material={fortressMat}><boxGeometry args={[24, 5.5, 6.0]} /></mesh>
-
-        {/* --- 2. FOUR DENSE AVENUES OF CONNECTED GOTHIC BUILDINGS (36 Buildings) --- */}
-        {[-66, -42, 42, 66].map((wx, wingIdx) => (
-          <group key={"wing" + wingIdx} position={[wx, 0, 4]} rotation={[0, wx < 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
-            {[-48, -36, -24, -12, 0, 12, 24, 36, 48].map((offsetX, hIdx) => (
-              <group key={hIdx} position={[offsetX, 0, 0]}>
-                <mesh castShadow receiveShadow position={[0, 10.5, 0]} material={hIdx % 2 === 0 ? stoneWallMat : stoneAltMat}>
-                  <boxGeometry args={[12.4, 21 + (hIdx % 3) * 3, 11.5]} />
-                </mesh>
-                <mesh position={[0, 25.0 + (hIdx % 3) * 1.5, 0]} rotation={[0, Math.PI / 4, 0]} material={hIdx % 2 === 0 ? redRoofMat : darkRoofMat}>
-                  <coneGeometry args={[8.8, 8.5, 4]} />
-                </mesh>
-                <mesh position={[0, 21.5, 5.82]} material={roseWindowMat}><circleGeometry args={[1.4, 10]} /></mesh>
-                <mesh position={[-2.6, 11.5, 5.82]} material={gothicWindowMat}><planeGeometry args={[1.9, 6.5]} /></mesh>
-                <mesh position={[2.6, 11.5, 5.82]} material={gothicWindowMat}><planeGeometry args={[1.9, 6.5]} /></mesh>
-                {hIdx % 2 === 1 && (
-                  <group position={[5.2, 4.0, 5.2]}>
-                    <mesh position={[0, 9.0, 0]} material={stoneWallMat}><cylinderGeometry args={[2.8, 3.0, 18, 10]} /></mesh>
-                    <mesh position={[0, 21.0, 0]} material={redRoofMat}><coneGeometry args={[3.3, 6.5, 10]} /></mesh>
-                  </group>
-                )}
-              </group>
+              <mesh key={j} position={[wx < 0 ? -2.1 : 2.1, 17.0, cz]} material={darkStoneTrimMat}><boxGeometry args={[1.3, 2.2, 5.2]} /></mesh>
             ))}
           </group>
         ))}
 
-        {/* --- 3. SYMMETRICAL INNER ROYAL GATEHOUSE (Centered at X = 0 so road is wide open!), CLOCKTOWER & OBSERVATORY --- */}
-        <group position={[0, 0, -24]}>
-          {[-14, 14].map((tx, idx) => (
-            <group key={idx} position={[tx, 0, 0]}>
-              <mesh castShadow receiveShadow position={[0, 15, 0]} material={stoneWallMat}><boxGeometry args={[8.2, 30, 8.2]} /></mesh>
-              <mesh position={[0, 34, 0]} rotation={[0, Math.PI / 4, 0]} material={redRoofMat}><coneGeometry args={[6.8, 9.0, 4]} /></mesh>
+        {/* 14 Outer & Inner Stone Bastion Towers (Alternating Open Crenellated Tops & Red Conical Roofs like Reference images_2.jpg!) */}
+        <BastionTower x={-10.2} z={-80} h={24} r={4.8} hasRoof={true} hasBanner={true} />
+        <BastionTower x={10.2}  z={-80} h={24} r={4.8} hasRoof={true} hasBanner={true} />
+        <BastionTower x={-50} z={-80} h={19} r={4.2} hasRoof={false} />
+        <BastionTower x={50}  z={-80} h={19} r={4.2} hasRoof={false} />
+        <BastionTower x={-84} z={-80} h={21} r={4.6} hasRoof={true} />
+        <BastionTower x={84}  z={-80} h={21} r={4.6} hasRoof={true} />
+        <BastionTower x={-84} z={-28} h={19} r={4.2} hasRoof={false} />
+        <BastionTower x={84}  z={-28} h={19} r={4.2} hasRoof={false} />
+        <BastionTower x={-84} z={26}  h={19} r={4.2} hasRoof={false} />
+        <BastionTower x={84}  z={26}  h={19} r={4.2} hasRoof={false} />
+        <BastionTower x={-84} z={77}  h={21} r={4.6} hasRoof={true} />
+        <BastionTower x={84}  z={77}  h={21} r={4.6} hasRoof={true} />
+        <BastionTower x={-16} z={-27} h={25} r={5.0} hasRoof={false} hasBanner={true} />
+        <BastionTower x={16}  z={-27} h={25} r={5.0} hasRoof={false} hasBanner={true} />
+
+        {/* Cypress / Poplar Tree Rows lining the Inner Bailey Walls (Just like Reference images_2.jpg!) */}
+        {[-74, 74].map((tx, sIdx) =>
+          [-55, -42, -29, -16, -3, 10, 23, 36, 49].map((tz, tIdx) => (
+            <group key={sIdx + "_" + tIdx} position={[tx, 0, tz]}>
+              <mesh position={[0, 1.5, 0]} material={woodDoorMat}><cylinderGeometry args={[0.25, 0.38, 3.0, 6]} /></mesh>
+              <mesh castShadow position={[0, 6.2, 0]} material={cypressMat}><coneGeometry args={[1.8, 9.5, 7]} /></mesh>
             </group>
-          ))}
-          <mesh position={[0, 22.5, 0]} material={stoneAltMat}><boxGeometry args={[20, 4.8, 6.0]} /></mesh>
-          {[-6, -2, 2, 6].map((bx, idx) => (
-            <mesh key={idx} position={[bx, 15.5, 0]}><boxGeometry args={[1.4, 8.2, 0.15]} /><meshStandardMaterial color="#b91c1c" /></mesh>
-          ))}
-        </group>
+          ))
+        )}
 
-        {/* Clocktower on East Side (+25) & Observatory on West Side (-26) */}
-        <group position={[25, 0, -8]}>
-          <mesh castShadow receiveShadow position={[0, 14, 0]} material={stoneWallMat}><boxGeometry args={[10.5, 28, 10.5]} /></mesh>
-          <mesh position={[0, 32.5, 0]} rotation={[0, Math.PI / 4, 0]} material={darkRoofMat}><coneGeometry args={[8.6, 10.0, 4]} /></mesh>
-          <mesh position={[0, 19.5, -5.3]} rotation={[0, Math.PI, 0]} material={clockFaceMat}><circleGeometry args={[3.5, 16]} /></mesh>
-          <mesh position={[-5.3, 19.5, 0]} rotation={[0, -Math.PI / 2, 0]} material={clockFaceMat}><circleGeometry args={[3.5, 16]} /></mesh>
-        </group>
+        {/* --- 2. INNER BAILEY MONASTIC & GUILD HALLS (Multi-Tiered Stone & Timber Buildings with Terracotta Roofs) --- */}
+        {[
+          { x: -48, z: -17, w: 18, d: 28, h: 13, rot: 0.08 },
+          { x: 48,  z: -17, w: 18, d: 28, h: 13, rot: -0.08 },
+          { x: -52, z: 27,  w: 16, d: 26, h: 15, rot: -0.05 },
+          { x: 52,  z: 27,  w: 16, d: 26, h: 15, rot: 0.05 },
+        ].map((b, idx) => (
+          <group key={"bailey_" + idx} position={[b.x, 0, b.z]} rotation={[0, b.rot, 0]}>
+            <mesh castShadow receiveShadow position={[0, b.h * 0.5, 0]} material={medievalStoneMat}>
+              <boxGeometry args={[b.w, b.h, b.d]} />
+            </mesh>
+            <mesh position={[0, b.h + 1.8, 0]} material={timberWallMat}>
+              <boxGeometry args={[b.w * 0.92, 3.6, b.d * 0.92]} />
+            </mesh>
+            <mesh castShadow position={[0, b.h + 6.5, 0]} rotation={[0, Math.PI / 4, 0]} material={terracottaRoofMat}>
+              <coneGeometry args={[b.d * 0.72, 6.2, 4]} />
+            </mesh>
+            {/* Attached Side Buttress Wing */}
+            <mesh castShadow position={[b.x < 0 ? 9 : -9, b.h * 0.4, 0]} material={medievalStoneMat}>
+              <boxGeometry args={[6, b.h * 0.8, 12]} />
+            </mesh>
+            <mesh position={[b.x < 0 ? 9 : -9, b.h * 0.8 + 2.4, 0]} rotation={[0, Math.PI / 4, 0]} material={darkTileRoofMat}>
+              <coneGeometry args={[6.8, 4.8, 4]} />
+            </mesh>
+            {[-6, 0, 6].map((wz, wIdx) => (
+              <mesh key={wIdx} position={[b.x < 0 ? b.w * 0.5 + 0.1 : -b.w * 0.5 - 0.1, b.h * 0.6, wz]} rotation={[0, b.x < 0 ? Math.PI / 2 : -Math.PI / 2, 0]} material={warmWindowMat}>
+                <planeGeometry args={[1.6, 3.2]} />
+              </mesh>
+            ))}
+          </group>
+        ))}
 
-        <group position={[-26, 0, -8]}>
-          <mesh castShadow receiveShadow position={[0, 8, 0]} material={stoneWallMat}><cylinderGeometry args={[7.2, 7.6, 16, 14]} /></mesh>
-          <mesh position={[0, 16.0, 0]}><sphereGeometry args={[7.2, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} /><meshStandardMaterial color="#9a4a1a" metalness={0.55} roughness={0.4} /></mesh>
-        </group>
-
-        {/* --- 4. ENTERABLE ROYAL PALACE & GREAT THRONE ROOM INTERIOR (Z = +33 to +68) --- */}
+        {/* --- 3. CENTRAL STORRSKOG CITADEL KEEP & ENTERABLE GREAT THRONE HALL (Z = +33 to +68) --- */}
         <group position={[0, 0, 50]}>
+          {/* Checkered Marble Palace Floor & Royal Red Carpet */}
           <mesh position={[0, 0.2, 0]} receiveShadow material={marbleMat}><boxGeometry args={[64, 0.3, 34]} /></mesh>
           <mesh position={[0, 0.38, 0]} receiveShadow material={velvetMat}><boxGeometry args={[6.5, 0.08, 32]} /></mesh>
 
-          <mesh castShadow receiveShadow position={[0, 16, 17]} material={stoneWallMat}><boxGeometry args={[66, 32, 1.8]} /></mesh>
-          <mesh castShadow receiveShadow position={[-32.5, 16, 0]} material={stoneWallMat}><boxGeometry args={[1.8, 32, 35]} /></mesh>
-          <mesh castShadow receiveShadow position={[32.5, 16, 0]} material={stoneWallMat}><boxGeometry args={[1.8, 32, 35]} /></mesh>
-          <mesh castShadow receiveShadow position={[-19, 16, -17]} material={stoneWallMat}><boxGeometry args={[28, 32, 1.8]} /></mesh>
-          <mesh castShadow receiveShadow position={[19, 16, -17]} material={stoneWallMat}><boxGeometry args={[28, 32, 1.8]} /></mesh>
-          <mesh position={[0, 22, -17]} material={stoneWallMat}><boxGeometry args={[10, 20, 1.8]} /></mesh>
+          {/* Massive Stone Keep Walls with Stepped Upper Citadel Tiers (Like Center of images_2.jpg!) */}
+          <mesh castShadow receiveShadow position={[0, 14, 17]} material={medievalStoneMat}><boxGeometry args={[66, 28, 2.2]} /></mesh>
+          <mesh castShadow receiveShadow position={[-32.5, 14, 0]} material={medievalStoneMat}><boxGeometry args={[2.2, 28, 35]} /></mesh>
+          <mesh castShadow receiveShadow position={[32.5, 14, 0]} material={medievalStoneMat}><boxGeometry args={[2.2, 28, 35]} /></mesh>
+          <mesh castShadow receiveShadow position={[-19, 14, -17]} material={medievalStoneMat}><boxGeometry args={[28, 28, 2.2]} /></mesh>
+          <mesh castShadow receiveShadow position={[19, 14, -17]} material={medievalStoneMat}><boxGeometry args={[28, 28, 2.2]} /></mesh>
+          <mesh castShadow position={[0, 20, -17]} material={medievalStoneMat}><boxGeometry args={[10, 16, 2.2]} /></mesh>
 
+          {/* Terracotta Pitched Roofs & towering Central Donjon Keep Spire */}
+          <mesh castShadow position={[-18, 32, 0]} rotation={[0, Math.PI / 4, 0]} material={terracottaRoofMat}><coneGeometry args={[22, 9.5, 4]} /></mesh>
+          <mesh castShadow position={[18, 32, 0]} rotation={[0, Math.PI / 4, 0]} material={terracottaRoofMat}><coneGeometry args={[22, 9.5, 4]} /></mesh>
+          {/* High Central Keep Tower rising above the Main Hall (Like Storrskog Keep in images_2.jpg!) */}
+          <mesh castShadow position={[0, 34, 4]} material={medievalStoneMat}><boxGeometry args={[22, 16, 18]} /></mesh>
+          <mesh castShadow position={[0, 46, 4]} rotation={[0, Math.PI / 4, 0]} material={darkTileRoofMat}><coneGeometry args={[17, 9.0, 4]} /></mesh>
+
+          {/* 4 Flanking Citadel Keep Turrets with Blue/White Banners & Red Conical Roofs */}
+          <BastionTower x={-32} z={-18} h={32} r={5.0} hasRoof={true} hasBanner={true} />
+          <BastionTower x={32}  z={-18} h={32} r={5.0} hasRoof={true} hasBanner={true} />
+          <BastionTower x={-12} z={-19} h={38} r={4.2} hasRoof={true} hasBanner={true} />
+          <BastionTower x={12}  z={-19} h={38} r={4.2} hasRoof={true} hasBanner={true} />
+
+          {/* Interactive Grand Palace Double Doors at Front (Z = -17 -> World Z = 428) */}
           <group ref={palaceDoorLeftRef} position={[-4.8, 0.3, -17]}>
             <mesh position={[2.4, 5.5, 0]} material={woodDoorMat}><boxGeometry args={[4.8, 11.0, 0.45]} /></mesh>
           </group>
           <group ref={palaceDoorRightRef} position={[4.8, 0.3, -17]}>
             <mesh position={[-2.4, 5.5, 0]} material={woodDoorMat}><boxGeometry args={[4.8, 11.0, 0.45]} /></mesh>
           </group>
-
-          <mesh position={[0, 38, 0]} rotation={[0, Math.PI / 4, 0]} material={redRoofMat}><coneGeometry args={[44, 13, 4]} /></mesh>
-          {[-28, 28].map((tx, i) => (
-            <group key={i} position={[tx, 0, -21]}>
-              <mesh castShadow receiveShadow position={[0, 20, 0]} material={stoneAltMat}><cylinderGeometry args={[5.2, 5.8, 40, 12]} /></mesh>
-              <mesh position={[0, 45, 0]} material={redRoofMat}><coneGeometry args={[6.2, 11.0, 12]} /></mesh>
-            </group>
-          ))}
 
           {/* Throne Room Interior */}
           <group position={[0, 0.3, 10]}>
@@ -277,7 +333,7 @@ export default function Kingdom() {
             [-12, -5, 2, 9].map((cz, cIdx) => (
               <group key={cSide + "_" + cIdx} position={[cx, 0.3, cz]}>
                 <mesh position={[0, 8.0, 0]} material={marbleMat}><cylinderGeometry args={[0.85, 1.05, 16.0, 10]} /></mesh>
-                <mesh position={[0, 12.5, cx < 0 ? 1.0 : -1.0]} material={velvetMat}><boxGeometry args={[0.15, 5.5, 1.8]} /></mesh>
+                <mesh position={[0, 12.5, cx < 0 ? 1.0 : -1.0]} material={bannerBlueMat}><boxGeometry args={[0.15, 5.5, 1.8]} /></mesh>
               </group>
             ))
           )}
@@ -288,7 +344,7 @@ export default function Kingdom() {
               {[-6, -2, 2, 6].map((gz, gIdx) => (
                 <group key={gIdx} position={[0, 1.85, gz]}>
                   <mesh material={goldMat}><cylinderGeometry args={[0.35, 0.25, 0.35, 8]} /></mesh>
-                  <mesh position={[0, 0.45, 0]} material={clockFaceMat}><sphereGeometry args={[0.22, 6, 6]} /></mesh>
+                  <mesh position={[0, 0.45, 0]} material={warmWindowMat}><sphereGeometry args={[0.22, 6, 6]} /></mesh>
                 </group>
               ))}
             </group>
@@ -304,23 +360,16 @@ export default function Kingdom() {
               <boxGeometry args={[18, 0.6, 13]} />
             </mesh>
           ))}
-
-          {[-6, 4].map((cz, chIdx) => (
-            <group key={"chand_" + chIdx} position={[0, 18.5, cz]}>
-              <mesh material={goldMat} rotation={[Math.PI / 2, 0, 0]}><torusGeometry args={[3.2, 0.22, 6, 16]} /></mesh>
-              <mesh position={[0, 0, 0]} material={clockFaceMat}><sphereGeometry args={[0.85, 8, 8]} /></mesh>
-            </group>
-          ))}
         </group>
       </group>
 
       {/* Southern Harbor Pier */}
       <group position={[0, 0, 555]}>
-        <mesh receiveShadow position={[0, 2.15, 8]}><boxGeometry args={[12.4, 0.5, 56]} /><meshStandardMaterial map={textures.woodPlanks} color="#7c4d2b" /></mesh>
+        <mesh receiveShadow position={[0, 1.6, 8]}><boxGeometry args={[12.4, 0.5, 56]} /><meshStandardMaterial map={textures.woodPlanks} color="#7c4d2b" /></mesh>
         <group position={[24, getExactMeshTerrainHeight(24, 548), -7]}>
-          <mesh castShadow position={[0, 8.5, 0]}><cylinderGeometry args={[2.3, 3.5, 17, 12]} /><meshStandardMaterial color="#f8fafc" /></mesh>
-          <mesh position={[0, 17.8, 0]} material={clockFaceMat}><cylinderGeometry args={[2.1, 2.1, 2.4, 10]} /></mesh>
-          <mesh position={[0, 20.2, 0]}><coneGeometry args={[2.8, 2.8, 12]} /><meshStandardMaterial color="#dc2626" /></mesh>
+          <mesh castShadow position={[0, 8.5, 0]} material={medievalStoneMat}><cylinderGeometry args={[2.3, 3.5, 17, 12]} /></mesh>
+          <mesh position={[0, 17.8, 0]} material={warmWindowMat}><cylinderGeometry args={[2.1, 2.1, 2.4, 10]} /></mesh>
+          <mesh position={[0, 20.2, 0]} material={terracottaRoofMat}><coneGeometry args={[2.8, 2.8, 12]} /></mesh>
         </group>
       </group>
     </group>
