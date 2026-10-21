@@ -3,24 +3,34 @@
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { getWalkableHeight, resolveObstacleCollisions, BIOME_CENTERS } from "@/utils/noise";
+import {
+  getWalkableHeight,
+  getTerrainHeight,
+  getExactMeshTerrainHeight,
+  resolveObstacleCollisions,
+  BIOME_CENTERS,
+  INTERACTIVE_DOORS,
+} from "@/utils/noise";
 import { playerFrameState, usePlayerStore } from "@/game/state/usePlayerStore";
 import { weatherFrameState } from "@/game/state/useWeatherStore";
+import { horseLivePositions } from "@/game/world/Wildlife";
 import PlayerModel from "./PlayerModel";
 
-const WALK_SPEED = 4.0;
-const RUN_SPEED = 8.5;
-const SWIM_SPEED = 4.5;
-const BOAT_SPEED = 15.0;
+const WALK_SPEED = 4.2;
+const RUN_SPEED = 8.8;
+const HORSE_TROT_SPEED = 14.5;
+const HORSE_GALLOP_SPEED = 22.0;
+const SWIM_SPEED = 4.8;
+const BOAT_SPEED = 18.0;
 const GRAVITY = 22.0;
-const JUMP_VELOCITY = 7.8;
-const DEFAULT_CAM_DIST = 4.6;
+const JUMP_VELOCITY = 8.2;
+const DEFAULT_CAM_DIST = 4.8;
 const MIN_CAM_DIST = 2.2;
-const MAX_CAM_DIST = 14.0;
+const MAX_CAM_DIST = 15.0;
 const SHOULDER_OFFSET = 0.35;
 const MIN_PITCH = THREE.MathUtils.degToRad(-15);
 const MAX_PITCH = THREE.MathUtils.degToRad(68);
-const FOOT_OFFSET = 0.76; // Calibrated so boot soles sit firmly on ground!
+const FOOT_OFFSET = 0.76;
 
 export default function PlayerController() {
   const playerGroupRef = useRef<THREE.Group>(null);
@@ -52,24 +62,56 @@ export default function PlayerController() {
   const moveDir = useRef(new THREE.Vector3()).current;
   const targetCamPos = useRef(new THREE.Vector3()).current;
   const lookAtTarget = useRef(new THREE.Vector3()).current;
-  const smoothedCamPos = useRef(new THREE.Vector3(-542, 7, 0)).current;
-  const smoothedLookAt = useRef(new THREE.Vector3(-535, 5, 0)).current;
+  const smoothedCamPos = useRef(new THREE.Vector3(-540, 7, 0)).current;
+  const smoothedLookAt = useRef(new THREE.Vector3(-532, 5, 0)).current;
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       keys.current[e.code] = true;
       if (e.code === "KeyE") {
-        const distToBoat = Math.hypot(phys.current.x - playerFrameState.boatX, phys.current.z - playerFrameState.boatZ);
+        const px = phys.current.x, pz = phys.current.z;
+
+        // 1. Buka / Tutup Pintu Rumah & Gerbang Kerajaan (< 4.8m)
+        for (let i = 0; i < INTERACTIVE_DOORS.length; i++) {
+          const d = INTERACTIVE_DOORS[i];
+          if (Math.hypot(px - d.x, pz - d.z) < 4.8) {
+            d.isOpen = !d.isOpen;
+            return;
+          }
+        }
+
+        // 2. Naik / Turun Perahu Tugboat
+        const distToBoat = Math.hypot(px - playerFrameState.boatX, pz - playerFrameState.boatZ);
         if (playerFrameState.isInBoat) {
           playerFrameState.isInBoat = false;
           setInBoat(false);
-          // Step off onto the pier end or beside boat
-          phys.current.x = -584;
-          phys.current.z = 0;
-          phys.current.y = getWalkableHeight(-584, 0);
-        } else if (distToBoat < 14.0) {
+          phys.current.x = playerFrameState.boatX + 4.2;
+          phys.current.z = playerFrameState.boatZ;
+          phys.current.y = Math.max(0.0, getWalkableHeight(phys.current.x, phys.current.z));
+          return;
+        } else if (distToBoat < 15.0 && playerFrameState.mountedHorseIndex === -1) {
           playerFrameState.isInBoat = true;
           setInBoat(true);
+          return;
+        }
+
+        // 3. Naik / Turun Kuda
+        if (playerFrameState.mountedHorseIndex !== -1) {
+          playerFrameState.mountedHorseIndex = -1;
+          phys.current.x += 1.4;
+          phys.current.y = getWalkableHeight(phys.current.x, phys.current.z);
+          return;
+        } else {
+          for (let i = 0; i < horseLivePositions.length; i++) {
+            const h = horseLivePositions[i];
+            if (h && Math.hypot(px - h.x, pz - h.z) < 4.8) {
+              playerFrameState.mountedHorseIndex = i;
+              playerFrameState.horseYaw = h.yaw;
+              phys.current.x = h.x;
+              phys.current.z = h.z;
+              return;
+            }
+          }
         }
       }
     };
@@ -117,6 +159,8 @@ export default function PlayerController() {
     const p = phys.current;
 
     if (teleportTarget) {
+      playerFrameState.mountedHorseIndex = -1;
+      playerFrameState.isInBoat = false;
       p.x = teleportTarget[0];
       p.z = teleportTarget[2];
       p.y = Math.max(0.0, getWalkableHeight(p.x, p.z));
@@ -131,29 +175,34 @@ export default function PlayerController() {
 
     if (playerFrameState.isInBoat) {
       if (Math.abs(sideInput) > 0) {
-        playerFrameState.boatYaw -= sideInput * dt * 1.5;
+        playerFrameState.boatYaw -= sideInput * dt * 1.65;
       }
       const moveDist = forwardInput * BOAT_SPEED * dt;
       const nextBx = playerFrameState.boatX - Math.sin(playerFrameState.boatYaw) * moveDist;
       const nextBz = playerFrameState.boatZ - Math.cos(playerFrameState.boatYaw) * moveDist;
-      // Boat only sails in water deeper than -0.6m and never clips into piers
-      if (getWalkableHeight(nextBx, nextBz) < -0.6) {
+      if (getTerrainHeight(nextBx, nextBz) < 1.2) {
         playerFrameState.boatX = nextBx;
         playerFrameState.boatZ = nextBz;
       }
       playerFrameState.isMoving = Math.abs(forwardInput) > 0;
-      // Stand on the rear deck behind the orange wheelhouse cabin
-      p.x = playerFrameState.boatX + Math.sin(playerFrameState.boatYaw) * 2.1;
-      p.z = playerFrameState.boatZ + Math.cos(playerFrameState.boatYaw) * 2.1;
-      p.y = 1.25;
+      p.x = playerFrameState.boatX + Math.sin(playerFrameState.boatYaw) * 1.8;
+      p.z = playerFrameState.boatZ + Math.cos(playerFrameState.boatYaw) * 1.8;
+      p.y = 1.45;
       if (visualGroupRef.current) {
         visualGroupRef.current.rotation.y = playerFrameState.boatYaw + Math.PI;
       }
     } else {
+      const isRiding = playerFrameState.mountedHorseIndex !== -1;
       const groundY = getWalkableHeight(p.x, p.z);
-      const isSwimming = groundY < -1.1 && p.y <= 0.15;
+      const isSwimming = !isRiding && groundY < -1.1 && p.y <= 0.15;
       const isRunning = Boolean(keys.current["ShiftLeft"] || keys.current["ShiftRight"]) && !isSwimming;
-      const speed = isSwimming ? SWIM_SPEED : isRunning ? RUN_SPEED : WALK_SPEED;
+      const speed = isRiding
+        ? (isRunning ? HORSE_GALLOP_SPEED : HORSE_TROT_SPEED)
+        : isSwimming
+        ? SWIM_SPEED
+        : isRunning
+        ? RUN_SPEED
+        : WALK_SPEED;
 
       forwardVec.set(-Math.sin(orbit.current.yaw), 0, -Math.cos(orbit.current.yaw)).normalize();
       rightVec.set(Math.cos(orbit.current.yaw), 0, -Math.sin(orbit.current.yaw)).normalize();
@@ -170,14 +219,14 @@ export default function PlayerController() {
           while (diff < -Math.PI) diff += Math.PI * 2;
           while (diff > Math.PI) diff -= Math.PI * 2;
           visualGroupRef.current.rotation.y += diff * Math.min(1, dt * 14);
+          playerFrameState.horseYaw = visualGroupRef.current.rotation.y;
         }
       }
 
       let nextX = p.x + moveDir.x * speed * dt;
       let nextZ = p.z + moveDir.z * speed * dt;
-      [nextX, nextZ] = resolveObstacleCollisions(nextX, nextZ, 0.65);
+      [nextX, nextZ] = resolveObstacleCollisions(nextX, nextZ, isRiding ? 0.85 : 0.55);
 
-      // Solid collision against Tugboat hull so player NEVER walks/swims through the boat!
       const dxBoat = nextX - playerFrameState.boatX;
       const dzBoat = nextZ - playerFrameState.boatZ;
       const distBoat = Math.hypot(dxBoat, dzBoat);
@@ -214,31 +263,57 @@ export default function PlayerController() {
       playerFrameState.isSwimming = isSwimming;
     }
 
+    const mountYOffset = playerFrameState.mountedHorseIndex !== -1 ? FOOT_OFFSET + 0.92 : FOOT_OFFSET;
     if (playerGroupRef.current) {
-      playerGroupRef.current.position.set(p.x, p.y + FOOT_OFFSET, p.z);
+      playerGroupRef.current.position.set(p.x, p.y + mountYOffset, p.z);
     }
 
     playerFrameState.x = p.x;
-    playerFrameState.y = p.y + FOOT_OFFSET;
+    playerFrameState.y = p.y + mountYOffset;
     playerFrameState.z = p.z;
     playerFrameState.yaw = orbit.current.yaw;
 
-    if (state.clock.elapsedTime - lastUiSyncRef.current > 0.25) {
+    if (state.clock.elapsedTime - lastUiSyncRef.current > 0.22) {
       lastUiSyncRef.current = state.clock.elapsedTime;
       setStorePosition([Math.round(p.x), Math.round(p.y), Math.round(p.z)]);
       setSwimming(playerFrameState.isSwimming);
 
-      const distToBoat = Math.hypot(p.x - playerFrameState.boatX, p.z - playerFrameState.boatZ);
-      if (playerFrameState.isInBoat) {
-        setInteractionPrompt("Tekan E untuk Turun ke Dermaga • W/S Maju/Mundur • A/D Belok");
-      } else if (distToBoat < 14.0) {
-        setInteractionPrompt("Tekan E untuk Naik Perahu Tugboat");
+      let prompt: string | null = null;
+      for (let i = 0; i < INTERACTIVE_DOORS.length; i++) {
+        const d = INTERACTIVE_DOORS[i];
+        if (Math.hypot(p.x - d.x, p.z - d.z) < 4.8) {
+          prompt = "🚪 Tekan E untuk " + (d.isOpen ? "Tutup " : "Buka ") + d.label;
+          break;
+        }
       }
+      if (!prompt) {
+        const distToBoat = Math.hypot(p.x - playerFrameState.boatX, p.z - playerFrameState.boatZ);
+        if (playerFrameState.isInBoat) {
+          prompt = "⚓ Tekan E untuk Turun dari Perahu • W/S Maju/Mundur • A/D Belok";
+        } else if (distToBoat < 15.0) {
+          prompt = "🚤 Tekan E untuk Naik Perahu Tugboat";
+        } else if (playerFrameState.mountedHorseIndex !== -1) {
+          prompt = "🐎 Tekan E untuk Turun dari Kuda • Tahan Shift untuk Lari Kencang";
+        } else {
+          for (let i = 0; i < horseLivePositions.length; i++) {
+            const h = horseLivePositions[i];
+            if (h && Math.hypot(p.x - h.x, p.z - h.z) < 4.8) {
+              prompt = "🐎 Tekan E untuk Naik Kuda";
+              break;
+            }
+          }
+        }
+      }
+      if (prompt) setInteractionPrompt(prompt);
     }
 
-    const effectiveDist = playerFrameState.isInBoat ? Math.max(orbit.current.distance, 9.5) : orbit.current.distance;
+    const effectiveDist = playerFrameState.isInBoat
+      ? Math.max(orbit.current.distance, 10.5)
+      : playerFrameState.mountedHorseIndex !== -1
+      ? Math.max(orbit.current.distance, 6.2)
+      : orbit.current.distance;
     rightVec.set(Math.cos(orbit.current.yaw), 0, -Math.sin(orbit.current.yaw)).normalize();
-    lookAtTarget.set(p.x + rightVec.x * SHOULDER_OFFSET, p.y + 1.4, p.z + rightVec.z * SHOULDER_OFFSET);
+    lookAtTarget.set(p.x + rightVec.x * SHOULDER_OFFSET, p.y + (playerFrameState.mountedHorseIndex !== -1 ? 2.1 : 1.4), p.z + rightVec.z * SHOULDER_OFFSET);
 
     const horizDist = effectiveDist * Math.cos(orbit.current.pitch);
     const vertDist = effectiveDist * Math.sin(orbit.current.pitch);
@@ -246,7 +321,7 @@ export default function PlayerController() {
     const camZ = lookAtTarget.z + Math.cos(orbit.current.yaw) * horizDist;
     let camY = lookAtTarget.y + vertDist;
 
-    const terrainAtCam = Math.max(0.3, getWalkableHeight(camX, camZ));
+    const terrainAtCam = Math.max(0.5, getExactMeshTerrainHeight(camX, camZ));
     if (camY < terrainAtCam + 0.7) camY = terrainAtCam + 0.7;
 
     targetCamPos.set(camX, camY, camZ);

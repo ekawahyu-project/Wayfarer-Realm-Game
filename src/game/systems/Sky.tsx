@@ -63,14 +63,12 @@ const fragmentShader = [
   "  vec3 bloodTint = vec3(0.30, 0.03, 0.07);",
   "  skyColor = mix(skyColor, bloodTint, uNightFactor * uBloodMoon * 0.65);",
 
-  "  // Sun disc & warm glow",
   "  float sunAlignment = max(dot(dir, normalize(uSunDir)), 0.0);",
   "  float sunDisc = smoothstep(0.9982, 0.9994, sunAlignment);",
   "  float sunHalo = pow(sunAlignment, 10.0) * 0.42 + pow(sunAlignment, 64.0) * 0.55;",
   "  float sunVisible = smoothstep(-0.15, 0.08, uSunDir.y);",
   "  skyColor += uSunColor * (sunDisc * 2.2 + sunHalo) * sunVisible;",
 
-  "  // Moon disc with craters",
   "  float moonAlignment = max(dot(dir, normalize(uMoonDir)), 0.0);",
   "  float moonRadius = mix(0.9972, 0.9942, uBloodMoon);",
   "  float moonDisc = smoothstep(moonRadius, moonRadius + 0.0007, moonAlignment);",
@@ -83,7 +81,6 @@ const fragmentShader = [
   "  skyColor += moonCol * moonDisc * uNightFactor * 1.65;",
   "  skyColor += mix(vec3(0.32, 0.52, 0.82), vec3(0.82, 0.14, 0.18), uBloodMoon) * moonHalo * uNightFactor;",
 
-  "  // Stars at night",
   "  if (uNightFactor > 0.02 && dir.y > 0.05) {",
   "    float theta = atan(dir.z, dir.x);",
   "    float phi = acos(clamp(dir.y, -1.0, 1.0));",
@@ -94,8 +91,9 @@ const fragmentShader = [
   "    skyColor += vec3(0.92, 0.96, 1.0) * (s1 + s2) * uNightFactor * horizonFade * 1.5;",
   "  }",
 
-  "  // Natural Aurora Borealis",
-  "  if (uNightFactor > 0.05 && dir.y > 0.05 && uBloodMoon < 0.5) {",
+  "  // Natural Aurora Borealis (Strictly Night Only: uNightFactor > 0.85)",
+  "  if (uNightFactor > 0.85 && dir.y > 0.05 && uBloodMoon < 0.5) {",
+  "    float strictNightMask = smoothstep(0.85, 0.98, uNightFactor);",
   "    float northMask = smoothstep(0.35, -0.35, dir.z);",
   "    float azim = atan(dir.x, -dir.z);",
   "    float fold = sin(azim * 5.0 + uTime * 0.08) * 0.35 + fbm(vec2(azim * 3.2, uTime * 0.05)) * 0.65;",
@@ -106,11 +104,10 @@ const fragmentShader = [
   "    float vertProfile = smoothstep(0.0, 0.14, hNorm) * exp(-max(0.0, hNorm - 0.12) * 2.8);",
   "    vec3 auroraCol = mix(vec3(0.76, 0.24, 0.52), vec3(0.14, 0.86, 0.54), smoothstep(0.0, 0.22, hNorm));",
   "    auroraCol = mix(auroraCol, vec3(0.06, 0.48, 0.42), smoothstep(0.35, 0.9, hNorm));",
-  "    float intensity = rayPillars * vertProfile * northMask * uNightFactor * uAuroraStrength;",
+  "    float intensity = rayPillars * vertProfile * northMask * strictNightMask * uAuroraStrength;",
   "    skyColor += auroraCol * intensity * 1.2;",
   "  }",
 
-  "  // Soft Natural Billowy Cumulus Clouds (Only high in the sky, subtle at night so Aurora is crystal clear!)",
   "  if (dir.y > 0.12) {",
   "    vec2 cloudUv = dir.xz / (dir.y + 0.28) * 1.15 + vec2(uTime * 0.008, uTime * 0.004);",
   "    float c1 = fbm(cloudUv);",

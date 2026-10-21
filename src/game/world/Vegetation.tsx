@@ -358,8 +358,8 @@ export default function Vegetation() {
       </instancedMesh>
 
       <instancedMesh ref={snowPineRef} args={[undefined, undefined, snowPines.length]} frustumCulled={false} castShadow receiveShadow>
-        <coneGeometry args={[1.9, 5.8, 7]} />
-        <meshStandardMaterial color="#e2e8f0" roughness={0.75} />
+        <coneGeometry args={[2.1, 6.2, 8]} />
+        <meshStandardMaterial map={textures.snowFrost} bumpMap={textures.snowFrost} bumpScale={0.08} color="#f1f5f9" roughness={0.72} />
       </instancedMesh>
 
       <instancedMesh ref={mapleTrunkRef} args={[undefined, undefined, maples.length]} frustumCulled={false} castShadow receiveShadow>
