@@ -63,7 +63,7 @@ export default function Kingdom() {
       <group position={[KINGDOM_X, baseY, KINGDOM_Z]}>
         {/* Massive Cobblestone Royal Plaza */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.06, 0]} receiveShadow>
-          <circleGeometry args={[105, 48]} />
+          <circleGeometry args={[138, 48]} />
           <meshStandardMaterial map={textures.cobblestone} color="#a89bb5" roughness={0.85} />
         </mesh>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, -2]} receiveShadow>
@@ -89,7 +89,7 @@ export default function Kingdom() {
         {[-42, 42].map((wx, sideIdx) => (
           <group key={sideIdx} position={[wx, 0, 10]} rotation={[0, wx < 0 ? Math.PI / 2 : -Math.PI / 2, 0]}>
             {/* 5 Connected Multi-Gable Gothic Townhouses per Wing */}
-            {[-24, -12, 0, 12, 24].map((offsetX, hIdx) => (
+            {[-48, -36, -24, -12, 0, 12, 24, 36, 48].map((offsetX, hIdx) => (
               <group key={hIdx} position={[offsetX, 0, 0]}>
                 <mesh castShadow receiveShadow position={[0, 10.5, 0]}>
                   <boxGeometry args={[12.4, 21, 11.5]} />

@@ -3,39 +3,9 @@
 import { useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { getTerrainHeight } from "@/utils/noise";
+import { getExactMeshTerrainHeight } from "@/utils/noise";
 import { NPCS, NPCDef } from "./npcData";
-
-function StylizedVillagerMesh({ coatColor, hatColor, isSorceress }: { coatColor: string; hatColor: string; isSorceress?: boolean }) {
-  return (
-    <group>
-      <mesh castShadow position={[0, 0.72, 0]}>
-        <cylinderGeometry args={[0.18, 0.26, 0.85, 10]} />
-        <meshStandardMaterial color={coatColor} roughness={0.75} />
-      </mesh>
-      <mesh castShadow position={[0, 1.32, 0]}>
-        <sphereGeometry args={[0.17, 14, 14]} />
-        <meshStandardMaterial color="#fde68a" roughness={0.6} />
-      </mesh>
-      <mesh castShadow position={[0, 1.54, 0]}>
-        <coneGeometry args={[0.26, isSorceress ? 0.52 : 0.28, 10]} />
-        <meshStandardMaterial color={hatColor} roughness={0.8} />
-      </mesh>
-      {isSorceress && (
-        <group position={[0.32, 0.9, 0.15]}>
-          <mesh castShadow>
-            <cylinderGeometry args={[0.025, 0.03, 1.65, 8]} />
-            <meshStandardMaterial color="#451a03" />
-          </mesh>
-          <mesh position={[0, 0.9, 0]}>
-            <octahedronGeometry args={[0.14, 0]} />
-            <meshStandardMaterial color="#38bdf8" emissive="#38bdf8" emissiveIntensity={2.5} />
-          </mesh>
-        </group>
-      )}
-    </group>
-  );
-}
+import { DigitalHumanCharacter } from "@/game/player/PlayerModel";
 
 export const npcLivePositions: Record<string, { x: number; y: number; z: number }> = {};
 
@@ -44,13 +14,14 @@ function SingleNPC({ npc, index }: { npc: NPCDef; index: number }) {
 
   useFrame((state) => {
     if (!groupRef.current) return;
-    const t = state.clock.elapsedTime * 0.45 + index * 1.7;
+    const t = state.clock.elapsedTime * 0.55 + index * 1.7;
     const wave = Math.sin(t);
     const wx = npc.position[0] + npc.patrolOffset[0] * wave;
     const wz = npc.position[2] + npc.patrolOffset[1] * wave;
-    const wy = getTerrainHeight(wx, wz);
+    const wy = getExactMeshTerrainHeight(wx, wz);
 
-    groupRef.current.position.set(wx, wy, wz);
+    // Foot offset +0.76m so NPC boots sit firmly on ground
+    groupRef.current.position.set(wx, wy + 0.76, wz);
 
     const dx = npc.patrolOffset[0] * Math.cos(t);
     const dz = npc.patrolOffset[1] * Math.cos(t);
@@ -61,12 +32,24 @@ function SingleNPC({ npc, index }: { npc: NPCDef; index: number }) {
     npcLivePositions[npc.id] = { x: wx, y: wy, z: wz };
   });
 
+  const hairColors = ["#1e1b18", "#5c3317", "#9a3412", "#d97706", "#374151"];
+  const speedMag = Math.hypot(npc.patrolOffset[0], npc.patrolOffset[1]);
+
   return (
     <group ref={groupRef}>
-      <StylizedVillagerMesh coatColor={npc.coatColor} hatColor={npc.hatColor} isSorceress={npc.useSorceressModel} />
-      <mesh position={[0, 2.15, 0]}>
-        <octahedronGeometry args={[0.12, 0]} />
-        <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={2.0} />
+      <DigitalHumanCharacter
+        coatColor={npc.coatColor}
+        skirtColor="#1e293b"
+        capeColor={npc.hatColor}
+        hairColor={hairColors[index % hairColors.length]}
+        isNpc={true}
+        npcWalkSpeed={speedMag}
+        npcSeed={index + 1}
+        hasStaff={Boolean(npc.useSorceressModel)}
+      />
+      <mesh position={[0, 1.05, 0]}>
+        <octahedronGeometry args={[0.11, 0]} />
+        <meshStandardMaterial color="#fbbf24" emissive="#f59e0b" emissiveIntensity={2.2} />
       </mesh>
     </group>
   );

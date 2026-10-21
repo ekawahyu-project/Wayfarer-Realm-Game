@@ -154,7 +154,7 @@ export default function Village() {
     const hList: HouseItem[] = [];
     const sList: MarketStallItem[] = [];
     const pList: { x: number; y: number; z: number; r: number }[] = [
-      { x: 365, y: getExactMeshTerrainHeight(365, 0), z: 0, r: 64 },
+      { x: 365, y: getExactMeshTerrainHeight(365, 0), z: 0, r: 92 },
       { x: -280, y: getExactMeshTerrainHeight(-280, 240), z: 240, r: 44 },
       { x: -245, y: getExactMeshTerrainHeight(-245, -95), z: -95, r: 42 },
     ];
@@ -190,6 +190,23 @@ export default function Village() {
     addRowHouse(356, -37, 0.15, 1.15, "tower_house");
     addRowHouse(345, 36,  Math.PI - 0.2, 1.15, "merchant_gable");
     addRowHouse(356, 37,  Math.PI - 0.1, 1.18, "tower_house");
+    // Extra Expanded Outer Village Blocks (North, South, East & West Alleys)
+    addRowHouse(306, -17, 0.05, 1.15, "merchant_gable");
+    addRowHouse(317, -18, 0.0,  1.18, "tower_house");
+    addRowHouse(306, 17,  Math.PI, 1.15, "tavern_L");
+    addRowHouse(317, 18,  Math.PI, 1.16, "overpass_arch");
+    addRowHouse(322, -37, 0.1,  1.14, "merchant_gable");
+    addRowHouse(333, -36, 0.05, 1.18, "tower_house");
+    addRowHouse(368, -37, -0.05, 1.15, "blacksmith");
+    addRowHouse(380, -36, -0.1, 1.16, "tavern_L");
+    addRowHouse(392, -37, -0.15, 1.18, "tower_house");
+    addRowHouse(322, 37,  Math.PI, 1.15, "tower_house");
+    addRowHouse(333, 36,  Math.PI, 1.14, "merchant_gable");
+    addRowHouse(368, 37,  Math.PI, 1.16, "tavern_L");
+    addRowHouse(380, 36,  Math.PI, 1.18, "tower_house");
+    addRowHouse(392, 37,  Math.PI, 1.15, "overpass_arch");
+    addRowHouse(428, -18, -Math.PI / 2, 1.18, "tavern_L");
+    addRowHouse(428, 18,  -Math.PI / 2, 1.18, "tower_house");
 
     // Pasar Desa Timur (8 Kios Pasar Lengkap di Alun-Alun: Buah, Ikan, Sayur, Roti)
     const eastStalls: { dx: number; dz: number; rot: number; type: StallType }[] = [
