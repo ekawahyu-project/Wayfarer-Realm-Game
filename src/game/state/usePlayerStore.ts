@@ -21,8 +21,8 @@ interface PlayerState {
 }
 
 export const playerFrameState = {
-  x: -575,
-  y: 5,
+  x: -535,
+  y: 4,
   z: 0,
   vx: 0,
   vy: 0,
@@ -34,14 +34,14 @@ export const playerFrameState = {
   isGrounded: true,
   isSwimming: false,
   isInBoat: false,
-  boatX: -628,
+  boatX: -596,
   boatZ: 0,
   boatYaw: -Math.PI / 2,
 };
 
 export const usePlayerStore = create<PlayerState>((set) => ({
-  position: [-575, 5, 0],
-  activeChunks: 0,
+  position: [-535, 4, 0],
+  activeChunks: 1,
   isGrounded: true,
   isRunning: false,
   isSwimming: false,
