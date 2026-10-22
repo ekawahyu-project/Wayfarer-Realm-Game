@@ -25,13 +25,13 @@ interface CrowdPerson {
 
 const headGeo = new THREE.SphereGeometry(0.148, 16, 16);
 const hairGeo = new THREE.SphereGeometry(0.158, 16, 14);
-const neckGeo = new THREE.CylinderGeometry(0.05, 0.06, 0.14, 10);
+const neckGeo = new THREE.CylinderGeometry(0.046, 0.056, 0.14, 10);
 const crownGeo = new THREE.CylinderGeometry(0.13, 0.11, 0.11, 8);
 const eyeGeo = new THREE.SphereGeometry(0.022, 8, 8);
-const skinMat = new THREE.MeshPhysicalMaterial({ color: "#ffe2cc", roughness: 0.4, sheen: 0.3 });
+const skinMat = new THREE.MeshPhysicalMaterial({ color: "#ffe4d0", roughness: 0.38, sheen: 0.3 });
 const eyeDarkMat = new THREE.MeshStandardMaterial({ color: "#0f172a" });
-const pantMat = new THREE.MeshStandardMaterial({ color: "#1e293b", roughness: 0.78 });
-const leatherBeltMat = new THREE.MeshStandardMaterial({ color: "#451a03", roughness: 0.75 });
+const pantMat = new THREE.MeshStandardMaterial({ color: "#1e293b", roughness: 0.75 });
+const leatherBeltMat = new THREE.MeshStandardMaterial({ color: "#451a03", roughness: 0.72 });
 const goldCrownMat = new THREE.MeshStandardMaterial({ color: "#fbbf24", metalness: 0.85, roughness: 0.2 });
 
 export default function NPCSystem() {
@@ -139,41 +139,57 @@ export default function NPCSystem() {
     <group name="sculpted-human-npcs">
       {allPeople.map((p, i) => (
         <group key={p.id} ref={(el) => { groupRefs.current[i] = el; }}>
-          {/* Fitted Human Torso, Rounded Pelvis & Belt (Zero Lego cone!) */}
+          {/* Fitted Human Torso, Pelvis & Belt */}
           <mesh geometry={geos.torsoTunic} position={[0, 0.04, 0]} castShadow>
             <meshPhysicalMaterial color={p.coatColor} roughness={0.55} sheen={0.35} />
           </mesh>
-          <mesh position={[0, -0.12, 0]} scale={[1.12, 0.85, 0.74]} material={pantMat}>
-            <sphereGeometry args={[0.135, 12, 10]} />
+          <mesh position={[0, -0.11, 0]} scale={[1.12, 0.86, 0.72]} material={pantMat}>
+            <sphereGeometry args={[0.132, 12, 10]} />
           </mesh>
-          <mesh position={[0, -0.01, 0]} scale={[1.12, 1, 0.74]} material={leatherBeltMat}>
-            <cylinderGeometry args={[0.126, 0.130, 0.055, 14]} />
+          <mesh position={[0, -0.01, 0]} scale={[1.14, 1, 0.72]} material={leatherBeltMat}>
+            <cylinderGeometry args={[0.122, 0.126, 0.052, 14]} />
           </mesh>
           <mesh geometry={neckGeo} material={skinMat} position={[0, 0.43, 0]} />
 
-          {/* Articulated Human Legs */}
-          <group ref={(el) => { leftLegRefs.current[i] = el; }} position={[-0.082, -0.15, 0]}>
+          {/* Articulated Human Legs & Boots */}
+          <group ref={(el) => { leftLegRefs.current[i] = el; }} position={[-0.080, -0.15, 0]}>
             <mesh geometry={geos.thigh} material={pantMat} />
             <mesh geometry={geos.calfBoot} material={leatherBeltMat} position={[0, -0.27, 0]} />
+            <mesh position={[0, -0.54, 0.03]} scale={[0.86, 0.72, 1.4]} material={leatherBeltMat}><sphereGeometry args={[0.054, 10, 8]} /></mesh>
           </group>
-          <group ref={(el) => { rightLegRefs.current[i] = el; }} position={[0.082, -0.15, 0]}>
+          <group ref={(el) => { rightLegRefs.current[i] = el; }} position={[0.080, -0.15, 0]}>
             <mesh geometry={geos.thigh} material={pantMat} />
             <mesh geometry={geos.calfBoot} material={leatherBeltMat} position={[0, -0.27, 0]} />
+            <mesh position={[0, -0.54, 0.03]} scale={[0.86, 0.72, 1.4]} material={leatherBeltMat}><sphereGeometry args={[0.054, 10, 8]} /></mesh>
           </group>
 
-          {/* Relaxed Human Arms & Smooth Sculpted Hands */}
-          <group ref={(el) => { leftArmRefs.current[i] = el; }} position={[-0.162, 0.30, 0]} rotation={[0, 0, 0.12]}>
-            <mesh geometry={geos.upperArm}><meshStandardMaterial color={p.coatColor} roughness={0.6} /></mesh>
+          {/* Natural Human Arms & Inward-Facing 5-Finger Hands */}
+          <group ref={(el) => { leftArmRefs.current[i] = el; }} position={[-0.160, 0.30, 0]} rotation={[0, 0, 0.11]}>
+            <mesh position={[0.01, 0.01, 0]} material={pantMat}><sphereGeometry args={[0.052, 10, 8]} /></mesh>
+            <mesh geometry={geos.upperArm}><meshStandardMaterial color={p.coatColor} roughness={0.58} /></mesh>
             <mesh geometry={geos.forearm} material={skinMat} position={[0, -0.19, 0]} />
-            <mesh position={[0, -0.39, 0.005]} scale={[0.72, 1.25, 0.42]} material={skinMat}><sphereGeometry args={[0.036, 10, 8]} /></mesh>
+            <group position={[0, -0.385, 0.005]}>
+              <mesh scale={[0.42, 1.05, 0.82]} material={skinMat}><sphereGeometry args={[0.031, 10, 8]} /></mesh>
+              <mesh position={[0.008, -0.006, 0.022]} rotation={[0.55, 0, 0.15]} material={skinMat}><capsuleGeometry args={[0.005, 0.018, 4, 4]} /></mesh>
+              {[-0.01, 0, 0.01].map((fz, fi) => (
+                <mesh key={fi} position={[0.003, -0.032, fz]} rotation={[0, 0, 0.18]} material={skinMat}><capsuleGeometry args={[0.005, 0.022, 4, 4]} /></mesh>
+              ))}
+            </group>
           </group>
-          <group ref={(el) => { rightArmRefs.current[i] = el; }} position={[0.162, 0.30, 0]} rotation={[0, 0, -0.12]}>
-            <mesh geometry={geos.upperArm}><meshStandardMaterial color={p.coatColor} roughness={0.6} /></mesh>
+          <group ref={(el) => { rightArmRefs.current[i] = el; }} position={[0.160, 0.30, 0]} rotation={[0, 0, -0.11]}>
+            <mesh position={[-0.01, 0.01, 0]} material={pantMat}><sphereGeometry args={[0.052, 10, 8]} /></mesh>
+            <mesh geometry={geos.upperArm}><meshStandardMaterial color={p.coatColor} roughness={0.58} /></mesh>
             <mesh geometry={geos.forearm} material={skinMat} position={[0, -0.19, 0]} />
-            <mesh position={[0, -0.39, 0.005]} scale={[0.72, 1.25, 0.42]} material={skinMat}><sphereGeometry args={[0.036, 10, 8]} /></mesh>
+            <group position={[0, -0.385, 0.005]}>
+              <mesh scale={[0.42, 1.05, 0.82]} material={skinMat}><sphereGeometry args={[0.031, 10, 8]} /></mesh>
+              <mesh position={[-0.008, -0.006, 0.022]} rotation={[0.55, 0, -0.15]} material={skinMat}><capsuleGeometry args={[0.005, 0.018, 4, 4]} /></mesh>
+              {[-0.01, 0, 0.01].map((fz, fi) => (
+                <mesh key={fi} position={[-0.003, -0.032, fz]} rotation={[0, 0, -0.18]} material={skinMat}><capsuleGeometry args={[0.005, 0.022, 4, 4]} /></mesh>
+              ))}
+            </group>
           </group>
 
-          {/* Contoured Oval Human Head, Eyes & Hair */}
+          {/* Proportioned 7.5-Head Human Face & Hair */}
           <group position={[0, 0.52, 0.01]} scale={[0.84, 0.86, 0.84]}>
             <mesh geometry={headGeo} material={skinMat} scale={[0.85, 1.04, 0.90]} />
             <mesh geometry={eyeGeo} material={eyeDarkMat} position={[-0.048, 0.01, 0.125]} />

@@ -17,7 +17,6 @@ export interface DigitalHumanProps {
   hasStaff?: boolean;
 }
 
-// Shared Sculpted Human Limb Geometries (For NPCs & Player)
 let sharedHumanGeos: {
   torsoTunic: THREE.BufferGeometry;
   thigh: THREE.BufferGeometry;
@@ -29,44 +28,44 @@ let sharedHumanGeos: {
 export function getSculptedHumanGeometries() {
   if (sharedHumanGeos) return sharedHumanGeos;
 
-  // Tapered Human Chest-to-Waist Torso (Broad shoulders y=+0.30, slim waist y=-0.04, fitted hip y=-0.16 — NO flared bell skirt!)
+  // Fitted Athletic Human Torso (Tapered waist y=-0.04, contoured chest y=+0.20, natural shoulders y=+0.32 — NO flared bell skirt!)
   const torsoPoints = [
-    new THREE.Vector2(0.132, -0.16),
-    new THREE.Vector2(0.122, -0.06),
-    new THREE.Vector2(0.116, 0.02),
-    new THREE.Vector2(0.145, 0.16),
-    new THREE.Vector2(0.162, 0.27),
-    new THREE.Vector2(0.128, 0.33),
-    new THREE.Vector2(0.062, 0.36),
+    new THREE.Vector2(0.128, -0.15),
+    new THREE.Vector2(0.118, -0.06),
+    new THREE.Vector2(0.114, 0.03),
+    new THREE.Vector2(0.142, 0.17),
+    new THREE.Vector2(0.158, 0.27),
+    new THREE.Vector2(0.124, 0.33),
+    new THREE.Vector2(0.058, 0.36),
   ];
-  const torsoTunic = new THREE.LatheGeometry(torsoPoints, 20);
-  torsoTunic.scale(1.12, 1.0, 0.72); // Human ribcage aspect ratio (wider left-to-right, flatter front-to-back)
+  const torsoTunic = new THREE.LatheGeometry(torsoPoints, 24);
+  torsoTunic.scale(1.14, 1.0, 0.70);
 
   const thigh = new THREE.LatheGeometry([
-    new THREE.Vector2(0.052, -0.28),
-    new THREE.Vector2(0.064, -0.16),
-    new THREE.Vector2(0.075, -0.04),
-    new THREE.Vector2(0.072, 0.05),
-  ], 14);
+    new THREE.Vector2(0.050, -0.28),
+    new THREE.Vector2(0.062, -0.16),
+    new THREE.Vector2(0.074, -0.04),
+    new THREE.Vector2(0.070, 0.05),
+  ], 16);
 
   const calfBoot = new THREE.LatheGeometry([
-    new THREE.Vector2(0.045, -0.27),
-    new THREE.Vector2(0.042, -0.19),
-    new THREE.Vector2(0.058, -0.09),
+    new THREE.Vector2(0.044, -0.27),
+    new THREE.Vector2(0.040, -0.19),
+    new THREE.Vector2(0.056, -0.09),
+    new THREE.Vector2(0.050, 0.04),
+  ], 16);
+
+  const upperArm = new THREE.LatheGeometry([
+    new THREE.Vector2(0.038, -0.20),
+    new THREE.Vector2(0.046, -0.10),
     new THREE.Vector2(0.052, 0.04),
   ], 14);
 
-  const upperArm = new THREE.LatheGeometry([
-    new THREE.Vector2(0.040, -0.20),
-    new THREE.Vector2(0.048, -0.10),
-    new THREE.Vector2(0.054, 0.04),
-  ], 12);
-
   const forearm = new THREE.LatheGeometry([
-    new THREE.Vector2(0.028, -0.18),
-    new THREE.Vector2(0.038, -0.08),
-    new THREE.Vector2(0.040, 0.03),
-  ], 12);
+    new THREE.Vector2(0.027, -0.18),
+    new THREE.Vector2(0.036, -0.08),
+    new THREE.Vector2(0.038, 0.03),
+  ], 14);
 
   sharedHumanGeos = { torsoTunic, thigh, calfBoot, upperArm, forearm };
   return sharedHumanGeos;
@@ -75,7 +74,6 @@ export function getSculptedHumanGeometries() {
 export function DigitalHumanCharacter({
   coatColor = "#1e3a5f",
   skirtColor = "#1e293b",
-  capeColor = "#991b1b",
   hairColor = "#2b170e",
   isNpc = false,
   npcWalkSpeed = 0,
@@ -110,7 +108,7 @@ export function DigitalHumanCharacter({
         color: "#ffe4d0",
         emissive: "#fda4af",
         emissiveIntensity: 0.05,
-        roughness: 0.40,
+        roughness: 0.38,
         clearcoat: 0.12,
         sheen: 0.3,
         sheenColor: new THREE.Color("#fecdd3"),
@@ -118,12 +116,12 @@ export function DigitalHumanCharacter({
     []
   );
 
-  const coatMat = useMemo(() => new THREE.MeshPhysicalMaterial({ color: coatColor, roughness: 0.55, sheen: 0.4 }), [coatColor]);
+  const coatMat = useMemo(() => new THREE.MeshPhysicalMaterial({ color: coatColor, roughness: 0.52, sheen: 0.4 }), [coatColor]);
   const shirtMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#f8fafc", roughness: 0.65 }), []);
   const pantMat = useMemo(() => new THREE.MeshStandardMaterial({ color: skirtColor, roughness: 0.72 }), [skirtColor]);
   const eyeMat = useMemo(() => new THREE.MeshPhysicalMaterial({ map: textures.eyeIris, roughness: 0.04, clearcoat: 1.0 }), [textures.eyeIris]);
-  const leatherMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#451a03", roughness: 0.72 }), []);
-  const bootMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#291202", roughness: 0.75 }), []);
+  const leatherMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#451a03", roughness: 0.70 }), []);
+  const bootMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#291202", roughness: 0.72 }), []);
   const goldMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fbbf24", metalness: 0.85, roughness: 0.2 }), []);
 
   useFrame((state, delta) => {
@@ -152,7 +150,7 @@ export function DigitalHumanCharacter({
     const cosP = Math.cos(p);
 
     const bounce = isGrounded && !isSwimming ? Math.abs(sinP) * 0.042 * m : 0;
-    const breath = Math.sin(t * 2.6) * 0.008;
+    const breath = Math.sin(t * 2.6) * 0.007;
     const ridingY = !isNpc && playerFrameState.mountedHorseIndex !== -1 ? 0.34 : 0;
     const ridingZ = !isNpc && playerFrameState.mountedHorseIndex !== -1 ? -0.08 : 0;
     rootRef.current.position.y = isSwimming ? -0.35 + breath * 2 : ridingY + bounce + breath;
@@ -211,11 +209,10 @@ export function DigitalHumanCharacter({
         rightForearmRef.current.rotation.x = -0.65;
       } else {
         const armSwing = -sinP * 0.54 * m;
-        // Natural relaxed human shoulder angle (0.14 rad outward, not stiff robot arms!)
-        leftUpperArmRef.current.rotation.set(armSwing, 0, 0.13);
-        rightUpperArmRef.current.rotation.set(-armSwing, 0, -0.13);
-        const idleElbow = -0.18;
-        const runElbow = isRunning ? -0.65 : -0.32;
+        leftUpperArmRef.current.rotation.set(armSwing, 0, 0.11);
+        rightUpperArmRef.current.rotation.set(-armSwing, 0, -0.11);
+        const idleElbow = -0.16;
+        const runElbow = isRunning ? -0.65 : -0.30;
         leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m));
         rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m));
       }
@@ -225,59 +222,55 @@ export function DigitalHumanCharacter({
   return (
     <group ref={rootRef}>
       <group ref={torsoRef} position={[0, 0.04, 0]}>
-        {/* 1. Fitted Human Upper Torso & Jacket (No flared bell skirt!) */}
+        {/* Fitted Tailored Adventurer Jacket & Ribcage (Zero flared Lego cone!) */}
         <mesh castShadow receiveShadow geometry={geos.torsoTunic} material={coatMat} />
-        {/* Inner White V-Neck Shirt Collar at Chest */}
-        <mesh position={[0, 0.28, 0.085]} rotation={[Math.PI, Math.PI / 4, 0]} scale={[1.0, 1.0, 0.5]} material={shirtMat}>
-          <coneGeometry args={[0.065, 0.14, 4]} />
+        {/* Inner White V-Neck Collar */}
+        <mesh position={[0, 0.28, 0.082]} rotation={[Math.PI, Math.PI / 4, 0]} scale={[1.0, 1.0, 0.5]} material={shirtMat}>
+          <coneGeometry args={[0.062, 0.13, 4]} />
         </mesh>
-        {/* Anatomical Rounded Human Pelvis & Hips (Connects waist seamlessly into both thighs!) */}
-        <mesh castShadow position={[0, -0.16, 0]} scale={[1.12, 0.85, 0.74]} material={pantMat}>
-          <sphereGeometry args={[0.135, 16, 12]} />
+        {/* Contoured Human Pelvis & Trousers (Seamless transition into both thighs) */}
+        <mesh castShadow position={[0, -0.15, 0]} scale={[1.12, 0.86, 0.72]} material={pantMat}>
+          <sphereGeometry args={[0.132, 16, 12]} />
         </mesh>
-        {/* Slim Leather Belt, Gold Buckle & Diagonal Sword Strap (Baldric) */}
-        <mesh position={[0, 0.16, 0.0]} rotation={[0, 0, 0.62]} scale={[1.12, 1, 0.75]} material={leatherMat}>
-          <cylinderGeometry args={[0.148, 0.148, 0.032, 16]} />
+        {/* Slim Leather Belt, Gold Buckle & Diagonal Katana Baldric Strap */}
+        <mesh position={[0, 0.16, 0.0]} rotation={[0, 0, 0.62]} scale={[1.14, 1, 0.72]} material={leatherMat}>
+          <cylinderGeometry args={[0.145, 0.145, 0.028, 16]} />
         </mesh>
-        <mesh position={[0, -0.05, 0]} scale={[1.12, 1.0, 0.74]} material={leatherMat}>
-          <cylinderGeometry args={[0.126, 0.130, 0.055, 18]} />
+        <mesh position={[0, -0.05, 0]} scale={[1.14, 1.0, 0.72]} material={leatherMat}>
+          <cylinderGeometry args={[0.122, 0.126, 0.052, 18]} />
         </mesh>
-        <mesh position={[0, -0.05, 0.098]} material={goldMat}><boxGeometry args={[0.048, 0.048, 0.016]} /></mesh>
+        <mesh position={[0, -0.05, 0.094]} material={goldMat}><boxGeometry args={[0.044, 0.044, 0.015]} /></mesh>
 
-        {/* Slender Human Neck */}
+        {/* Slender Anatomical Neck */}
         <mesh position={[0, 0.39, 0]} material={sssSkinMat}>
-          <cylinderGeometry args={[0.048, 0.058, 0.14, 14]} />
+          <cylinderGeometry args={[0.046, 0.056, 0.14, 14]} />
         </mesh>
 
-        {/* SLEEK CURVED SAMURAI KATANA ON BACK (Zero ugly brown box backpack!) */}
+        {/* SLEEK BACK-SLUNG SAMURAI KATANA (No ugly brown box backpack!) */}
         {hasStaff && (
-          <group position={[0.02, 0.15, -0.115]} rotation={[0, 0, -0.60]}>
-            {/* Lacquered Black-Crimson Scabbard (Saya) */}
+          <group position={[0.02, 0.15, -0.112]} rotation={[0, 0, -0.60]}>
             <mesh castShadow position={[0, -0.06, 0]}>
-              <capsuleGeometry args={[0.015, 0.72, 8, 12]} />
+              <capsuleGeometry args={[0.014, 0.72, 8, 12]} />
               <meshStandardMaterial color="#18181b" roughness={0.22} metalness={0.35} />
             </mesh>
-            {/* Golden Cord Wrap & Rings */}
             <mesh position={[0, 0.12, 0]}>
-              <cylinderGeometry args={[0.019, 0.019, 0.10, 10]} />
+              <cylinderGeometry args={[0.018, 0.018, 0.10, 10]} />
               <meshStandardMaterial color="#b91c1c" roughness={0.5} />
             </mesh>
-            {/* Ornate Gold Handguard (Tsuba) */}
             <mesh position={[0, 0.31, 0]} material={goldMat}>
-              <cylinderGeometry args={[0.048, 0.048, 0.014, 14]} />
+              <cylinderGeometry args={[0.046, 0.046, 0.014, 14]} />
             </mesh>
-            {/* Crimson Silk-Wrapped Hilt (Tsuka) & Gold Kashira Pommel */}
             <mesh position={[0, 0.44, 0]}>
-              <cylinderGeometry args={[0.015, 0.017, 0.24, 10]} />
+              <cylinderGeometry args={[0.014, 0.016, 0.24, 10]} />
               <meshStandardMaterial color="#991b1b" roughness={0.6} />
             </mesh>
             <mesh position={[0, 0.56, 0]} material={goldMat}>
-              <cylinderGeometry args={[0.017, 0.017, 0.02, 10]} />
+              <cylinderGeometry args={[0.016, 0.016, 0.02, 10]} />
             </mesh>
           </group>
         )}
 
-        {/* PROPORTIONED HUMAN HEAD & LAYERED HAIR */}
+        {/* PROPORTIONED 7.5-HEAD HUMAN FACE & LAYERED HAIR */}
         <group ref={headRef} position={[0, 0.48, 0.01]} scale={[0.84, 0.86, 0.84]}>
           <mesh castShadow position={[0, 0.02, 0]} scale={[0.85, 1.04, 0.90]} material={sssSkinMat}>
             <sphereGeometry args={[0.150, 24, 24]} />
@@ -325,57 +318,73 @@ export function DigitalHumanCharacter({
           ))}
           <group ref={ponytailRef} position={[0, 0.02, -0.148]}>
             <mesh position={[0, -0.16, -0.03]}>
-              <coneGeometry args={[0.062, 0.36, 12]} />
+              <coneGeometry args={[0.060, 0.36, 12]} />
               <meshPhysicalMaterial color={hairColor} roughness={0.42} sheen={0.55} />
             </mesh>
           </group>
         </group>
 
-        {/* NATURAL HUMAN ARMS, ROLLED SLEEVES, FOREARMS & SMOOTH SCULPTED HANDS */}
-        <group ref={leftUpperArmRef} position={[-0.162, 0.27, 0]}>
-          <mesh position={[0.01, 0.01, 0]} scale={[1.05, 1.0, 0.92]} material={coatMat}><sphereGeometry args={[0.056, 12, 10]} /></mesh>
+        {/* NATURAL HUMAN ARMS & HANDS (Palm faces inward toward thigh, 5 fingers arrayed front-to-back along Z-axis!) */}
+        <group ref={leftUpperArmRef} position={[-0.160, 0.27, 0]}>
+          <mesh position={[0.01, 0.01, 0]} scale={[1.05, 1.0, 0.92]} material={coatMat}><sphereGeometry args={[0.054, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={coatMat} />
-          <mesh position={[0, -0.19, 0]} material={shirtMat}><cylinderGeometry args={[0.044, 0.042, 0.04, 12]} /></mesh>
+          <mesh position={[0, -0.19, 0]} material={shirtMat}><cylinderGeometry args={[0.042, 0.040, 0.035, 12]} /></mesh>
           <group ref={leftForearmRef} position={[0, -0.19, 0]}>
             <mesh geometry={geos.forearm} material={sssSkinMat} />
-            {/* Smooth Sculpted Human Hand (Contoured palm + subtle thumb + unified curved fingers) */}
-            <group position={[0, -0.20, 0.005]}>
-              <mesh scale={[0.72, 1.18, 0.42]} material={sssSkinMat}><sphereGeometry args={[0.036, 12, 10]} /></mesh>
-              <mesh position={[0.020, 0.005, 0.012]} rotation={[0.25, 0, -0.45]} material={sssSkinMat}><capsuleGeometry args={[0.007, 0.022, 6, 6]} /></mesh>
-              <mesh position={[0, -0.028, 0.004]} rotation={[0.18, 0, 0]} scale={[0.70, 1.0, 0.38]} material={sssSkinMat}><capsuleGeometry args={[0.028, 0.024, 6, 8]} /></mesh>
+            {/* Left Human Hand: Palm faces +X (inward toward hip), Thumb points +Z (forward), 4 Fingers arrayed along Z */}
+            <group position={[0, -0.195, 0.005]}>
+              <mesh scale={[0.42, 1.05, 0.82]} material={sssSkinMat}><sphereGeometry args={[0.032, 12, 10]} /></mesh>
+              {/* Thumb pointing forward-inward */}
+              <mesh position={[0.008, -0.006, 0.024]} rotation={[0.55, 0, 0.15]} material={sssSkinMat}>
+                <capsuleGeometry args={[0.0055, 0.020, 4, 6]} />
+              </mesh>
+              {/* 4 Natural Fingers (Index to Pinky along Z-axis, slightly curled inward toward +X) */}
+              {[0.013, 0.004, -0.005, -0.014].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[0.003, -0.034, fz]} rotation={[0, 0, 0.18]} material={sssSkinMat}>
+                  <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.026 : 0.020, 4, 6]} />
+                </mesh>
+              ))}
             </group>
           </group>
         </group>
 
-        <group ref={rightUpperArmRef} position={[0.162, 0.27, 0]}>
-          <mesh position={[-0.01, 0.01, 0]} scale={[1.05, 1.0, 0.92]} material={coatMat}><sphereGeometry args={[0.056, 12, 10]} /></mesh>
+        <group ref={rightUpperArmRef} position={[0.160, 0.27, 0]}>
+          <mesh position={[-0.01, 0.01, 0]} scale={[1.05, 1.0, 0.92]} material={coatMat}><sphereGeometry args={[0.054, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={coatMat} />
-          <mesh position={[0, -0.19, 0]} material={shirtMat}><cylinderGeometry args={[0.044, 0.042, 0.04, 12]} /></mesh>
+          <mesh position={[0, -0.19, 0]} material={shirtMat}><cylinderGeometry args={[0.042, 0.040, 0.035, 12]} /></mesh>
           <group ref={rightForearmRef} position={[0, -0.19, 0]}>
             <mesh geometry={geos.forearm} material={sssSkinMat} />
-            {/* Smooth Sculpted Human Hand */}
-            <group position={[0, -0.20, 0.005]}>
-              <mesh scale={[0.72, 1.18, 0.42]} material={sssSkinMat}><sphereGeometry args={[0.036, 12, 10]} /></mesh>
-              <mesh position={[-0.020, 0.005, 0.012]} rotation={[0.25, 0, 0.45]} material={sssSkinMat}><capsuleGeometry args={[0.007, 0.022, 6, 6]} /></mesh>
-              <mesh position={[0, -0.028, 0.004]} rotation={[0.18, 0, 0]} scale={[0.70, 1.0, 0.38]} material={sssSkinMat}><capsuleGeometry args={[0.028, 0.024, 6, 8]} /></mesh>
+            {/* Right Human Hand: Palm faces -X (inward toward hip), Thumb points +Z (forward), 4 Fingers arrayed along Z */}
+            <group position={[0, -0.195, 0.005]}>
+              <mesh scale={[0.42, 1.05, 0.82]} material={sssSkinMat}><sphereGeometry args={[0.032, 12, 10]} /></mesh>
+              {/* Thumb pointing forward-inward */}
+              <mesh position={[-0.008, -0.006, 0.024]} rotation={[0.55, 0, -0.15]} material={sssSkinMat}>
+                <capsuleGeometry args={[0.0055, 0.020, 4, 6]} />
+              </mesh>
+              {/* 4 Natural Fingers (Index to Pinky along Z-axis, slightly curled inward toward -X) */}
+              {[0.013, 0.004, -0.005, -0.014].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[-0.003, -0.034, fz]} rotation={[0, 0, -0.18]} material={sssSkinMat}>
+                  <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.026 : 0.020, 4, 6]} />
+                </mesh>
+              ))}
             </group>
           </group>
         </group>
       </group>
 
       {/* ANATOMICAL LEGS, KNEES & BOOTS */}
-      <group ref={leftThighRef} position={[-0.082, -0.15, 0]}>
+      <group ref={leftThighRef} position={[-0.080, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
         <group ref={leftShinRef} position={[0, -0.27, 0]}>
           <mesh castShadow geometry={geos.calfBoot} material={bootMat} />
-          <mesh castShadow position={[0, -0.27, 0.032]} scale={[0.88, 0.72, 1.42]} material={bootMat}><sphereGeometry args={[0.056, 12, 10]} /></mesh>
+          <mesh castShadow position={[0, -0.27, 0.032]} scale={[0.86, 0.72, 1.42]} material={bootMat}><sphereGeometry args={[0.055, 12, 10]} /></mesh>
         </group>
       </group>
-      <group ref={rightThighRef} position={[0.082, -0.15, 0]}>
+      <group ref={rightThighRef} position={[0.080, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
         <group ref={rightShinRef} position={[0, -0.27, 0]}>
           <mesh castShadow geometry={geos.calfBoot} material={bootMat} />
-          <mesh castShadow position={[0, -0.27, 0.032]} scale={[0.88, 0.72, 1.42]} material={bootMat}><sphereGeometry args={[0.056, 12, 10]} /></mesh>
+          <mesh castShadow position={[0, -0.27, 0.032]} scale={[0.86, 0.72, 1.42]} material={bootMat}><sphereGeometry args={[0.055, 12, 10]} /></mesh>
         </group>
       </group>
     </group>

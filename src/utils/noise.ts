@@ -8,8 +8,7 @@ function createSeededRandom(seed: number) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
-
-const noise2D = createNoise2D(createSeededRandom(20261020));
+export const noise2D = createNoise2D(createSeededRandom(20261020));
 
 export function fbm(x: number, z: number, octaves = 4, lacunarity = 2.0, gain = 0.5): number {
   let total = 0, frequency = 1, amplitude = 1, maxValue = 0;
@@ -358,10 +357,4 @@ export function resolveObstacleCollisions(x: number, z: number, radius = 0.55, p
   }
 
   return [nx, nz];
-}
-
-// Fallback export for noise2D used by Terrain.tsx
-export function noise2D(x: number, y: number): number {
-  if (typeof getNoise === 'function') return getNoise(x, y);
-  return Math.sin(x * 1.5) * Math.cos(y * 1.5);
 }

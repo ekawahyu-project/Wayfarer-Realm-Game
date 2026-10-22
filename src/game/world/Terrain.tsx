@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import * as THREE from "three";
-import { getTerrainHeight, getRiverDistance, noise2D } from "@/utils/noise";
+import { getTerrainHeight, getRiverDistance, noise2D, BIOME_CENTERS } from "@/utils/noise";
 import { getWorldTextures } from "@/utils/proceduralTextures";
 import { WORLD_CONFIG } from "@/config/world";
 
@@ -23,17 +23,26 @@ export default function Terrain() {
     const pos = geo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
 
-    const cSand = new THREE.Color("#e8d2a6");
-    const cLushGrass = new THREE.Color("#4d9430");
-    const cMeadowGrass = new THREE.Color("#63a83c");
-    const cForestFloor = new THREE.Color("#366e22");
-    const cAutumnGrass = new THREE.Color("#9e7232");
-    const cDirtPath = new THREE.Color("#9c7e54");
-    const cRiverBed = new THREE.Color("#2a6f78");
-    const cPlazaStone = new THREE.Color("#c2bcb2");
+    const cSand = new THREE.Color("#ebd5a7");
+    const cLushGrass = new THREE.Color("#4f9932");
+    const cMeadowGrass = new THREE.Color("#66ad40");
+    const cForestFloor = new THREE.Color("#3b7524");
+    const cAutumnGrass = new THREE.Color("#a87934");
+    const cDirtPath = new THREE.Color("#a6865a");
+    const cRiverBed = new THREE.Color("#2d7780");
+    const cPlazaStone = new THREE.Color("#c8c2b8");
     const cRock = new THREE.Color("#64748b");
     const cSnow = new THREE.Color("#f4f8fc");
     const temp = new THREE.Color();
+
+    const eastX = BIOME_CENTERS?.eastVillage?.x ?? 295;
+    const eastZ = BIOME_CENTERS?.eastVillage?.z ?? 0;
+    const swX = BIOME_CENTERS?.swVillage?.x ?? -280;
+    const swZ = BIOME_CENTERS?.swVillage?.z ?? 175;
+    const wfX = BIOME_CENTERS?.westForestVillage?.x ?? -245;
+    const wfZ = BIOME_CENTERS?.westForestVillage?.z ?? -32;
+    const shX = BIOME_CENTERS?.nwShrine?.x ?? -310;
+    const shZ = BIOME_CENTERS?.nwShrine?.z ?? -260;
 
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
@@ -49,18 +58,18 @@ export default function Terrain() {
         temp.lerp(cForestFloor, Math.max(0, Math.min(1, fBlend * 0.65)));
       }
 
-      const distShrine = Math.hypot(x - -310, z - -290);
+      const distShrine = Math.hypot(x - shX, z - shZ);
       if (distShrine < 110) {
         temp.lerp(cAutumnGrass, Math.min(1, (1 - distShrine / 110) * 0.75));
       }
 
-      const distEast = Math.hypot(x - 365, z);
-      const distSW = Math.hypot(x - -280, z - 240);
-      const distWest = Math.hypot(x - -245, z - -95);
+      const distEast = Math.min(Math.hypot(x - eastX, z - eastZ), Math.hypot(x - 360, z));
+      const distSW = Math.min(Math.hypot(x - swX, z - swZ), Math.hypot(x - -280, z - 240));
+      const distWest = Math.min(Math.hypot(x - wfX, z - wfZ), Math.hypot(x - -245, z - -95));
       const distKingdom = Math.hypot(x - 0, z - 400);
-      const minPlazaDist = Math.min(distEast, distSW, distWest, distKingdom * 0.72);
-      if (minPlazaDist < 82) {
-        const pBlend = 1.0 - smoothstep(48, 82, minPlazaDist);
+      const minPlazaDist = Math.min(distEast, distSW, distWest, distKingdom * 0.70);
+      if (minPlazaDist < 84) {
+        const pBlend = 1.0 - smoothstep(50, 84, minPlazaDist);
         temp.lerp(cPlazaStone, pBlend * 0.92);
       }
 
@@ -77,9 +86,9 @@ export default function Terrain() {
         temp.lerp(cRiverBed, rBlend * 0.95);
       }
 
-      if (y < 6.2 && rDist >= 22.0) {
-        const sandBlend = 1.0 - smoothstep(1.5, 6.2, y);
-        temp.lerp(cSand, sandBlend * 0.6);
+      if (y < 6.0 && rDist >= 22.0) {
+        const sandBlend = 1.0 - smoothstep(1.5, 6.0, y);
+        temp.lerp(cSand, sandBlend * 0.55);
       }
 
       if (z < -150 || y > 18) {
@@ -107,11 +116,11 @@ export default function Terrain() {
       map: textures.terrainDetail,
       bumpMap: textures.terrainDetail,
       bumpScale: 0.08,
-      roughness: 0.85,
+      roughness: 0.84,
       metalness: 0.02,
     });
 
-    mat.customProgramCacheKey = () => "terrain-shoreline-perpixel-v3";
+    mat.customProgramCacheKey = () => "terrain-shoreline-perpixel-v4";
     mat.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader.replace(
         "#include <common>",
@@ -137,18 +146,17 @@ export default function Terrain() {
         "#include <color_fragment>",
         [
           "#include <color_fragment>",
-          "// Seamless per-pixel coastal sand transition (Preserves texture grain & has zero hard boundary!)",
-          "float coastWest = smoothstep(-350.0, -420.0, vWorldPosTerrain.x);",
-          "float coastSouth = smoothstep(400.0, 465.0, vWorldPosTerrain.z);",
+          "float coastWest = smoothstep(-330.0, -415.0, vWorldPosTerrain.x);",
+          "float coastSouth = smoothstep(390.0, 460.0, vWorldPosTerrain.z);",
           "float coastMask = max(coastWest, coastSouth);",
           "if (coastMask > 0.001) {",
-          "  float n1 = noiseTerrain(vWorldPosTerrain.xz * 0.04) * 1.35;",
-          "  float n2 = noiseTerrain(vWorldPosTerrain.xz * 0.16) * 0.45;",
-          "  float organicH = vWorldPosTerrain.y + n1 + n2 - 0.5;",
-          "  float sandFactor = (1.0 - smoothstep(2.0, 5.6, organicH)) * coastMask;",
+          "  float n1 = noiseTerrain(vWorldPosTerrain.xz * 0.038) * 1.45;",
+          "  float n2 = noiseTerrain(vWorldPosTerrain.xz * 0.15) * 0.48;",
+          "  float organicH = vWorldPosTerrain.y + n1 + n2 - 0.55;",
+          "  float sandFactor = (1.0 - smoothstep(2.1, 5.8, organicH)) * coastMask;",
           "  float texLum = dot(diffuseColor.rgb, vec3(0.333)) / max(0.15, dot(vColor.rgb, vec3(0.333)));",
-          "  texLum = clamp(texLum, 0.78, 1.18);",
-          "  vec3 drySand = vec3(0.93, 0.84, 0.66) * texLum;",
+          "  texLum = clamp(texLum, 0.80, 1.16);",
+          "  vec3 drySand = vec3(0.94, 0.85, 0.67) * texLum;",
           "  vec3 wetSand = vec3(0.76, 0.66, 0.50) * texLum;",
           "  float wetMask = 1.0 - smoothstep(-0.2, 1.5, vWorldPosTerrain.y);",
           "  vec3 targetSand = mix(drySand, wetSand, wetMask);",
