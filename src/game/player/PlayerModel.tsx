@@ -16,7 +16,6 @@ export interface DigitalHumanProps {
   hasStaff?: boolean;
 }
 
-// Shared High-Performance Disney/Pixar Stylized Geometries (Smooth rounded organic shapes, super lightweight!)
 let sharedPixarGeos: {
   torsoTunic: THREE.BufferGeometry;
   thigh: THREE.BufferGeometry;
@@ -28,48 +27,52 @@ let sharedPixarGeos: {
 export function getSculptedHumanGeometries() {
   if (sharedPixarGeos) return sharedPixarGeos;
 
-  // Smooth Rounded Pixar Adventurer Tunic (Soft tapered waist, rounded chest & shoulders, smooth normals)
-  const torsoPoints = [
-    new THREE.Vector2(0.142, -0.16),
-    new THREE.Vector2(0.132, -0.08),
-    new THREE.Vector2(0.122, 0.02),
-    new THREE.Vector2(0.146, 0.16),
-    new THREE.Vector2(0.156, 0.26),
-    new THREE.Vector2(0.125, 0.33),
-    new THREE.Vector2(0.062, 0.36),
-  ];
-  const torsoTunic = new THREE.LatheGeometry(torsoPoints, 20);
+  // Smooth Spline-Interpolated Disney/Pixar Torso (28 smooth curve subdivisions — ZERO boxy/Lego facets!)
+  const torsoCurve = new THREE.SplineCurve([
+    new THREE.Vector2(0.138, -0.16),
+    new THREE.Vector2(0.126, -0.08),
+    new THREE.Vector2(0.118, 0.02),
+    new THREE.Vector2(0.144, 0.16),
+    new THREE.Vector2(0.154, 0.26),
+    new THREE.Vector2(0.122, 0.33),
+    new THREE.Vector2(0.060, 0.36),
+  ]);
+  const torsoTunic = new THREE.LatheGeometry(torsoCurve.getPoints(28), 24);
   torsoTunic.scale(1.12, 1.0, 0.78);
   torsoTunic.computeVertexNormals();
 
-  const thigh = new THREE.LatheGeometry([
-    new THREE.Vector2(0.054, -0.27),
-    new THREE.Vector2(0.066, -0.15),
-    new THREE.Vector2(0.076, -0.04),
-    new THREE.Vector2(0.072, 0.05),
-  ], 14);
+  const thighCurve = new THREE.SplineCurve([
+    new THREE.Vector2(0.052, -0.27),
+    new THREE.Vector2(0.065, -0.15),
+    new THREE.Vector2(0.075, -0.04),
+    new THREE.Vector2(0.070, 0.05),
+  ]);
+  const thigh = new THREE.LatheGeometry(thighCurve.getPoints(18), 16);
   thigh.computeVertexNormals();
 
-  const calfBoot = new THREE.LatheGeometry([
-    new THREE.Vector2(0.048, -0.26),
-    new THREE.Vector2(0.044, -0.18),
+  const calfCurve = new THREE.SplineCurve([
+    new THREE.Vector2(0.046, -0.26),
+    new THREE.Vector2(0.043, -0.18),
     new THREE.Vector2(0.058, -0.08),
-    new THREE.Vector2(0.052, 0.04),
-  ], 14);
+    new THREE.Vector2(0.051, 0.04),
+  ]);
+  const calfBoot = new THREE.LatheGeometry(calfCurve.getPoints(18), 16);
   calfBoot.computeVertexNormals();
 
-  const upperArm = new THREE.LatheGeometry([
-    new THREE.Vector2(0.042, -0.19),
+  const upperArmCurve = new THREE.SplineCurve([
+    new THREE.Vector2(0.040, -0.19),
     new THREE.Vector2(0.048, -0.09),
-    new THREE.Vector2(0.054, 0.04),
-  ], 12);
+    new THREE.Vector2(0.053, 0.04),
+  ]);
+  const upperArm = new THREE.LatheGeometry(upperArmCurve.getPoints(14), 14);
   upperArm.computeVertexNormals();
 
-  const forearm = new THREE.LatheGeometry([
-    new THREE.Vector2(0.032, -0.17),
-    new THREE.Vector2(0.040, -0.08),
-    new THREE.Vector2(0.042, 0.03),
-  ], 12);
+  const forearmCurve = new THREE.SplineCurve([
+    new THREE.Vector2(0.030, -0.17),
+    new THREE.Vector2(0.039, -0.08),
+    new THREE.Vector2(0.041, 0.03),
+  ]);
+  const forearm = new THREE.LatheGeometry(forearmCurve.getPoints(14), 14);
   forearm.computeVertexNormals();
 
   sharedPixarGeos = { torsoTunic, thigh, calfBoot, upperArm, forearm };
@@ -106,18 +109,17 @@ export function DigitalHumanCharacter({
   const phaseRef = useRef(npcSeed * 3.1);
   const moveBlendRef = useRef(0);
 
-  // Warm Disney/Pixar Subsurface-Toned Standard Materials (Fast 60FPS GPU performance, warm soft look!)
   const pixarSkinMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#ffdfc4", emissive: "#f43f5e", emissiveIntensity: 0.05, roughness: 0.45 }),
+    () => new THREE.MeshStandardMaterial({ color: "#ffdfc4", emissive: "#f43f5e", emissiveIntensity: 0.05, roughness: 0.42 }),
     []
   );
   const blushMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fda4af", roughness: 0.5 }), []);
-  const coatMat = useMemo(() => new THREE.MeshStandardMaterial({ color: coatColor, roughness: 0.55 }), [coatColor]);
-  const collarMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef3c7", roughness: 0.6 }), []);
-  const pantMat = useMemo(() => new THREE.MeshStandardMaterial({ color: skirtColor, roughness: 0.70 }), [skirtColor]);
-  const hairMat = useMemo(() => new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.42 }), [hairColor]);
-  const leatherMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#5c2d0c", roughness: 0.65 }), []);
-  const bootMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#3b1d08", roughness: 0.68 }), []);
+  const coatMat = useMemo(() => new THREE.MeshStandardMaterial({ color: coatColor, roughness: 0.52 }), [coatColor]);
+  const collarMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fef3c7", roughness: 0.58 }), []);
+  const pantMat = useMemo(() => new THREE.MeshStandardMaterial({ color: skirtColor, roughness: 0.68 }), [skirtColor]);
+  const hairMat = useMemo(() => new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.40 }), [hairColor]);
+  const leatherMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#5c2d0c", roughness: 0.62 }), []);
+  const bootMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#3b1d08", roughness: 0.65 }), []);
   const goldMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fbbf24", metalness: 0.75, roughness: 0.25 }), []);
   const scleraMat = useMemo(() => new THREE.MeshBasicMaterial({ color: "#ffffff" }), []);
   const irisMat = useMemo(() => new THREE.MeshBasicMaterial({ color: "#1d4ed8" }), []);
@@ -220,28 +222,21 @@ export function DigitalHumanCharacter({
   return (
     <group ref={rootRef}>
       <group ref={torsoRef} position={[0, 0.04, 0]}>
-        {/* 1. Smooth Rounded Pixar Adventurer Tunic */}
         <mesh castShadow receiveShadow geometry={geos.torsoTunic} material={coatMat} />
-        {/* Soft Cream Tunic Collar Ring (Replaces the bugged black-hole cone & chest cylinder!) */}
         <mesh position={[0, 0.345, 0]} scale={[1.08, 1.0, 0.82]} material={collarMat}>
           <cylinderGeometry args={[0.068, 0.088, 0.045, 16]} />
         </mesh>
-        {/* Rounded Pelvis & Trousers */}
         <mesh position={[0, -0.15, 0]} scale={[1.10, 0.88, 0.76]} material={pantMat}>
           <sphereGeometry args={[0.134, 14, 12]} />
         </mesh>
-        {/* Waist Leather Belt & Gold Buckle */}
         <mesh position={[0, -0.05, 0]} scale={[1.13, 1.0, 0.79]} material={leatherMat}>
           <cylinderGeometry args={[0.125, 0.130, 0.055, 16]} />
         </mesh>
         <mesh position={[0, -0.05, 0.104]} material={goldMat}><boxGeometry args={[0.046, 0.048, 0.016]} /></mesh>
-
-        {/* Smooth Neck */}
         <mesh position={[0, 0.39, 0]} material={pixarSkinMat}>
           <cylinderGeometry args={[0.048, 0.058, 0.13, 14]} />
         </mesh>
 
-        {/* Back-Slung Samurai Katana */}
         {hasStaff && (
           <group position={[0.02, 0.15, -0.115]} rotation={[0, 0, -0.58]}>
             <mesh castShadow position={[0, -0.06, 0]}>
@@ -262,61 +257,47 @@ export function DigitalHumanCharacter({
           </group>
         )}
 
-        {/* 2. DISNEY/PIXAR EXPRESSIVE HEAD, LARGE EYES WITH WHITE CATCHLIGHTS, & SOFT ROUNDED HAIR */}
+        {/* DISNEY/PIXAR EXPRESSIVE HEAD, CLEAR EYES WITH WHITE CATCHLIGHTS, & ROUNDED HAIR */}
         <group ref={headRef} position={[0, 0.49, 0.01]} scale={[0.92, 0.92, 0.92]}>
-          {/* Smooth Rounded Pixar Head & Cheeks */}
           <mesh castShadow position={[0, 0.02, 0]} scale={[0.92, 1.0, 0.92]} material={pixarSkinMat}>
             <sphereGeometry args={[0.152, 22, 22]} />
           </mesh>
-          {/* Cute Button Pixar Nose (Soft oval sphere, not a sharp cone!) */}
           <mesh position={[0, 0.002, 0.142]} scale={[0.85, 0.72, 1.1]} material={pixarSkinMat}>
             <sphereGeometry args={[0.018, 10, 10]} />
           </mesh>
-          {/* Rosy Pixar Cheeks & Warm Smile */}
           <mesh position={[-0.075, -0.018, 0.118]} scale={[1.2, 0.75, 0.5]} material={blushMat}><sphereGeometry args={[0.022, 8, 8]} /></mesh>
           <mesh position={[0.075, -0.018, 0.118]} scale={[1.2, 0.75, 0.5]} material={blushMat}><sphereGeometry args={[0.022, 8, 8]} /></mesh>
           <mesh position={[0, -0.048, 0.130]} scale={[1.35, 0.50, 0.6]}>
             <sphereGeometry args={[0.015, 10, 8]} />
             <meshStandardMaterial color="#e11d48" roughness={0.4} />
           </mesh>
-          {/* Rounded Ears */}
           <mesh position={[-0.138, 0.005, -0.01]} scale={[0.45, 0.78, 0.6]} material={pixarSkinMat}><sphereGeometry args={[0.036, 10, 10]} /></mesh>
           <mesh position={[0.138, 0.005, -0.01]} scale={[0.45, 0.78, 0.6]} material={pixarSkinMat}><sphereGeometry args={[0.036, 10, 10]} /></mesh>
 
-          {/* Expressive Pixar Eyes (Forward-facing Sclera + Deep Blue Iris + Black Pupil + Crisp White Catchlight!) */}
           {[-0.048, 0.048].map((ex, idx) => (
             <group key={idx} position={[ex, 0.022, 0.128]} rotation={[0, idx === 0 ? -0.12 : 0.12, 0]}>
-              {/* White Sclera */}
               <mesh scale={[1.05, 1.15, 0.45]} material={scleraMat}><sphereGeometry args={[0.026, 12, 12]} /></mesh>
-              {/* Royal Blue Iris */}
               <mesh position={[0, 0, 0.006]} scale={[0.72, 0.82, 0.42]} material={irisMat}><sphereGeometry args={[0.024, 12, 12]} /></mesh>
-              {/* Deep Black Pupil */}
               <mesh position={[0, 0, 0.010]} scale={[0.44, 0.52, 0.38]} material={pupilMat}><sphereGeometry args={[0.022, 10, 10]} /></mesh>
-              {/* Bright Pixar Eye Catchlight Highlight! */}
               <mesh position={[0.006, 0.008, 0.018]} material={scleraMat}><sphereGeometry args={[0.0055, 8, 8]} /></mesh>
-              {/* Blinking Eyelid */}
               <mesh ref={idx === 0 ? leftEyelidRef : rightEyelidRef} visible={false} position={[0, 0, 0.004]} scale={[1.08, 1.18, 0.50]} material={pixarSkinMat}>
                 <sphereGeometry args={[0.026, 10, 10]} />
               </mesh>
-              {/* Expressive Eyebrow */}
               <mesh position={[0, 0.038, 0.008]} rotation={[0, 0, (idx === 0 ? -0.10 : 0.10) + Math.PI / 2]} material={hairMat}>
                 <capsuleGeometry args={[0.005, 0.034, 4, 6]} />
               </mesh>
             </group>
           ))}
 
-          {/* Soft Rounded Pixar Sculpted Hair (Lush swept bangs & side locks, zero spiky cones!) */}
           <mesh castShadow position={[0, 0.052, -0.012]} scale={[0.98, 1.02, 1.0]} material={hairMat}>
             <sphereGeometry args={[0.162, 20, 18]} />
           </mesh>
-          {/* Swept Pixar Forehead Fringe Bangs */}
           <mesh position={[-0.035, 0.095, 0.112]} rotation={[0.25, 0.15, 0.45]} scale={[0.85, 1.0, 0.65]} material={hairMat}>
             <capsuleGeometry args={[0.038, 0.09, 8, 10]} />
           </mesh>
           <mesh position={[0.048, 0.092, 0.110]} rotation={[0.25, -0.15, -0.40]} scale={[0.85, 1.0, 0.65]} material={hairMat}>
             <capsuleGeometry args={[0.036, 0.08, 8, 10]} />
           </mesh>
-          {/* Soft Framing Side Locks */}
           {[-0.128, 0.128].map((sx, sIdx) => (
             <mesh key={sIdx} position={[sx, -0.015, 0.065]} rotation={[0.14, 0, sx < 0 ? 0.12 : -0.12]} material={hairMat}>
               <capsuleGeometry args={[0.028, 0.12, 8, 10]} />
@@ -329,7 +310,7 @@ export function DigitalHumanCharacter({
           </group>
         </group>
 
-        {/* 3. SMOOTH PIXAR ARMS & CLEAN SCULPTED HANDS */}
+        {/* SMOOTH PIXAR ARMS & HANDS WITH 5 FINGERS ALONG Z-AXIS */}
         <group ref={leftUpperArmRef} position={[-0.162, 0.27, 0]}>
           <mesh position={[0.01, 0.01, 0]} material={coatMat}><sphereGeometry args={[0.056, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={coatMat} />
@@ -337,8 +318,13 @@ export function DigitalHumanCharacter({
           <group ref={leftForearmRef} position={[0, -0.18, 0]}>
             <mesh geometry={geos.forearm} material={pixarSkinMat} />
             <group position={[0, -0.185, 0.006]}>
-              <mesh scale={[0.52, 1.15, 0.82]} material={pixarSkinMat}><sphereGeometry args={[0.035, 12, 10]} /></mesh>
-              <mesh position={[0.010, 0.004, 0.024]} rotation={[0.55, 0, 0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.007, 0.018, 4, 6]} /></mesh>
+              <mesh scale={[0.45, 1.08, 0.84]} material={pixarSkinMat}><sphereGeometry args={[0.033, 12, 10]} /></mesh>
+              <mesh position={[0.009, -0.004, 0.024]} rotation={[0.55, 0, 0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.006, 0.018, 4, 6]} /></mesh>
+              {[0.012, 0.004, -0.004, -0.012].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[0.003, -0.032, fz]} rotation={[0, 0, 0.16]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.024 : 0.019, 4, 6]} />
+                </mesh>
+              ))}
             </group>
           </group>
         </group>
@@ -350,14 +336,18 @@ export function DigitalHumanCharacter({
           <group ref={rightForearmRef} position={[0, -0.18, 0]}>
             <mesh geometry={geos.forearm} material={pixarSkinMat} />
             <group position={[0, -0.185, 0.006]}>
-              <mesh scale={[0.52, 1.15, 0.82]} material={pixarSkinMat}><sphereGeometry args={[0.035, 12, 10]} /></mesh>
-              <mesh position={[-0.010, 0.004, 0.024]} rotation={[0.55, 0, -0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.007, 0.018, 4, 6]} /></mesh>
+              <mesh scale={[0.45, 1.08, 0.84]} material={pixarSkinMat}><sphereGeometry args={[0.033, 12, 10]} /></mesh>
+              <mesh position={[-0.009, -0.004, 0.024]} rotation={[0.55, 0, -0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.006, 0.018, 4, 6]} /></mesh>
+              {[0.012, 0.004, -0.004, -0.012].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[-0.003, -0.032, fz]} rotation={[0, 0, -0.16]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.024 : 0.019, 4, 6]} />
+                </mesh>
+              ))}
             </group>
           </group>
         </group>
       </group>
 
-      {/* 4. SMOOTH PIXAR LEGS & ROUNDED ADVENTURER BOOTS */}
       <group ref={leftThighRef} position={[-0.082, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
         <group ref={leftShinRef} position={[0, -0.26, 0]}>
