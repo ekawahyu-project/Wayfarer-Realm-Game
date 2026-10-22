@@ -138,10 +138,10 @@ export default function Village() {
 
   const palette = useMemo(() => ({
     walls: [
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#ffffff", roughness: 0.78 }),
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#fff8eb", roughness: 0.80 }),
-      new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#f8fafc", roughness: 0.82 }),
-      new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#d99b66", roughness: 0.80 }),
+      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#f3ead8", roughness: 0.82 }),
+      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#eadbc4", roughness: 0.84 }),
+      new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#e2ddd5", roughness: 0.85 }),
+      new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#c88a56", roughness: 0.82 }),
     ],
     uppers: [
       new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#f8fafc", roughness: 0.82 }),
@@ -151,11 +151,10 @@ export default function Village() {
       new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#fecdd3", roughness: 0.82 }), // Rose Terracotta
     ],
     roofs: [
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#e11d48", roughness: 0.78 }), // Crimson Tile
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#b45309", roughness: 0.80 }), // Amber Thatch/Tile
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#0369a1", roughness: 0.76 }), // Maritime Slate Blue
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#15803d", roughness: 0.82 }), // Woodland Moss Green
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#334155", roughness: 0.78 }), // Dark Charcoal Slate
+      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#d95338", roughness: 0.75 }), // Warm Pixar Terracotta
+      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#b45309", roughness: 0.78 }), // Golden Amber Shingle
+      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#476885", roughness: 0.76 }), // Storybook Slate Blue (Not black!)
+      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#5c7c32", roughness: 0.80 }), // Mossy Woodland Green
     ],
   }), [textures]);
 
@@ -215,22 +214,22 @@ export default function Village() {
         });
       };
 
-      // Organic Medieval Town Layout: Mix of aligned terraces, staggered depths, and angled corner houses!
-      const zOffsetsN = [-18, -18, -21, -17, -19, -19, -16, -22, -18];
-      const rotOffsetsN = [0.22, 0.0, -0.14, 0.0, 0.0, 0.18, -0.08, 0.25, -0.32];
-      [-50, -37, -24, -12, 0, 12, 25, 38, 52].forEach((dx, i) => addHouse(dx, zOffsetsN[i], rotOffsetsN[i], i));
+      // Collision-Free Organic Pixar Village Layout (17.5m spacing so zero houses ever overlap or clip!)
+      const zOffsetsN = [-19, -20.5, -18.5, -21, -19, -20.5, -18.5];
+      const rotOffsetsN = [0.08, -0.05, 0.0, 0.06, -0.06, 0.04, -0.08];
+      [-52, -35, -17.5, 0, 17.5, 35, 52].forEach((dx, i) => addHouse(dx, zOffsetsN[i], rotOffsetsN[i], i));
 
-      const zOffsetsS = [19, 17, 17, 21, 18, 22, 17, 19, 23];
-      const rotOffsetsS = [Math.PI - 0.25, Math.PI, Math.PI, Math.PI + 0.16, Math.PI - 0.12, Math.PI + 0.22, Math.PI, Math.PI - 0.18, Math.PI + 0.35];
-      [-50, -37, -25, -12, 0, 13, 25, 38, 52].forEach((dx, i) => addHouse(dx, zOffsetsS[i], rotOffsetsS[i], i + 5));
+      const zOffsetsS = [19, 20.5, 18.5, 21, 19, 20.5, 18.5];
+      const rotOffsetsS = [Math.PI - 0.08, Math.PI + 0.05, Math.PI, Math.PI - 0.06, Math.PI + 0.06, Math.PI - 0.04, Math.PI + 0.08];
+      [-52, -35, -17.5, 0, 17.5, 35, 52].forEach((dx, i) => addHouse(dx, zOffsetsS[i], rotOffsetsS[i], i + 7));
 
-      const zOuterN = [-38, -42, -37, -37, -41, -36, -43];
-      const rotOuterN = [0.35, -0.18, 0.0, 0.0, 0.24, -0.15, -0.38];
-      [-40, -26, -13, 0, 14, 28, 42].forEach((dx, i) => addHouse(dx, zOuterN[i], rotOuterN[i], i + 11));
+      const zOuterN = [-40, -42, -39, -41, -39.5];
+      const rotOuterN = [0.10, -0.06, 0.0, 0.07, -0.10];
+      [-36, -18, 0, 18, 36].forEach((dx, i) => addHouse(dx, zOuterN[i], rotOuterN[i], i + 14));
 
-      const zOuterS = [42, 37, 37, 41, 38, 43, 39];
-      const rotOuterS = [Math.PI - 0.32, Math.PI, Math.PI, Math.PI + 0.20, Math.PI - 0.15, Math.PI + 0.28, Math.PI + 0.38];
-      [-40, -26, -13, 0, 14, 28, 42].forEach((dx, i) => addHouse(dx, zOuterS[i], rotOuterS[i], i + 17));
+      const zOuterS = [40, 42, 39, 41, 39.5];
+      const rotOuterS = [Math.PI - 0.10, Math.PI + 0.06, Math.PI, Math.PI - 0.07, Math.PI + 0.10];
+      [-36, -18, 0, 18, 36].forEach((dx, i) => addHouse(dx, zOuterS[i], rotOuterS[i], i + 19));
       addHouse(64, -12, -Math.PI / 2, 23);
       addHouse(64, 12,  -Math.PI / 2, 29);
 
@@ -343,8 +342,8 @@ export default function Village() {
           </group>
 
           {/* Reference image_8a19c7.jpg Details: Ground-Floor Wooden Colonnade Posts, Corbel Brackets, Jetty Overhang Beams & Outdoor Tavern Bench/Barrel! */}
-          {[-4.4, -1.5, 1.5, 4.4].map((px, pIdx) => (
-            <group key={"col_" + pIdx} position={[px, 0, 4.18]}>
+          {[-4.2, 4.2].map((px, pIdx) => (
+            <group key={"col_" + pIdx} position={[px, 0, 3.82]}>
               {/* Heavy Vertical Timber Colonnade Pillar */}
               <mesh castShadow position={[0, 2.15, 0]} material={beamMat}><boxGeometry args={[0.34, 4.3, 0.34]} /></mesh>
               {/* Angled Wooden Corbel Bracket holding up 2nd floor overhang */}

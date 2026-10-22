@@ -30,7 +30,7 @@ export default function Terrain() {
     const cAutumnGrass = new THREE.Color("#a87934");
     const cDirtPath = new THREE.Color("#a6865a");
     const cRiverBed = new THREE.Color("#2d7780");
-    const cPlazaStone = new THREE.Color("#c8c2b8");
+    const cPlazaStone = new THREE.Color("#9c8f80");
     const cRock = new THREE.Color("#64748b");
     const cSnow = new THREE.Color("#f4f8fc");
     const temp = new THREE.Color();

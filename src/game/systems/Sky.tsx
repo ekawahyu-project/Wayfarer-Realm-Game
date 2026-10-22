@@ -39,7 +39,7 @@ const fragmentShader = [
   "}",
   "float fbm(vec2 p) {",
   "  float v = 0.0; float a = 0.5;",
-  "  for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; }",
+  "  for (int i = 0; i < 3; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; }",
   "  return v;",
   "}",
 
@@ -139,7 +139,7 @@ export default function Sky() {
   });
   return (
     <mesh ref={meshRef} scale={[1100, 1100, 1100]} frustumCulled={false}>
-      <sphereGeometry args={[1, 40, 28]} />
+      <sphereGeometry args={[1, 28, 20]} />
       <shaderMaterial side={THREE.BackSide} depthWrite={false} uniforms={globalUniforms} vertexShader={vertexShader} fragmentShader={fragmentShader} />
     </mesh>
   );

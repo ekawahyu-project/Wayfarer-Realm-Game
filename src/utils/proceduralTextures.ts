@@ -75,7 +75,7 @@ export function getWorldTextures(): Record<string, THREE.CanvasTexture> {
     for (let r = 0; r < rows; r++) {
       const off = (r % 2) * (cw * 0.5);
       for (let c = -1; c <= cols; c++) {
-        const base = Math.floor(165 + rand() * 55);
+        const base = Math.floor(122 + rand() * 42);
         const warm = Math.floor((rand() - 0.3) * 22);
         ctx.fillStyle = "rgb(" + (base + warm) + "," + (base + Math.floor(warm * 0.5)) + "," + (base - 8) + ")";
         const bx = c * cw + off + 3, by = r * rh + 3, bw = cw - 6, bh = rh - 6;
@@ -107,7 +107,7 @@ export function getWorldTextures(): Record<string, THREE.CanvasTexture> {
 
   // 4. Warm Cream & Ochre Tudor Half-Timber Plaster with Fine Aged Texture
   const halfTimber = makeTex((ctx, w, h) => {
-    ctx.fillStyle = "#efe6d5"; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#dfd3be"; ctx.fillRect(0, 0, w, h);
     for (let i = 0; i < 350; i++) {
       const v = Math.floor(215 + rand() * 30);
       ctx.fillStyle = "rgba(" + v + "," + (v - 10) + "," + (v - 22) + ", 0.35)";
