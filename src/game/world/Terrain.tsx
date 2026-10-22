@@ -120,7 +120,7 @@ export default function Terrain() {
       metalness: 0.02,
     });
 
-    mat.customProgramCacheKey = () => "terrain-shoreline-perpixel-v4";
+    mat.customProgramCacheKey = () => "terrain-shoreline-perpixel-v5";
     mat.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader.replace(
         "#include <common>",

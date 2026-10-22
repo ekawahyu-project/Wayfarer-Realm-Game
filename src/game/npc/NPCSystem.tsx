@@ -139,7 +139,6 @@ export default function NPCSystem() {
     <group name="sculpted-human-npcs">
       {allPeople.map((p, i) => (
         <group key={p.id} ref={(el) => { groupRefs.current[i] = el; }}>
-          {/* Fitted Human Torso, Pelvis & Belt */}
           <mesh geometry={geos.torsoTunic} position={[0, 0.04, 0]} castShadow>
             <meshPhysicalMaterial color={p.coatColor} roughness={0.55} sheen={0.35} />
           </mesh>
@@ -151,7 +150,6 @@ export default function NPCSystem() {
           </mesh>
           <mesh geometry={neckGeo} material={skinMat} position={[0, 0.43, 0]} />
 
-          {/* Articulated Human Legs & Boots */}
           <group ref={(el) => { leftLegRefs.current[i] = el; }} position={[-0.080, -0.15, 0]}>
             <mesh geometry={geos.thigh} material={pantMat} />
             <mesh geometry={geos.calfBoot} material={leatherBeltMat} position={[0, -0.27, 0]} />
@@ -163,7 +161,6 @@ export default function NPCSystem() {
             <mesh position={[0, -0.54, 0.03]} scale={[0.86, 0.72, 1.4]} material={leatherBeltMat}><sphereGeometry args={[0.054, 10, 8]} /></mesh>
           </group>
 
-          {/* Natural Human Arms & Inward-Facing 5-Finger Hands */}
           <group ref={(el) => { leftArmRefs.current[i] = el; }} position={[-0.160, 0.30, 0]} rotation={[0, 0, 0.11]}>
             <mesh position={[0.01, 0.01, 0]} material={pantMat}><sphereGeometry args={[0.052, 10, 8]} /></mesh>
             <mesh geometry={geos.upperArm}><meshStandardMaterial color={p.coatColor} roughness={0.58} /></mesh>
@@ -189,7 +186,6 @@ export default function NPCSystem() {
             </group>
           </group>
 
-          {/* Proportioned 7.5-Head Human Face & Hair */}
           <group position={[0, 0.52, 0.01]} scale={[0.84, 0.86, 0.84]}>
             <mesh geometry={headGeo} material={skinMat} scale={[0.85, 1.04, 0.90]} />
             <mesh geometry={eyeGeo} material={eyeDarkMat} position={[-0.048, 0.01, 0.125]} />

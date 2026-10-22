@@ -65,7 +65,6 @@ const fragmentShader = [
   "  vec3 bloodTint = vec3(0.30, 0.03, 0.07);",
   "  skyColor = mix(skyColor, bloodTint, uNightFactor * uBloodMoon * 0.65);",
 
-  "  // Smooth Natural Atmospheric Sun (Zero starburst/pinwheel lines!)",
   "  float sunCos = clamp(dot(dir, sunNorm), 0.0, 1.0);",
   "  float sunDisc = smoothstep(0.9991, 0.9996, sunCos);",
   "  float sunCoreGlow = pow(sunCos, 180.0) * 0.55;",
@@ -73,7 +72,6 @@ const fragmentShader = [
   "  float sunVisible = smoothstep(-0.08, 0.10, sunNorm.y);",
   "  skyColor += (vec3(1.0, 0.98, 0.92) * sunDisc * 1.4 + uSunColor * (sunCoreGlow + sunAtmosHalo)) * sunVisible;",
 
-  "  // Moon disc with craters",
   "  float moonAlignment = max(dot(dir, normalize(uMoonDir)), 0.0);",
   "  float moonRadius = mix(0.9972, 0.9942, uBloodMoon);",
   "  float moonDisc = smoothstep(moonRadius, moonRadius + 0.0007, moonAlignment);",

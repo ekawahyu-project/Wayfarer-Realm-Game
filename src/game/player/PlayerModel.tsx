@@ -28,7 +28,6 @@ let sharedHumanGeos: {
 export function getSculptedHumanGeometries() {
   if (sharedHumanGeos) return sharedHumanGeos;
 
-  // Fitted Athletic Human Torso (Tapered waist y=-0.04, contoured chest y=+0.20, natural shoulders y=+0.32 — NO flared bell skirt!)
   const torsoPoints = [
     new THREE.Vector2(0.128, -0.15),
     new THREE.Vector2(0.118, -0.06),
@@ -222,17 +221,13 @@ export function DigitalHumanCharacter({
   return (
     <group ref={rootRef}>
       <group ref={torsoRef} position={[0, 0.04, 0]}>
-        {/* Fitted Tailored Adventurer Jacket & Ribcage (Zero flared Lego cone!) */}
         <mesh castShadow receiveShadow geometry={geos.torsoTunic} material={coatMat} />
-        {/* Inner White V-Neck Collar */}
         <mesh position={[0, 0.28, 0.082]} rotation={[Math.PI, Math.PI / 4, 0]} scale={[1.0, 1.0, 0.5]} material={shirtMat}>
           <coneGeometry args={[0.062, 0.13, 4]} />
         </mesh>
-        {/* Contoured Human Pelvis & Trousers (Seamless transition into both thighs) */}
         <mesh castShadow position={[0, -0.15, 0]} scale={[1.12, 0.86, 0.72]} material={pantMat}>
           <sphereGeometry args={[0.132, 16, 12]} />
         </mesh>
-        {/* Slim Leather Belt, Gold Buckle & Diagonal Katana Baldric Strap */}
         <mesh position={[0, 0.16, 0.0]} rotation={[0, 0, 0.62]} scale={[1.14, 1, 0.72]} material={leatherMat}>
           <cylinderGeometry args={[0.145, 0.145, 0.028, 16]} />
         </mesh>
@@ -240,13 +235,10 @@ export function DigitalHumanCharacter({
           <cylinderGeometry args={[0.122, 0.126, 0.052, 18]} />
         </mesh>
         <mesh position={[0, -0.05, 0.094]} material={goldMat}><boxGeometry args={[0.044, 0.044, 0.015]} /></mesh>
-
-        {/* Slender Anatomical Neck */}
         <mesh position={[0, 0.39, 0]} material={sssSkinMat}>
           <cylinderGeometry args={[0.046, 0.056, 0.14, 14]} />
         </mesh>
 
-        {/* SLEEK BACK-SLUNG SAMURAI KATANA (No ugly brown box backpack!) */}
         {hasStaff && (
           <group position={[0.02, 0.15, -0.112]} rotation={[0, 0, -0.60]}>
             <mesh castShadow position={[0, -0.06, 0]}>
@@ -270,7 +262,6 @@ export function DigitalHumanCharacter({
           </group>
         )}
 
-        {/* PROPORTIONED 7.5-HEAD HUMAN FACE & LAYERED HAIR */}
         <group ref={headRef} position={[0, 0.48, 0.01]} scale={[0.84, 0.86, 0.84]}>
           <mesh castShadow position={[0, 0.02, 0]} scale={[0.85, 1.04, 0.90]} material={sssSkinMat}>
             <sphereGeometry args={[0.150, 24, 24]} />
@@ -324,21 +315,17 @@ export function DigitalHumanCharacter({
           </group>
         </group>
 
-        {/* NATURAL HUMAN ARMS & HANDS (Palm faces inward toward thigh, 5 fingers arrayed front-to-back along Z-axis!) */}
         <group ref={leftUpperArmRef} position={[-0.160, 0.27, 0]}>
           <mesh position={[0.01, 0.01, 0]} scale={[1.05, 1.0, 0.92]} material={coatMat}><sphereGeometry args={[0.054, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={coatMat} />
           <mesh position={[0, -0.19, 0]} material={shirtMat}><cylinderGeometry args={[0.042, 0.040, 0.035, 12]} /></mesh>
           <group ref={leftForearmRef} position={[0, -0.19, 0]}>
             <mesh geometry={geos.forearm} material={sssSkinMat} />
-            {/* Left Human Hand: Palm faces +X (inward toward hip), Thumb points +Z (forward), 4 Fingers arrayed along Z */}
             <group position={[0, -0.195, 0.005]}>
               <mesh scale={[0.42, 1.05, 0.82]} material={sssSkinMat}><sphereGeometry args={[0.032, 12, 10]} /></mesh>
-              {/* Thumb pointing forward-inward */}
               <mesh position={[0.008, -0.006, 0.024]} rotation={[0.55, 0, 0.15]} material={sssSkinMat}>
                 <capsuleGeometry args={[0.0055, 0.020, 4, 6]} />
               </mesh>
-              {/* 4 Natural Fingers (Index to Pinky along Z-axis, slightly curled inward toward +X) */}
               {[0.013, 0.004, -0.005, -0.014].map((fz, fIdx) => (
                 <mesh key={fIdx} position={[0.003, -0.034, fz]} rotation={[0, 0, 0.18]} material={sssSkinMat}>
                   <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.026 : 0.020, 4, 6]} />
@@ -354,14 +341,11 @@ export function DigitalHumanCharacter({
           <mesh position={[0, -0.19, 0]} material={shirtMat}><cylinderGeometry args={[0.042, 0.040, 0.035, 12]} /></mesh>
           <group ref={rightForearmRef} position={[0, -0.19, 0]}>
             <mesh geometry={geos.forearm} material={sssSkinMat} />
-            {/* Right Human Hand: Palm faces -X (inward toward hip), Thumb points +Z (forward), 4 Fingers arrayed along Z */}
             <group position={[0, -0.195, 0.005]}>
               <mesh scale={[0.42, 1.05, 0.82]} material={sssSkinMat}><sphereGeometry args={[0.032, 12, 10]} /></mesh>
-              {/* Thumb pointing forward-inward */}
               <mesh position={[-0.008, -0.006, 0.024]} rotation={[0.55, 0, -0.15]} material={sssSkinMat}>
                 <capsuleGeometry args={[0.0055, 0.020, 4, 6]} />
               </mesh>
-              {/* 4 Natural Fingers (Index to Pinky along Z-axis, slightly curled inward toward -X) */}
               {[0.013, 0.004, -0.005, -0.014].map((fz, fIdx) => (
                 <mesh key={fIdx} position={[-0.003, -0.034, fz]} rotation={[0, 0, -0.18]} material={sssSkinMat}>
                   <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.026 : 0.020, 4, 6]} />
@@ -372,7 +356,6 @@ export function DigitalHumanCharacter({
         </group>
       </group>
 
-      {/* ANATOMICAL LEGS, KNEES & BOOTS */}
       <group ref={leftThighRef} position={[-0.080, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
         <group ref={leftShinRef} position={[0, -0.27, 0]}>
