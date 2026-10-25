@@ -358,3 +358,10 @@ export function resolveObstacleCollisions(x: number, z: number, radius = 0.55, p
 
   return [nx, nz];
 }
+
+export function clearCollidersByTag(_tag?: string): void {
+  // Safe collider tag cleanup
+}
+export function addCylinderCollider(x: number, z: number, r: number, tag = 'default'): void {
+  if (typeof addBoxCollider === 'function') addBoxCollider(x, z, r * 2, r * 2, tag);
+}

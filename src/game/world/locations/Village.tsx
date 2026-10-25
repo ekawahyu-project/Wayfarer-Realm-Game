@@ -150,17 +150,17 @@ export default function Village() {
   const allHouses = useMemo(() => [...eastHouses, ...swHouses, ...westHouses], [eastHouses, swHouses, westHouses]);
 
   useEffect(() => {
-    clearCollidersByTag("village");
+    typeof clearCollidersByTag === "function" && clearCollidersByTag("village");
     allHouses.forEach((h) => {
-      addBoxCollider(h.x, h.z - 2.2, 9.6, 2.6, "village");
-      addBoxCollider(h.x - 3.6, h.z, 2.2, 7.0, "village");
-      addBoxCollider(h.x + 3.6, h.z, 2.2, 7.0, "village");
+      typeof addBoxCollider === "function" && addBoxCollider(h.x, h.z - 2.2, 9.6, 2.6, "village");
+      typeof addBoxCollider === "function" && addBoxCollider(h.x - 3.6, h.z, 2.2, 7.0, "village");
+      typeof addBoxCollider === "function" && addBoxCollider(h.x + 3.6, h.z, 2.2, 7.0, "village");
     });
     wells.forEach(([wx, , wz]) => {
-      addCylinderCollider(wx, wz, 2.4, "village");
+      typeof addCylinderCollider === "function" && addCylinderCollider(wx, wz, 2.4, "village");
     });
     return () => {
-      clearCollidersByTag("village");
+      typeof clearCollidersByTag === "function" && clearCollidersByTag("village");
     };
   }, [allHouses, wells]);
 

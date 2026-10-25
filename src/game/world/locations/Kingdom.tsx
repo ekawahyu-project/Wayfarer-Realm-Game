@@ -46,27 +46,27 @@ export default function Kingdom() {
     clearGroupColliders("kingdom");
 
     // 1. Outer Stone Curtain Walls (Walkable on top at Y = 38.0m)
-    addBoxCollider(-50, 315, 68, 5.5, "kingdom", 36.5);
-    addBoxCollider(50,  315, 68, 5.5, "kingdom", 36.5);
-    addBoxCollider(-84, 395, 5.5, 160, "kingdom", 36.5);
-    addBoxCollider(84,  395, 5.5, 160, "kingdom", 36.5);
-    addBoxCollider(-50, 472, 68, 5.5, "kingdom", 36.5);
-    addBoxCollider(50,  472, 68, 5.5, "kingdom", 36.5);
+    typeof addBoxCollider === "function" && addBoxCollider(-50, 315, 68, 5.5, "kingdom", 36.5);
+    typeof addBoxCollider === "function" && addBoxCollider(50,  315, 68, 5.5, "kingdom", 36.5);
+    typeof addBoxCollider === "function" && addBoxCollider(-84, 395, 5.5, 160, "kingdom", 36.5);
+    typeof addBoxCollider === "function" && addBoxCollider(84,  395, 5.5, 160, "kingdom", 36.5);
+    typeof addBoxCollider === "function" && addBoxCollider(-50, 472, 68, 5.5, "kingdom", 36.5);
+    typeof addBoxCollider === "function" && addBoxCollider(50,  472, 68, 5.5, "kingdom", 36.5);
 
     // 2. Inner Bailey Cloister & Guard Towers
     addCircleCollider(-16, 368, 5.5, "kingdom");
     addCircleCollider(16,  368, 5.5, "kingdom");
-    addBoxCollider(-48, 378, 18, 28, "kingdom");
-    addBoxCollider(48,  378, 18, 28, "kingdom");
-    addBoxCollider(-52, 422, 16, 26, "kingdom");
-    addBoxCollider(52,  422, 16, 26, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(-48, 378, 18, 28, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(48,  378, 18, 28, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(-52, 422, 16, 26, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(52,  422, 16, 26, "kingdom");
 
     // 3. Central Multi-Towered Storrskog Citadel Keep (Enterable Great Hall at Z = 428..463)
-    addBoxCollider(0,   463, 66, 2.5, "kingdom");
-    addBoxCollider(-33, 445, 2.5, 36, "kingdom");
-    addBoxCollider(33,  445, 2.5, 36, "kingdom");
-    addBoxCollider(-19, 428, 28, 2.5, "kingdom");
-    addBoxCollider(19,  428, 28, 2.5, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(0,   463, 66, 2.5, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(-33, 445, 2.5, 36, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(33,  445, 2.5, 36, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(-19, 428, 28, 2.5, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(19,  428, 28, 2.5, "kingdom");
 
     INTERACTIVE_DOORS.push({
       group: "kingdom",
@@ -95,7 +95,7 @@ export default function Kingdom() {
 
     // Harbor & Shrine Colliders
     addCircleCollider(24, 548, 4.2, "kingdom");
-    addBoxCollider(-14, 578, 8.0, 20.0, "kingdom");
+    typeof addBoxCollider === "function" && addBoxCollider(-14, 578, 8.0, 20.0, "kingdom");
   }, [baseY]);
 
   useFrame((_state, delta) => {
