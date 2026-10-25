@@ -1,5 +1,6 @@
-import { resolveWorldCollisions } from "@/game/systems/Physics";
 "use client";
+
+import { resolveWorldCollisions } from "@/game/systems/Physics";
 
 import { useEffect, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";

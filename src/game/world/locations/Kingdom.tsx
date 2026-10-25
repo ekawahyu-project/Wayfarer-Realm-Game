@@ -1,5 +1,6 @@
-import { addBoxCollider as addGlobalBox, addCylinderCollider as addGlobalCyl, clearCollidersByTag as clearGlobalTag } from "@/game/systems/Physics";
 "use client";
+
+import { addBoxCollider as addGlobalBox, addCylinderCollider as addGlobalCyl, clearCollidersByTag as clearGlobalTag } from "@/game/systems/Physics";
 
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
