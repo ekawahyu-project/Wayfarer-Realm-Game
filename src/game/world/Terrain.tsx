@@ -109,7 +109,6 @@ export default function Terrain() {
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
 
-    // 360-Degree Distant Horizon Mountain Ring (Eliminates flat world edge cutoff!)
     const vistaGeo = new THREE.CylinderGeometry(760, 790, 145, 96, 8, true);
     const vPos = vistaGeo.attributes.position;
     const vCols = new Float32Array(vPos.count * 3);
@@ -119,7 +118,6 @@ export default function Terrain() {
       const vz = vPos.getZ(i);
       const angle = Math.atan2(vz, vx);
       const hNorm = (vy + 72.5) / 145.0;
-      // Do not block the Western/Southern Ocean horizon
       const oceanMask = smoothstep(-0.85, -0.35, Math.cos(angle - 2.35));
       const peak1 = Math.sin(angle * 7.0 + 0.5) * 0.4 + Math.cos(angle * 13.0) * 0.35 + Math.sin(angle * 23.0) * 0.2;
       const peakHeight = (22.0 + (peak1 * 0.5 + 0.5) * 68.0) * oceanMask;
@@ -143,12 +141,12 @@ export default function Terrain() {
       vertexColors: true,
       map: textures.terrainDetail,
       bumpMap: textures.terrainDetail,
-      bumpScale: 0.05,
+      bumpScale: 0.04,
       roughness: 0.85,
       metalness: 0.02,
     });
 
-    mat.customProgramCacheKey = () => "terrain-clean-snow-vista-v6";
+    mat.customProgramCacheKey = () => "terrain-clean-snow-vista-v7";
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uSkyHorizon = globalUniforms.uSkyHorizon;
       shader.vertexShader = shader.vertexShader.replace(
@@ -172,39 +170,40 @@ export default function Terrain() {
           "}",
         ].join("\n")
       );
+      // Erase grass-blade texture lines on Snow, Stone Plazas, and Beaches!
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <map_fragment>",
+        [
+          "#ifdef USE_MAP",
+          "  vec4 sampledDiffuseColor = texture2D( map, vMapUv );",
+          "  float snowBiomeMask = max(smoothstep(-135.0, -205.0, vWorldPosTerrain.z), smoothstep(16.0, 21.0, vWorldPosTerrain.y));",
+          "  float coastMask = max(smoothstep(-330.0, -415.0, vWorldPosTerrain.x), smoothstep(390.0, 460.0, vWorldPosTerrain.z));",
+          "  float nonGrassMask = clamp(max(snowBiomeMask, coastMask), 0.0, 1.0);",
+          "  sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.99), nonGrassMask);",
+          "  diffuseColor *= sampledDiffuseColor;",
+          "#endif",
+        ].join("\n")
+      );
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <color_fragment>",
         [
-          "// 1. Extract grass detail luminance BEFORE vertex color multiplication",
-          "float grassDetailTex = diffuseColor.g;",
-          "// 2. Detect green grass biome vs Snow / Sand / Stone Plaza:",
-          "//    Green grass has vColor.g significantly higher than vColor.r and vColor.b!",
-          "float greenDominance = clamp((vColor.g - max(vColor.r, vColor.b)) * 4.5, 0.0, 1.0);",
-          "float snowBiomeMask = max(smoothstep(-135.0, -210.0, vWorldPosTerrain.z), smoothstep(16.5, 22.0, vWorldPosTerrain.y));",
-          "float grassDetailStrength = greenDominance * (1.0 - snowBiomeMask);",
-          "// 3. Apply grass blades ONLY on green grass! On Snow/Stone/Sand, use smooth surface!",
-          "float smoothMicroNoise = 0.97 + 0.05 * noiseTerrain(vWorldPosTerrain.xz * 0.35);",
-          "float finalTexMod = mix(smoothMicroNoise, clamp(grassDetailTex * 1.12, 0.78, 1.15), grassDetailStrength);",
-          "diffuseColor.rgb = vColor.rgb * finalTexMod;",
-
-          "// 4. Pure Powdery Snow Sparkle in Snow Biome (Zero grey grass lines!)",
-          "if (snowBiomeMask > 0.01) {",
-          "  float snowSparkle = smoothstep(0.82, 0.98, noiseTerrain(vWorldPosTerrain.xz * 1.8)) * 0.08;",
-          "  vec3 pureSnowCol = vec3(0.95, 0.97, 1.0) * (0.96 + 0.04 * noiseTerrain(vWorldPosTerrain.xz * 0.12)) + snowSparkle;",
-          "  diffuseColor.rgb = mix(diffuseColor.rgb, pureSnowCol, snowBiomeMask);",
+          "#include <color_fragment>",
+          "float snowBiomeMask2 = max(smoothstep(-135.0, -205.0, vWorldPosTerrain.z), smoothstep(16.0, 21.0, vWorldPosTerrain.y));",
+          "if (snowBiomeMask2 > 0.01) {",
+          "  float snowSparkle = smoothstep(0.82, 0.98, noiseTerrain(vWorldPosTerrain.xz * 1.8)) * 0.07;",
+          "  vec3 pureSnowCol = vec3(0.95, 0.97, 1.0) * (0.97 + 0.03 * noiseTerrain(vWorldPosTerrain.xz * 0.12)) + snowSparkle;",
+          "  diffuseColor.rgb = mix(diffuseColor.rgb, pureSnowCol, snowBiomeMask2);",
           "}",
-
-          "// 5. Per-Pixel Coastal Sand Transition",
           "float coastWest = smoothstep(-330.0, -415.0, vWorldPosTerrain.x);",
           "float coastSouth = smoothstep(390.0, 460.0, vWorldPosTerrain.z);",
-          "float coastMask = max(coastWest, coastSouth);",
-          "if (coastMask > 0.001) {",
+          "float coastMask2 = max(coastWest, coastSouth);",
+          "if (coastMask2 > 0.001) {",
           "  float n1 = noiseTerrain(vWorldPosTerrain.xz * 0.038) * 1.45;",
           "  float n2 = noiseTerrain(vWorldPosTerrain.xz * 0.15) * 0.48;",
           "  float organicH = vWorldPosTerrain.y + n1 + n2 - 0.55;",
-          "  float sandFactor = (1.0 - smoothstep(2.1, 5.8, organicH)) * coastMask;",
-          "  vec3 drySand = vec3(0.93, 0.84, 0.66) * smoothMicroNoise;",
-          "  vec3 wetSand = vec3(0.76, 0.66, 0.50) * smoothMicroNoise;",
+          "  float sandFactor = (1.0 - smoothstep(2.1, 5.8, organicH)) * coastMask2;",
+          "  vec3 drySand = vec3(0.93, 0.84, 0.66);",
+          "  vec3 wetSand = vec3(0.76, 0.66, 0.50);",
           "  float wetMask = 1.0 - smoothstep(-0.2, 1.5, vWorldPosTerrain.y);",
           "  vec3 targetSand = mix(drySand, wetSand, wetMask);",
           "  diffuseColor.rgb = mix(diffuseColor.rgb, targetSand, clamp(sandFactor, 0.0, 1.0));",
@@ -215,7 +214,6 @@ export default function Terrain() {
         "#include <fog_fragment>",
         [
           "#include <fog_fragment>",
-          "// 6. Realistic Atmospheric Aerial Perspective Draw-Distance Blend",
           "float camDist = length(vWorldPosTerrain - cameraPosition);",
           "float aerialHaze = smoothstep(260.0, 740.0, camDist) * 0.65;",
           "gl_FragColor.rgb = mix(gl_FragColor.rgb, uSkyHorizon, aerialHaze);",
@@ -228,7 +226,6 @@ export default function Terrain() {
   return (
     <group>
       <mesh geometry={geometry} material={terrainMat} receiveShadow />
-      {/* 360-Degree Distant Mountain Vista Ring for Realistic Horizon Depth */}
       <mesh geometry={mountainVistaGeo} position={[0, 0, 0]} frustumCulled={false}>
         <meshStandardMaterial vertexColors side={THREE.BackSide} roughness={0.95} />
       </mesh>

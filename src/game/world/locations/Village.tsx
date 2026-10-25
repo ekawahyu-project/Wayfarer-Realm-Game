@@ -47,7 +47,7 @@ export default function Village() {
   const beamMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#3b2210", roughness: 0.85 }), []);
   const doorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#8c5228", roughness: 0.82 }), [textures.woodPlanks]);
   const stoneTrimMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#94a3b8", roughness: 0.85 }), [textures.villageStone]);
-  constplazaPaverMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.cobblestone, color: "#b8ada0", roughness: 0.86 }), [textures.cobblestone]);
+  const plazaPaverMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.cobblestone, color: "#b8ada0", roughness: 0.86 }), [textures.cobblestone]);
 
   const palette = useMemo(
     () => ({
@@ -334,7 +334,7 @@ export default function Village() {
     <group name="medieval-villages">
       {/* Cobblestone Town Plazas */}
       {[[360, 0], [-280, 240], [-245, -95]].map(([px, pz], idx) => (
-        <mesh key={"plaza_" + idx} receiveShadow position={[px, getTerrainHeight(px, pz) + 0.05, pz]} rotation={[-Math.PI / 2, 0, 0]} material={constplazaPaverMat}>
+        <mesh key={"plaza_" + idx} receiveShadow position={[px, getTerrainHeight(px, pz) + 0.05, pz]} rotation={[-Math.PI / 2, 0, 0]} material={plazaPaverMat}>
           <circleGeometry args={[62, 40]} />
         </mesh>
       ))}
