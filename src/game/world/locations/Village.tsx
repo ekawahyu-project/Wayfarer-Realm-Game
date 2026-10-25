@@ -1,466 +1,375 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useMemo, useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import {
-  getExactMeshTerrainHeight,
-  addBoxCollider,
-  addEnterableHouseColliders,
-  clearGroupColliders,
-  INTERACTIVE_DOORS,
-} from "@/utils/noise";
+import { getTerrainHeight } from "@/utils/noise";
 import { getWorldTextures } from "@/utils/proceduralTextures";
 import { globalUniforms } from "@/game/systems/globalUniforms";
 import { playerFrameState } from "@/game/state/usePlayerStore";
-import { npcLivePositions } from "@/game/npc/NPCSystem";
+import { addBoxCollider, addCylinderCollider, clearCollidersByTag } from "@/game/systems/Physics";
 
-// 8 Genuinely Distinct House Architectural Silhouettes!
-type HouseVariant =
-  | "cottage_porch"
-  | "tall_manor"
-  | "round_wizard_tower"
-  | "tavern_L_inn"
-  | "stepped_guildhall"
-  | "barn_gambrel"
-  | "blacksmith_forge"
-  | "windmill_keep";
+type HouseVariant = 'cottage' | 'tall_manor' | 'windmill_keep' | 'round_wizard_tower' | 'tavern_L_inn' | 'stepped_guildhall' | 'blacksmith_forge';
 
-interface HouseItem {
+interface HouseData {
   id: string;
   x: number;
   y: number;
   z: number;
-  rotY: number;
-  scaleX: number;
-  scaleY: number;
-  scaleZ: number;
+  rot: number;
+  wallMat: THREE.Material;
+  upperWallMat: THREE.Material;
+  roofMat: THREE.Material;
   variant: HouseVariant;
-  wallMat: THREE.MeshStandardMaterial;
-  upperMat: THREE.MeshStandardMaterial;
-  roofMat: THREE.MeshStandardMaterial;
 }
 
-type StallType = "fruit" | "fish" | "veggie" | "bakery";
-
-interface MarketStallItem {
+interface StallData {
   x: number;
   y: number;
   z: number;
-  rotY: number;
-  type: StallType;
-}
-
-function MarketStall({ stall, textures, woodMat }: { stall: MarketStallItem; textures: Record<string, THREE.CanvasTexture>; woodMat: THREE.Material }) {
-  const awningTex =
-    stall.type === "fruit" ? textures.awningRed :
-    stall.type === "fish" ? textures.awningBlue :
-    stall.type === "veggie" ? textures.awningGreen : textures.awningGold;
-
-  return (
-    <group position={[stall.x, stall.y, stall.z]} rotation={[0, stall.rotY, 0]}>
-      <mesh receiveShadow position={[0, 0.9, 0]} material={woodMat}>
-        <boxGeometry args={[4.4, 1.1, 2.2]} />
-      </mesh>
-      {[-2.0, 2.0].map((px, i) => (
-        <group key={i}>
-          <mesh position={[px, 1.8, 0.95]} material={woodMat}><cylinderGeometry args={[0.08, 0.08, 3.6, 6]} /></mesh>
-          <mesh position={[px, 1.8, -0.95]} material={woodMat}><cylinderGeometry args={[0.08, 0.08, 3.6, 6]} /></mesh>
-        </group>
-      ))}
-      <mesh castShadow position={[0, 3.55, 0]} rotation={[0.15, 0, 0]}>
-        <boxGeometry args={[4.8, 0.18, 2.8]} />
-        <meshStandardMaterial map={awningTex} roughness={0.8} />
-      </mesh>
-      {stall.type === "fruit" && (
-        <group position={[0, 1.55, 0]}>
-          {[-1.3, 0, 1.3].map((cx, idx) => (
-            <group key={idx} position={[cx, 0, 0]}>
-              <mesh material={woodMat}><boxGeometry args={[1.1, 0.28, 1.5]} /></mesh>
-              {[-0.28, 0, 0.28].map((fx, j) => (
-                <mesh key={j} position={[fx, 0.22, 0.2]}>
-                  <sphereGeometry args={[0.17, 6, 6]} />
-                  <meshStandardMaterial color={idx === 0 ? "#ef4444" : idx === 1 ? "#f97316" : "#15803d"} />
-                </mesh>
-              ))}
-            </group>
-          ))}
-        </group>
-      )}
-      {stall.type === "fish" && (
-        <group position={[0, 1.55, 0]}>
-          <mesh position={[-0.6, 0.05, 0]}><boxGeometry args={[2.4, 0.16, 1.6]} /><meshStandardMaterial color="#e0f2fe" /></mesh>
-          {[-1.3, -0.8, -0.3, 0.2].map((fx, idx) => (
-            <mesh key={idx} position={[fx, 0.18, (idx % 2) * 0.25 - 0.1]} rotation={[0, 0.3, 0]} scale={[0.35, 0.12, 0.85]}>
-              <sphereGeometry args={[0.35, 6, 6]} />
-              <meshStandardMaterial color={idx % 2 === 0 ? "#94a3b8" : "#fb7185"} />
-            </mesh>
-          ))}
-        </group>
-      )}
-      {stall.type === "veggie" && (
-        <group position={[0, 1.55, 0]}>
-          {[-1.4, -0.9, -0.4].map((vx, i) => (
-            <mesh key={i} position={[vx, 0.2, 0.2]}><dodecahedronGeometry args={[0.24, 0]} /><meshStandardMaterial color="#4ade80" /></mesh>
-          ))}
-          {[0.3, 0.9, 1.5].map((px, i) => (
-            <mesh key={i} position={[px, 0.24, -0.15]} scale={[1.1, 0.8, 1.1]}><sphereGeometry args={[0.28, 6, 6]} /><meshStandardMaterial color="#ea580c" /></mesh>
-          ))}
-        </group>
-      )}
-      {stall.type === "bakery" && (
-        <group position={[0, 1.55, 0]}>
-          {[-1.2, -0.4, 0.4, 1.2].map((bx, i) => (
-            <mesh key={i} position={[bx, 0.16, 0.15]} scale={[1.4, 0.7, 0.9]}>
-              <sphereGeometry args={[0.22, 6, 6]} />
-              <meshStandardMaterial color={i % 2 === 0 ? "#d97706" : "#facc15"} />
-            </mesh>
-          ))}
-        </group>
-      )}
-    </group>
-  );
+  rot: number;
+  awningMat: THREE.Material;
 }
 
 export default function Village() {
   const textures = useMemo(() => getWorldTextures(), []);
-  const doorPivotRefs = useRef<Record<string, THREE.Group | null>>({});
-  const windmillBladesRef = useRef<THREE.Group>(null);
   const eastGroupRef = useRef<THREE.Group>(null);
   const swGroupRef = useRef<THREE.Group>(null);
   const westGroupRef = useRef<THREE.Group>(null);
+  const bladesRefs = useRef<(THREE.Group | null)[]>([]);
+  const doorPivotRefs = useRef<Record<string, THREE.Group | null>>({});
+  const doorOpenState = useRef<Record<string, boolean>>({});
 
-  // Rich Palette of Shared Materials for Diverse House Styles (Zero per-house material overhead!)
-  const windowMaterial = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.windowLattice, color: "#fef08a", emissive: "#f59e0b", emissiveMap: textures.windowLattice, emissiveIntensity: 1.8, roughness: 0.4 }), [textures.windowLattice]);
-  const beamMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#3e2411", roughness: 0.9 }), []);
-  const doorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#7c4d2b", roughness: 0.8 }), [textures.woodPlanks]);
-  const floorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#5c3a21", roughness: 0.9 }), [textures.woodPlanks]);
+  const windowMaterial = useMemo(
+    () => new THREE.MeshStandardMaterial({ map: textures.windowLattice, color: "#fef08a", emissive: "#f59e0b", emissiveMap: textures.windowLattice, emissiveIntensity: 1.6, roughness: 0.4 }),
+    [textures.windowLattice]
+  );
+  const beamMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#3b2210", roughness: 0.85 }), []);
+  const doorMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#8c5228", roughness: 0.82 }), [textures.woodPlanks]);
+  const stoneTrimMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#94a3b8", roughness: 0.85 }), [textures.villageStone]);
+  constplazaPaverMat = useMemo(() => new THREE.MeshStandardMaterial({ map: textures.cobblestone, color: "#b8ada0", roughness: 0.86 }), [textures.cobblestone]);
 
-  const palette = useMemo(() => ({
-    walls: [
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#f3ead8", roughness: 0.82 }),
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#eadbc4", roughness: 0.84 }),
-      new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#e2ddd5", roughness: 0.85 }),
-      new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#c88a56", roughness: 0.82 }),
-    ],
-    uppers: [
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#f8fafc", roughness: 0.82 }),
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#fde68a", roughness: 0.82 }), // Warm Ochre
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#bae6fd", roughness: 0.82 }), // Coastal Sky Blue
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#bbf7d0", roughness: 0.82 }), // Woodland Sage
-      new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#fecdd3", roughness: 0.82 }), // Rose Terracotta
-    ],
-    roofs: [
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#d95338", roughness: 0.75 }), // Warm Pixar Terracotta
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#b45309", roughness: 0.78 }), // Golden Amber Shingle
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#476885", roughness: 0.76 }), // Storybook Slate Blue (Not black!)
-      new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#5c7c32", roughness: 0.80 }), // Mossy Woodland Green
-    ],
-  }), [textures]);
+  const palette = useMemo(
+    () => ({
+      walls: [
+        new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#eee3ce", roughness: 0.82 }),
+        new THREE.MeshStandardMaterial({ map: textures.halfTimber, color: "#e5d5bc", roughness: 0.84 }),
+        new THREE.MeshStandardMaterial({ map: textures.villageStone, color: "#dcd6cc", roughness: 0.85 }),
+        new THREE.MeshStandardMaterial({ map: textures.woodPlanks, color: "#c28452", roughness: 0.82 }),
+      ],
+      // 6 Valid Pixar Storybook Roof Materials (Zero undefined / zero white roofs!)
+      roofs: [
+        new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#c84b31", roughness: 0.75 }), // Terracotta Red
+        new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#b45309", roughness: 0.78 }), // Warm Amber Clay
+        new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#476885", roughness: 0.76 }), // Royal Slate Blue
+        new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#5c7c32", roughness: 0.80 }), // Woodland Moss Green
+        new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#854d0e", roughness: 0.78 }), // Aged Cedar Brown
+        new THREE.MeshStandardMaterial({ map: textures.redRoof, color: "#9a3412", roughness: 0.76 }), // Burnt Sienna
+      ],
+      awnings: [
+        new THREE.MeshStandardMaterial({ map: textures.awningRed, side: THREE.DoubleSide, roughness: 0.7 }),
+        new THREE.MeshStandardMaterial({ map: textures.awningBlue, side: THREE.DoubleSide, roughness: 0.7 }),
+        new THREE.MeshStandardMaterial({ map: textures.awningGreen, side: THREE.DoubleSide, roughness: 0.7 }),
+        new THREE.MeshStandardMaterial({ map: textures.awningGold, side: THREE.DoubleSide, roughness: 0.7 }),
+      ],
+    }),
+    [textures]
+  );
 
-  const { houses, stalls, plazas } = useMemo(() => {
-    const hList: HouseItem[] = [];
-    const sList: MarketStallItem[] = [];
+  const { eastHouses, swHouses, westHouses, stalls, lamps, wells } = useMemo(() => {
     const variants: HouseVariant[] = [
-      "cottage_porch",
-      "tall_manor",
-      "round_wizard_tower",
-      "tavern_L_inn",
-      "stepped_guildhall",
-      "barn_gambrel",
-      "blacksmith_forge",
-      "windmill_keep",
+      "cottage", "tall_manor", "tavern_L_inn", "stepped_guildhall",
+      "round_wizard_tower", "blacksmith_forge", "windmill_keep",
     ];
 
-    const villageCenters = [
-      { prefix: "east", cx: 365,  cz: 0,    themeRoof: [0, 1, 4], themeUpper: [0, 1, 4] }, // Medieval Half-Timber
-      { prefix: "sw",   cx: -280, cz: 240,  themeRoof: [2, 4, 1], themeUpper: [2, 0, 1] }, // Coastal Maritime
-      { prefix: "west", cx: -245, cz: -95,  themeRoof: [3, 1, 4], themeUpper: [3, 1, 0] }, // Woodland Nordic
-    ];
+    const buildTown = (cx: number, cz: number, tag: string) => {
+      const hList: HouseData[] = [];
+      const sList: StallData[] = [];
+      const lList: [number, number, number][] = [];
 
-    const pList = villageCenters.map((v) => ({
-      x: v.cx,
-      y: getExactMeshTerrainHeight(v.cx, v.cz),
-      z: v.cz,
-      r: 86,
-    }));
-
-    villageCenters.forEach((vc, vIdx) => {
-      let hCounter = 0;
-      const addHouse = (dx: number, dz: number, rotY: number, seedIdx: number) => {
-        const wx = vc.cx + dx, wz = vc.cz + dz;
-        const variant = variants[(seedIdx * 3 + vIdx * 2) % variants.length];
-        // Varied proportions per house so adjacent houses have distinct heights & depths!
-        const scaleX = 1.0;
-        const scaleY = 0.90 + ((seedIdx * 11) % 6) * 0.08;
-        const scaleZ = 1.0;
-        const wallMat = palette.walls[(seedIdx + vIdx) % palette.walls.length];
-        const upperMat = palette.uppers[vc.themeUpper[seedIdx % vc.themeUpper.length]];
-        const roofMat = palette.roofs[vc.themeRoof[(seedIdx + 1) % vc.themeRoof.length]];
-
+      const addHouse = (dx: number, dz: number, rot: number, idx: number) => {
+        const x = cx + dx;
+        const z = cz + dz;
+        const y = getTerrainHeight(x, z);
+        const wLen = palette.walls.length;
+        const rLen = palette.roofs.length;
         hList.push({
-          id: vc.prefix + "_house_" + hCounter++,
-          x: wx,
-          y: getExactMeshTerrainHeight(wx, wz),
-          z: wz,
-          rotY,
-          scaleX,
-          scaleY,
-          scaleZ,
-          variant,
-          wallMat,
-          upperMat,
-          roofMat,
+          id: tag + "_h_" + idx,
+          x, y, z, rot,
+          wallMat: palette.walls[idx % wLen],
+          upperWallMat: palette.walls[(idx + 1) % wLen],
+          roofMat: palette.roofs[idx % rLen],
+          variant: variants[idx % variants.length],
         });
       };
 
-      // Collision-Free Organic Pixar Village Layout (17.5m spacing so zero houses ever overlap or clip!)
-      const zOffsetsN = [-19, -20.5, -18.5, -21, -19, -20.5, -18.5];
-      const rotOffsetsN = [0.08, -0.05, 0.0, 0.06, -0.06, 0.04, -0.08];
-      [-52, -35, -17.5, 0, 17.5, 35, 52].forEach((dx, i) => addHouse(dx, zOffsetsN[i], rotOffsetsN[i], i));
+      // Collision-Free Organic Medieval Layout (18.5m spacing so zero houses ever overlap!)
+      const zN = [-20, -22, -19.5, -22.5, -20, -21.5, -19.5];
+      const rN = [0.06, -0.04, 0.0, 0.05, -0.05, 0.04, -0.06];
+      [-55.5, -37, -18.5, 0, 18.5, 37, 55.5].forEach((dx, i) => addHouse(dx, zN[i], rN[i], i));
 
-      const zOffsetsS = [19, 20.5, 18.5, 21, 19, 20.5, 18.5];
-      const rotOffsetsS = [Math.PI - 0.08, Math.PI + 0.05, Math.PI, Math.PI - 0.06, Math.PI + 0.06, Math.PI - 0.04, Math.PI + 0.08];
-      [-52, -35, -17.5, 0, 17.5, 35, 52].forEach((dx, i) => addHouse(dx, zOffsetsS[i], rotOffsetsS[i], i + 7));
+      const zS = [20, 22, 19.5, 22.5, 20, 21.5, 19.5];
+      const rS = [Math.PI - 0.06, Math.PI + 0.04, Math.PI, Math.PI - 0.05, Math.PI + 0.05, Math.PI - 0.04, Math.PI + 0.06];
+      [-55.5, -37, -18.5, 0, 18.5, 37, 55.5].forEach((dx, i) => addHouse(dx, zS[i], rS[i], i + 7));
 
-      const zOuterN = [-40, -42, -39, -41, -39.5];
-      const rotOuterN = [0.10, -0.06, 0.0, 0.07, -0.10];
-      [-36, -18, 0, 18, 36].forEach((dx, i) => addHouse(dx, zOuterN[i], rotOuterN[i], i + 14));
+      const zOuterN = [-43, -45, -42, -44.5, -43];
+      const rOuterN = [0.07, -0.05, 0.0, 0.05, -0.07];
+      [-38, -19, 0, 19, 38].forEach((dx, i) => addHouse(dx, zOuterN[i], rOuterN[i], i + 14));
 
-      const zOuterS = [40, 42, 39, 41, 39.5];
-      const rotOuterS = [Math.PI - 0.10, Math.PI + 0.06, Math.PI, Math.PI - 0.07, Math.PI + 0.10];
-      [-36, -18, 0, 18, 36].forEach((dx, i) => addHouse(dx, zOuterS[i], rotOuterS[i], i + 19));
-      addHouse(64, -12, -Math.PI / 2, 23);
-      addHouse(64, 12,  -Math.PI / 2, 29);
+      const zOuterS = [43, 45, 42, 44.5, 43];
+      const rOuterS = [Math.PI - 0.07, Math.PI + 0.05, Math.PI, Math.PI - 0.05, Math.PI + 0.07];
+      [-38, -19, 0, 19, 38].forEach((dx, i) => addHouse(dx, zOuterS[i], rOuterS[i], i + 19));
 
-      const stallSpecs: { dx: number; dz: number; rot: number; type: StallType }[] = [
-        { dx: -18, dz: -7, rot: 0, type: "fruit" },
-        { dx: -6,  dz: -7, rot: 0, type: "veggie" },
-        { dx: 6,   dz: -7, rot: 0, type: "bakery" },
-        { dx: 18,  dz: -7, rot: 0, type: "fish" },
-        { dx: -18, dz: 7,  rot: Math.PI, type: "fish" },
-        { dx: -6,  dz: 7,  rot: Math.PI, type: "fruit" },
-        { dx: 6,   dz: 7,  rot: Math.PI, type: "veggie" },
-        { dx: 18,  dz: 7,  rot: Math.PI, type: "bakery" },
-      ];
-      stallSpecs.forEach((st) => {
-        const sx = vc.cx + st.dx, sz = vc.cz + st.dz;
-        sList.push({ x: sx, y: getExactMeshTerrainHeight(sx, sz), z: sz, rotY: st.rot, type: st.type });
+      [-32, -16, 16, 32].forEach((dx, i) => {
+        sList.push({ x: cx + dx, y: getTerrainHeight(cx + dx, cz - 8.5), z: cz - 8.5, rot: 0, awningMat: palette.awnings[i % 4] });
+        sList.push({ x: cx + dx, y: getTerrainHeight(cx + dx, cz + 8.5), z: cz + 8.5, rot: Math.PI, awningMat: palette.awnings[(i + 2) % 4] });
       });
-    });
 
-    return { houses: hList, stalls: sList, plazas: pList };
+      [-44, -22, 0, 22, 44].forEach((dx) => {
+        lList.push([cx + dx, getTerrainHeight(cx + dx, cz - 12), cz - 12]);
+        lList.push([cx + dx, getTerrainHeight(cx + dx, cz + 12), cz + 12]);
+      });
+
+      return { hList, sList, lList, well: [cx, getTerrainHeight(cx, cz), cz] as [number, number, number] };
+    };
+
+    const e = buildTown(360, 0, "east");
+    const sw = buildTown(-280, 240, "sw");
+    const w = buildTown(-245, -95, "west");
+
+    return {
+      eastHouses: e.hList,
+      swHouses: sw.hList,
+      westHouses: w.hList,
+      stalls: [...e.sList, ...sw.sList, ...w.sList],
+      lamps: [...e.lList, ...sw.lList, ...w.lList],
+      wells: [e.well, sw.well, w.well],
+    };
   }, [palette]);
 
+  const allHouses = useMemo(() => [...eastHouses, ...swHouses, ...westHouses], [eastHouses, swHouses, westHouses]);
+
   useEffect(() => {
-    clearGroupColliders("village");
-    houses.forEach((h) => {
-      addEnterableHouseColliders(h.id, h.x, h.y, h.z, h.rotY, 9.6 * h.scaleX, 7.6 * h.scaleZ, "Pintu Rumah Desa", "village");
+    clearCollidersByTag("village");
+    allHouses.forEach((h) => {
+      addBoxCollider(h.x, h.z - 2.2, 9.6, 2.6, "village");
+      addBoxCollider(h.x - 3.6, h.z, 2.2, 7.0, "village");
+      addBoxCollider(h.x + 3.6, h.z, 2.2, 7.0, "village");
     });
-    stalls.forEach((s) => {
-      addBoxCollider(s.x, s.z, 4.6, 2.4, "village");
+    wells.forEach(([wx, , wz]) => {
+      addCylinderCollider(wx, wz, 2.4, "village");
     });
-  }, [houses, stalls]);
+    return () => {
+      clearCollidersByTag("village");
+    };
+  }, [allHouses, wells]);
 
-  const lastNpcDoorCheck = useRef(0);
-  useFrame((state, delta) => {
-    const dt = Math.min(delta, 0.05);
-    const t = state.clock.elapsedTime;
-    windowMaterial.emissiveIntensity = 0.55 + globalUniforms.uNightFactor.value * 3.5;
-    const px = playerFrameState.x, pz = playerFrameState.z;
-    if (eastGroupRef.current) eastGroupRef.current.visible = Math.hypot(px - 365, pz) < 210;
-    if (swGroupRef.current) swGroupRef.current.visible = Math.hypot(px + 280, pz - 240) < 210;
-    if (westGroupRef.current) westGroupRef.current.visible = Math.hypot(px + 245, pz + 95) < 210;
-    if (windmillBladesRef.current) windmillBladesRef.current.rotation.z += dt * 0.9;
-
-    if (t - lastNpcDoorCheck.current > 0.5) {
-      lastNpcDoorCheck.current = t;
-      const npcCoords = Object.values(npcLivePositions);
-      for (let i = 0; i < INTERACTIVE_DOORS.length; i++) {
-        const d = INTERACTIVE_DOORS[i];
-        if (d.group !== "village") continue;
-        for (let j = 0; j < npcCoords.length; j++) {
-          const n = npcCoords[j];
-          if (Math.hypot(n.x - d.x, n.z - d.z) < 3.2) {
-            d.isOpen = true;
-            break;
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "KeyE") {
+        let closestId = "";
+        let minDist = 6.5;
+        for (const h of allHouses) {
+          const doorWorldX = h.x + Math.sin(h.rot) * 3.8;
+          const doorWorldZ = h.z + Math.cos(h.rot) * 3.8;
+          const d = Math.hypot(playerFrameState.x - doorWorldX, playerFrameState.z - doorWorldZ);
+          if (d < minDist) {
+            minDist = d;
+            closestId = h.id;
           }
         }
+        if (closestId) {
+          doorOpenState.current[closestId] = !doorOpenState.current[closestId];
+        }
       }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [allHouses]);
+
+  useFrame((_, delta) => {
+    const dt = Math.min(delta, 0.05);
+    const glow = globalUniforms.uWindowGlow.value;
+    windowMaterial.emissiveIntensity = 0.55 + glow * 2.2;
+
+    // High 750m Draw Distance so villages never pop abruptly!
+    if (eastGroupRef.current) {
+      eastGroupRef.current.visible = Math.hypot(playerFrameState.x - 360, playerFrameState.z - 0) < 750;
+    }
+    if (swGroupRef.current) {
+      swGroupRef.current.visible = Math.hypot(playerFrameState.x - -280, playerFrameState.z - 240) < 750;
+    }
+    if (westGroupRef.current) {
+      westGroupRef.current.visible = Math.hypot(playerFrameState.x - -245, playerFrameState.z - -95) < 750;
     }
 
-    for (let i = 0; i < INTERACTIVE_DOORS.length; i++) {
-      const d = INTERACTIVE_DOORS[i];
-      const pivot = doorPivotRefs.current[d.id];
-      if (pivot) {
-        const targetRot = d.isOpen ? -Math.PI * 0.62 : 0.0;
-        pivot.rotation.y = THREE.MathUtils.lerp(pivot.rotation.y, targetRot, dt * 8);
-      }
+    for (const b of bladesRefs.current) {
+      if (b) b.rotation.z -= dt * 1.1;
+    }
+
+    for (const h of allHouses) {
+      const pivot = doorPivotRefs.current[h.id];
+      if (!pivot) continue;
+      const targetRot = doorOpenState.current[h.id] ? -Math.PI * 0.62 : 0;
+      pivot.rotation.y = THREE.MathUtils.lerp(pivot.rotation.y, targetRot, dt * 7);
     }
   });
 
+  let bladeIdx = 0;
+
+  const renderHouse = (h: HouseData) => {
+    const hasSecondFloor = h.variant === 'tall_manor' || h.variant === 'tavern_L_inn' || h.variant === 'stepped_guildhall' || h.variant === 'blacksmith_forge';
+    return (
+      <group key={h.id} position={[h.x, h.y, h.z]} rotation={[0, h.rot, 0]}>
+        {/* Stone Foundation Plinth */}
+        <mesh receiveShadow position={[0, 0.25, 0]} material={stoneTrimMat}><boxGeometry args={[10.2, 0.6, 8.0]} /></mesh>
+
+        {/* Ground Floor Half-Timber / Stone Walls */}
+        <mesh castShadow receiveShadow position={[0, 2.2, -3.5]} material={h.wallMat}><boxGeometry args={[9.6, 4.2, 0.4]} /></mesh>
+        <mesh castShadow receiveShadow position={[-4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.4, 4.2, 7.4]} /></mesh>
+        <mesh castShadow receiveShadow position={[4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.4, 4.2, 7.4]} /></mesh>
+        <mesh castShadow receiveShadow position={[-2.8, 2.2, 3.5]} material={h.wallMat}><boxGeometry args={[3.8, 4.2, 0.4]} /></mesh>
+        <mesh castShadow receiveShadow position={[2.8, 2.2, 3.5]} material={h.wallMat}><boxGeometry args={[3.8, 4.2, 0.4]} /></mesh>
+        <mesh castShadow receiveShadow position={[0, 3.5, 3.5]} material={h.wallMat}><boxGeometry args={[2.0, 1.6, 0.4]} /></mesh>
+
+        {/* Ground-Floor Timber Colonnade Pillars & Corbel Brackets (Reference Medieval Style) */}
+        {[-4.3, -1.3, 1.3, 4.3].map((px, pIdx) => (
+          <group key={"col_" + pIdx} position={[px, 0, 3.85]}>
+            <mesh castShadow position={[0, 2.15, 0]} material={beamMat}><boxGeometry args={[0.32, 4.3, 0.32]} /></mesh>
+            <mesh position={[0, 3.85, -0.18]} rotation={[0.6, 0, 0]} material={beamMat}><boxGeometry args={[0.24, 0.75, 0.22]} /></mesh>
+          </group>
+        ))}
+        <mesh position={[0, 4.25, 3.82]} material={beamMat}><boxGeometry args={[10.2, 0.34, 0.48]} /></mesh>
+
+        {/* Interactive Hinged Wooden Door */}
+        <mesh position={[0, 1.45, 3.58]} material={beamMat}><boxGeometry args={[2.1, 2.9, 0.22]} /></mesh>
+        <group position={[-0.9, 0, 3.62]} ref={(el) => { doorPivotRefs.current[h.id] = el; }}>
+          <mesh position={[0.9, 1.35, 0]} material={doorMat}><boxGeometry args={[1.8, 2.7, 0.14]} /></mesh>
+        </group>
+
+        {/* Outdoor Wooden Bench & Barrel */}
+        <mesh position={[-2.8, 0.55, 4.15]} material={doorMat}><boxGeometry args={[1.6, 0.12, 0.65]} /></mesh>
+        <mesh position={[3.1, 0.55, 4.10]} material={doorMat}><cylinderGeometry args={[0.34, 0.38, 1.0, 10]} /></mesh>
+
+        {/* Mullion Lattice Windows */}
+        <mesh position={[-2.8, 2.2, 3.72]} material={windowMaterial}><planeGeometry args={[1.35, 1.2]} /></mesh>
+        <mesh position={[-2.8, 1.55, 3.76]} material={beamMat}><boxGeometry args={[1.5, 0.14, 0.18]} /></mesh>
+        <mesh position={[2.8, 2.2, 3.72]} material={windowMaterial}><planeGeometry args={[1.35, 1.2]} /></mesh>
+        <mesh position={[2.8, 1.55, 3.76]} material={beamMat}><boxGeometry args={[1.5, 0.14, 0.18]} /></mesh>
+
+        {hasSecondFloor && (
+          <group>
+            <mesh position={[-2.2, 5.8, 4.02]} material={windowMaterial}><planeGeometry args={[1.65, 1.25]} /></mesh>
+            <mesh position={[-2.2, 5.12, 4.06]} material={beamMat}><boxGeometry args={[1.8, 0.15, 0.18]} /></mesh>
+            <mesh position={[2.2, 5.8, 4.02]} material={windowMaterial}><planeGeometry args={[1.65, 1.25]} /></mesh>
+            <mesh position={[2.2, 5.12, 4.06]} material={beamMat}><boxGeometry args={[1.8, 0.15, 0.18]} /></mesh>
+          </group>
+        )}
+
+        {/* 7 Distinct Architectural Roof & Upper-Story Variants (All using valid h.roofMat!) */}
+        {h.variant === 'cottage' && (
+          <mesh castShadow position={[0, 5.8, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}>
+            <coneGeometry args={[7.6, 3.6, 4]} />
+          </mesh>
+        )}
+
+        {h.variant === 'tall_manor' && (
+          <group>
+            <mesh castShadow receiveShadow position={[0, 5.8, 0]} material={h.upperWallMat}><boxGeometry args={[10.2, 3.2, 7.9]} /></mesh>
+            <mesh castShadow position={[0, 9.2, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[8.0, 4.0, 4]} /></mesh>
+          </group>
+        )}
+
+        {h.variant === 'tavern_L_inn' && (
+          <group>
+            <mesh castShadow receiveShadow position={[0, 5.8, 0]} material={h.upperWallMat}><boxGeometry args={[10.2, 3.2, 7.9]} /></mesh>
+            <mesh castShadow position={[0, 9.1, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[8.0, 3.8, 4]} /></mesh>
+            <mesh castShadow receiveShadow position={[-3.2, 2.2, -5.2]} material={h.wallMat}><boxGeometry args={[4.4, 4.2, 3.8]} /></mesh>
+            <mesh castShadow position={[-3.2, 5.5, -5.2]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[3.8, 2.6, 4]} /></mesh>
+          </group>
+        )}
+
+        {h.variant === 'stepped_guildhall' && (
+          <group>
+            <mesh castShadow receiveShadow position={[0, 5.8, 0]} material={h.upperWallMat}><boxGeometry args={[10.2, 3.2, 7.9]} /></mesh>
+            <mesh castShadow position={[0, 8.6, 0]} material={h.upperWallMat}><boxGeometry args={[7.2, 2.4, 7.9]} /></mesh>
+            <mesh castShadow position={[0, 10.9, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[6.4, 2.8, 4]} /></mesh>
+          </group>
+        )}
+
+        {h.variant === 'round_wizard_tower' && (
+          <group>
+            <mesh castShadow position={[0, 5.6, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[7.5, 3.2, 4]} /></mesh>
+            <mesh castShadow receiveShadow position={[3.8, 5.5, 2.2]} material={stoneTrimMat}><cylinderGeometry args={[2.2, 2.4, 11.0, 14]} /></mesh>
+            <mesh castShadow position={[3.8, 12.6, 2.2]} material={h.roofMat}><coneGeometry args={[2.8, 3.6, 14]} /></mesh>
+          </group>
+        )}
+
+        {h.variant === 'blacksmith_forge' && (
+          <group>
+            <mesh castShadow receiveShadow position={[0, 5.8, 0]} material={h.upperWallMat}><boxGeometry args={[10.2, 3.2, 7.9]} /></mesh>
+            <mesh castShadow position={[0, 9.0, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[7.9, 3.6, 4]} /></mesh>
+            <mesh castShadow position={[3.8, 6.2, -1.8]} material={stoneTrimMat}><boxGeometry args={[1.4, 9.5, 1.4]} /></mesh>
+          </group>
+        )}
+
+        {h.variant === 'windmill_keep' && (() => {
+          const myBladeIdx = bladeIdx++;
+          return (
+            <group>
+              <mesh castShadow position={[0, 6.6, 0]} material={h.upperWallMat}><cylinderGeometry args={[2.9, 4.2, 5.6, 12]} /></mesh>
+              <mesh castShadow position={[0, 10.8, 0]} material={h.roofMat}><coneGeometry args={[3.4, 3.0, 12]} /></mesh>
+              <group position={[0, 8.2, 3.3]} ref={(el) => { bladesRefs.current[myBladeIdx] = el; }}>
+                <mesh material={beamMat}><boxGeometry args={[0.4, 11.5, 0.2]} /></mesh>
+                <mesh material={beamMat}><boxGeometry args={[11.5, 0.4, 0.2]} /></mesh>
+              </group>
+            </group>
+          );
+        })()}
+      </group>
+    );
+  };
+
   return (
-    <group name="three-distinct-medieval-villages">
-      {plazas.map((p, i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[p.x, p.y + 0.08, p.z]} receiveShadow>
-          <circleGeometry args={[p.r, 40]} />
-          <meshStandardMaterial map={textures.cobblestone} color="#cbd5e1" roughness={0.85} polygonOffset polygonOffsetFactor={-4} />
+    <group name="medieval-villages">
+      {/* Cobblestone Town Plazas */}
+      {[[360, 0], [-280, 240], [-245, -95]].map(([px, pz], idx) => (
+        <mesh key={"plaza_" + idx} receiveShadow position={[px, getTerrainHeight(px, pz) + 0.05, pz]} rotation={[-Math.PI / 2, 0, 0]} material={constplazaPaverMat}>
+          <circleGeometry args={[62, 40]} />
         </mesh>
       ))}
 
-      {stalls.map((st, idx) => (
-        <MarketStall key={idx} stall={st} textures={textures} woodMat={doorMat} />
+      <group ref={eastGroupRef}>{eastHouses.map(renderHouse)}</group>
+      <group ref={swGroupRef}>{swHouses.map(renderHouse)}</group>
+      <group ref={westGroupRef}>{westHouses.map(renderHouse)}</group>
+
+      {/* Market Stalls */}
+      {stalls.map((s, i) => (
+        <group key={"stall_" + i} position={[s.x, s.y, s.z]} rotation={[0, s.rot, 0]}>
+          <mesh castShadow position={[0, 0.55, 0]} material={doorMat}><boxGeometry args={[3.2, 1.1, 1.6]} /></mesh>
+          <mesh position={[-1.4, 1.4, -0.6]} material={beamMat}><cylinderGeometry args={[0.07, 0.07, 2.8, 6]} /></mesh>
+          <mesh position={[1.4, 1.4, -0.6]} material={beamMat}><cylinderGeometry args={[0.07, 0.07, 2.8, 6]} /></mesh>
+          <mesh position={[-1.4, 1.2, 0.6]} material={beamMat}><cylinderGeometry args={[0.07, 0.07, 2.4, 6]} /></mesh>
+          <mesh position={[1.4, 1.2, 0.6]} material={beamMat}><cylinderGeometry args={[0.07, 0.07, 2.4, 6]} /></mesh>
+          <mesh castShadow position={[0, 2.6, 0]} rotation={[0.22, 0, 0]} material={s.awningMat}><boxGeometry args={[3.6, 0.12, 2.2]} /></mesh>
+        </group>
       ))}
 
-      {(['east', 'sw', 'west'] as const).map((vPrefix) => (
-        <group key={vPrefix} ref={vPrefix === 'east' ? eastGroupRef : vPrefix === 'sw' ? swGroupRef : westGroupRef}>
-          {houses.filter((h) => h.id.startsWith(vPrefix)).map((h, idx) => (
-        <group key={h.id} position={[h.x, h.y, h.z]} rotation={[0, h.rotY, 0]} scale={[h.scaleX, h.scaleY, h.scaleZ]}>
-          {/* Walkable Interior Floor, Table, Cozy Bed, Bookshelf & Glowing Hearth Fireplace */}
-          <mesh position={[0, 0.08, 0]} receiveShadow material={floorMat}><boxGeometry args={[9.2, 0.14, 7.2]} /></mesh>
-          <mesh position={[0, 0.85, -1.2]} material={doorMat}><boxGeometry args={[2.2, 0.9, 1.4]} /></mesh>
-          {/* Cozy Bed with Red Blanket on Left Wall */}
-          <mesh position={[-3.2, 0.55, -1.8]} material={doorMat}><boxGeometry args={[2.2, 0.55, 3.0]} /></mesh>
-          <mesh position={[-3.2, 0.88, -1.5]} material={palette.roofs[0]}><boxGeometry args={[2.0, 0.18, 2.2]} /></mesh>
-          {/* Wooden Bookshelf on Right Wall */}
-          <mesh position={[3.6, 1.6, -2.2]} material={beamMat}><boxGeometry args={[1.4, 2.8, 0.8]} /></mesh>
-          {/* Warm Glowing Hearth Fireplace at Back Wall */}
-          <mesh position={[0, 0.8, -3.1]} material={windowMaterial}><boxGeometry args={[1.6, 1.1, 0.5]} /></mesh>
-
-          {/* Ground Floor Hollow Walls */}
-          <mesh receiveShadow position={[0, 2.2, -3.6]} material={h.wallMat}><boxGeometry args={[9.6, 4.4, 0.45]} /></mesh>
-          <mesh receiveShadow position={[-4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.45, 4.4, 7.6]} /></mesh>
-          <mesh receiveShadow position={[4.6, 2.2, 0]} material={h.wallMat}><boxGeometry args={[0.45, 4.4, 7.6]} /></mesh>
-          <mesh receiveShadow position={[-2.85, 2.2, 3.6]} material={h.wallMat}><boxGeometry args={[3.9, 4.4, 0.45]} /></mesh>
-          <mesh receiveShadow position={[2.85, 2.2, 3.6]} material={h.wallMat}><boxGeometry args={[3.9, 4.4, 0.45]} /></mesh>
-          <mesh position={[0, 3.55, 3.6]} material={h.wallMat}><boxGeometry args={[1.9, 1.7, 0.45]} /></mesh>
-
-          {/* Hinged Recessed Wooden Plank Door with Heavy Timber Arch Frame */}
-          <mesh position={[0, 1.45, 3.68]} material={beamMat}><boxGeometry args={[2.15, 2.9, 0.22]} /></mesh>
-          <group position={[-0.9, 0, 3.72]} ref={(el) => { doorPivotRefs.current[h.id] = el; }}>
-            <mesh position={[0.9, 1.35, 0]} material={doorMat}><boxGeometry args={[1.8, 2.7, 0.14]} /></mesh>
-          </group>
-
-          {/* Reference image_8a19c7.jpg Details: Ground-Floor Wooden Colonnade Posts, Corbel Brackets, Jetty Overhang Beams & Outdoor Tavern Bench/Barrel! */}
-          {[-4.2, 4.2].map((px, pIdx) => (
-            <group key={"col_" + pIdx} position={[px, 0, 3.82]}>
-              {/* Heavy Vertical Timber Colonnade Pillar */}
-              <mesh castShadow position={[0, 2.15, 0]} material={beamMat}><boxGeometry args={[0.34, 4.3, 0.34]} /></mesh>
-              {/* Angled Wooden Corbel Bracket holding up 2nd floor overhang */}
-              <mesh position={[0, 3.85, -0.22]} rotation={[0.65, 0, 0]} material={beamMat}><boxGeometry args={[0.26, 0.85, 0.24]} /></mesh>
-            </group>
-          ))}
-          {/* Heavy Horizontal Jetty Overhang Beam & Protruding Floor Joist Ends */}
-          <mesh position={[0, 4.25, 4.05]} material={beamMat}><boxGeometry args={[10.4, 0.36, 0.55]} /></mesh>
-          {/* Outdoor Wooden Tavern Table & Barrel under the Overhang (Like Reference image_8a19c7.jpg!) */}
-          <mesh position={[-2.9, 0.65, 4.45]} material={doorMat}><boxGeometry args={[1.8, 0.12, 0.85]} /></mesh>
-          <mesh position={[-2.9, 0.32, 4.45]} material={beamMat}><boxGeometry args={[1.4, 0.64, 0.5]} /></mesh>
-          <mesh position={[3.2, 0.55, 4.35]} material={doorMat}><cylinderGeometry args={[0.38, 0.42, 1.1, 10]} /></mesh>
-
-          {/* --- 8 DISTINCT ARCHITECTURAL SILHOUETTES --- */}
-          {/* 1. Low Cozy Cottage with Front Porch Awning & Flower Boxes */}
-          {h.variant === "cottage_porch" && (
-            <group>
-              <mesh castShadow position={[0, 6.2, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[8.0, 4.2, 4]} /></mesh>
-              <mesh position={[0, 3.3, 4.6]} rotation={[0.25, 0, 0]} material={h.roofMat}><boxGeometry args={[5.5, 0.2, 2.2]} /></mesh>
-              <mesh position={[-2.4, 1.65, 5.4]} material={beamMat}><cylinderGeometry args={[0.1, 0.1, 3.3, 6]} /></mesh>
-              <mesh position={[2.4, 1.65, 5.4]} material={beamMat}><cylinderGeometry args={[0.1, 0.1, 3.3, 6]} /></mesh>
-            </group>
-          )}
-
-          {/* 2. Tall 3-Story Noble Manor with Twin Gables */}
-          {h.variant === "tall_manor" && (
-            <group>
-              <mesh castShadow position={[0, 6.2, 0]} material={h.upperMat}><boxGeometry args={[10.2, 4.0, 8.2]} /></mesh>
-              <mesh castShadow position={[0, 9.6, 0]} material={h.upperMat}><boxGeometry args={[9.4, 3.0, 7.6]} /></mesh>
-              <mesh castShadow position={[-2.4, 12.8, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[5.2, 4.2, 4]} /></mesh>
-              <mesh castShadow position={[2.4, 12.8, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[5.2, 4.2, 4]} /></mesh>
-              <mesh position={[-2.4, 9.6, 3.85]} material={windowMaterial}><planeGeometry args={[1.6, 1.4]} /></mesh>
-              <mesh position={[2.4, 9.6, 3.85]} material={windowMaterial}><planeGeometry args={[1.6, 1.4]} /></mesh>
-            </group>
-          )}
-
-          {/* 3. Cylindrical Turret House with Conical Wizard Spire */}
-          {h.variant === "round_wizard_tower" && (
-            <group>
-              <mesh castShadow position={[0, 6.0, 0]} material={h.upperMat}><boxGeometry args={[9.8, 3.6, 8.0]} /></mesh>
-              <mesh castShadow position={[0, 9.6, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[7.8, 4.0, 4]} /></mesh>
-              <group position={[3.6, 0, 2.4]}>
-                <mesh castShadow position={[0, 7.5, 0]} material={h.wallMat}><cylinderGeometry args={[2.5, 2.7, 15.0, 12]} /></mesh>
-                <mesh castShadow position={[0, 17.5, 0]} material={h.roofMat}><coneGeometry args={[3.1, 5.5, 12]} /></mesh>
-                <mesh position={[0, 11.5, 2.55]} material={windowMaterial}><planeGeometry args={[1.1, 1.8]} /></mesh>
-              </group>
-            </group>
-          )}
-
-          {/* 4. Asymmetric L-Wing Tavern Inn with Balcony */}
-          {h.variant === "tavern_L_inn" && (
-            <group>
-              <mesh castShadow position={[0, 6.2, 0]} material={h.upperMat}><boxGeometry args={[10.4, 4.0, 8.2]} /></mesh>
-              <mesh castShadow position={[0, 10.2, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[8.4, 4.5, 4]} /></mesh>
-              <group position={[-2.8, 5.2, 4.2]}>
-                <mesh castShadow material={h.upperMat}><boxGeometry args={[4.4, 6.0, 3.6]} /></mesh>
-                <mesh castShadow position={[0, 4.4, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[3.8, 3.2, 4]} /></mesh>
-                <mesh position={[0, 1.0, 1.85]} material={windowMaterial}><planeGeometry args={[1.8, 1.3]} /></mesh>
-              </group>
-              <mesh position={[2.2, 4.2, 4.6]} material={beamMat}><boxGeometry args={[4.2, 0.3, 1.4]} /></mesh>
-            </group>
-          )}
-
-          {/* 5. Stepped-Gable Merchant Guildhall */}
-          {h.variant === "stepped_guildhall" && (
-            <group>
-              <mesh castShadow position={[0, 6.2, 0]} material={h.upperMat}><boxGeometry args={[9.8, 4.0, 8.2]} /></mesh>
-              <mesh castShadow position={[0, 9.4, 0]} material={h.upperMat}><boxGeometry args={[7.2, 2.4, 8.0]} /></mesh>
-              <mesh castShadow position={[0, 11.4, 0]} material={h.upperMat}><boxGeometry args={[4.4, 1.8, 7.8]} /></mesh>
-              <mesh castShadow position={[0, 13.2, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[4.2, 2.4, 4]} /></mesh>
-            </group>
-          )}
-
-          {/* 6. Wide Gambrel-Roof Timber Barn / Granary */}
-          {h.variant === "barn_gambrel" && (
-            <group>
-              <mesh castShadow position={[0, 6.0, 0]} rotation={[0, 0, Math.PI / 4]} material={h.roofMat}><boxGeometry args={[7.2, 7.2, 8.4]} /></mesh>
-              <mesh position={[0, 6.2, 4.25]} material={windowMaterial}><circleGeometry args={[1.1, 12]} /></mesh>
-            </group>
-          )}
-
-          {/* 7. Blacksmith Forge with Tall Stone Smelting Chimney */}
-          {h.variant === "blacksmith_forge" && (
-            <group>
-              <mesh castShadow position={[0, 5.8, 0]} material={h.upperMat}><boxGeometry args={[9.8, 3.2, 8.0]} /></mesh>
-              <mesh castShadow position={[0, 9.2, 0]} rotation={[0, Math.PI / 4, 0]} material={h.roofMat}><coneGeometry args={[8.0, 3.8, 4]} /></mesh>
-              <mesh castShadow position={[-3.9, 7.8, 1.8]} material={h.wallMat}><boxGeometry args={[1.9, 15.6, 1.9]} /></mesh>
-            </group>
-          )}
-
-          {/* 8. Tall Octagonal Windmill Keep */}
-          {h.variant === "windmill_keep" && (
-            <group>
-              <mesh castShadow position={[0, 8.8, 0]} material={h.upperMat}><cylinderGeometry args={[3.1, 4.3, 9.5, 10]} /></mesh>
-              <mesh castShadow position={[0, 15.2, 0]} material={h.roofMat}><coneGeometry args={[3.7, 3.6, 10]} /></mesh>
-              <group ref={idx % 8 === 7 ? windmillBladesRef : undefined} position={[0, 11.5, 3.5]}>
-                <mesh material={beamMat}><boxGeometry args={[12.5, 0.85, 0.15]} /></mesh>
-                <mesh material={beamMat}><boxGeometry args={[0.85, 12.5, 0.15]} /></mesh>
-              </group>
-            </group>
-          )}
-
-          {/* Flush 3D-Framed Mullion Lattice Windows (Never floats on round windmills or low cottages!) */}
-          <mesh position={[-2.8, 2.2, 3.84]} material={windowMaterial}><planeGeometry args={[1.4, 1.25]} /></mesh>
-          <mesh position={[-2.8, 1.55, 3.88]} material={beamMat}><boxGeometry args={[1.55, 0.14, 0.18]} /></mesh>
-          <mesh position={[2.8, 2.2, 3.84]} material={windowMaterial}><planeGeometry args={[1.4, 1.25]} /></mesh>
-          <mesh position={[2.8, 1.55, 3.88]} material={beamMat}><boxGeometry args={[1.55, 0.14, 0.18]} /></mesh>
-          {(h.variant === "tall_manor" || h.variant === "round_wizard_tower" || h.variant === "tavern_L_inn" || h.variant === "stepped_guildhall" || h.variant === "blacksmith_forge") && (
-            <group>
-              <mesh position={[-2.2, 5.9, 4.04]} material={windowMaterial}><planeGeometry args={[1.8, 1.3]} /></mesh>
-              <mesh position={[-2.2, 5.22, 4.08]} material={beamMat}><boxGeometry args={[1.95, 0.15, 0.18]} /></mesh>
-              <mesh position={[2.2, 5.9, 4.04]} material={windowMaterial}><planeGeometry args={[1.8, 1.3]} /></mesh>
-              <mesh position={[2.2, 5.22, 4.08]} material={beamMat}><boxGeometry args={[1.95, 0.15, 0.18]} /></mesh>
-            </group>
-          )}
+      {/* Street Lanterns */}
+      {lamps.map(([lx, ly, lz], i) => (
+        <group key={"lamp_" + i} position={[lx, ly, lz]}>
+          <mesh castShadow position={[0, 2.0, 0]} material={beamMat}><cylinderGeometry args={[0.09, 0.13, 4.0, 8]} /></mesh>
+          <mesh position={[0, 4.1, 0]} material={windowMaterial}><cylinderGeometry args={[0.26, 0.18, 0.55, 6]} /></mesh>
         </group>
-          ))}
+      ))}
+
+      {/* Town Wells */}
+      {wells.map(([wx, wy, wz], i) => (
+        <group key={"well_" + i} position={[wx, wy, wz]}>
+          <mesh castShadow receiveShadow position={[0, 0.6, 0]} material={stoneTrimMat}><cylinderGeometry args={[2.2, 2.4, 1.2, 14]} /></mesh>
+          <mesh position={[-1.6, 2.0, 0]} material={beamMat}><boxGeometry args={[0.24, 2.8, 0.24]} /></mesh>
+          <mesh position={[1.6, 2.0, 0]} material={beamMat}><boxGeometry args={[0.24, 2.8, 0.24]} /></mesh>
+          <mesh castShadow position={[0, 3.6, 0]} rotation={[0, Math.PI / 4, 0]} material={palette.roofs[0]}><coneGeometry args={[2.6, 1.6, 4]} /></mesh>
         </group>
       ))}
     </group>

@@ -5,6 +5,7 @@ import * as THREE from "three";
 import { getTerrainHeight, getRiverDistance, noise2D, BIOME_CENTERS } from "@/utils/noise";
 import { getWorldTextures } from "@/utils/proceduralTextures";
 import { WORLD_CONFIG } from "@/config/world";
+import { globalUniforms } from "@/game/systems/globalUniforms";
 
 function smoothstep(edge0: number, edge1: number, x: number): number {
   const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
@@ -14,7 +15,7 @@ function smoothstep(edge0: number, edge1: number, x: number): number {
 export default function Terrain() {
   const textures = useMemo(() => getWorldTextures(), []);
 
-  const geometry = useMemo(() => {
+  const { geometry, mountainVistaGeo } = useMemo(() => {
     const size = WORLD_CONFIG.size;
     const segments = WORLD_CONFIG.segments;
     const geo = new THREE.PlaneGeometry(size, size, segments, segments);
@@ -24,15 +25,15 @@ export default function Terrain() {
     const colors = new Float32Array(pos.count * 3);
 
     const cSand = new THREE.Color("#ebd5a7");
-    const cLushGrass = new THREE.Color("#4f9932");
-    const cMeadowGrass = new THREE.Color("#66ad40");
+    const cLushGrass = new THREE.Color("#529e34");
+    const cMeadowGrass = new THREE.Color("#6cb543");
     const cForestFloor = new THREE.Color("#3b7524");
-    const cAutumnGrass = new THREE.Color("#a87934");
-    const cDirtPath = new THREE.Color("#a6865a");
+    const cAutumnGrass = new THREE.Color("#b07d35");
+    const cDirtPath = new THREE.Color("#a8895e");
     const cRiverBed = new THREE.Color("#2d7780");
-    const cPlazaStone = new THREE.Color("#9c8f80");
-    const cRock = new THREE.Color("#64748b");
-    const cSnow = new THREE.Color("#f4f8fc");
+    const cPlazaStone = new THREE.Color("#9e9284");
+    const cRock = new THREE.Color("#788696");
+    const cSnow = new THREE.Color("#f8fbff");
     const temp = new THREE.Color();
 
     const eastX = BIOME_CENTERS?.eastVillage?.x ?? 295;
@@ -107,7 +108,34 @@ export default function Terrain() {
 
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
-    return geo;
+
+    // 360-Degree Distant Horizon Mountain Ring (Eliminates flat world edge cutoff!)
+    const vistaGeo = new THREE.CylinderGeometry(760, 790, 145, 96, 8, true);
+    const vPos = vistaGeo.attributes.position;
+    const vCols = new Float32Array(vPos.count * 3);
+    for (let i = 0; i < vPos.count; i++) {
+      const vx = vPos.getX(i);
+      const vy = vPos.getY(i);
+      const vz = vPos.getZ(i);
+      const angle = Math.atan2(vz, vx);
+      const hNorm = (vy + 72.5) / 145.0;
+      // Do not block the Western/Southern Ocean horizon
+      const oceanMask = smoothstep(-0.85, -0.35, Math.cos(angle - 2.35));
+      const peak1 = Math.sin(angle * 7.0 + 0.5) * 0.4 + Math.cos(angle * 13.0) * 0.35 + Math.sin(angle * 23.0) * 0.2;
+      const peakHeight = (22.0 + (peak1 * 0.5 + 0.5) * 68.0) * oceanMask;
+      const finalY = hNorm * peakHeight - 4.0;
+      vPos.setY(i, finalY);
+      const isSnowPeak = vz < -140 || finalY > 38.0;
+      const c = isSnowPeak ? new THREE.Color("#dbeafe") : new THREE.Color("#64748b");
+      c.lerp(new THREE.Color("#93c5fd"), 0.45);
+      vCols[i * 3] = c.r;
+      vCols[i * 3 + 1] = c.g;
+      vCols[i * 3 + 2] = c.b;
+    }
+    vistaGeo.setAttribute("color", new THREE.BufferAttribute(vCols, 3));
+    vistaGeo.computeVertexNormals();
+
+    return { geometry: geo, mountainVistaGeo: vistaGeo };
   }, []);
 
   const terrainMat = useMemo(() => {
@@ -115,13 +143,14 @@ export default function Terrain() {
       vertexColors: true,
       map: textures.terrainDetail,
       bumpMap: textures.terrainDetail,
-      bumpScale: 0.08,
-      roughness: 0.84,
+      bumpScale: 0.05,
+      roughness: 0.85,
       metalness: 0.02,
     });
 
-    mat.customProgramCacheKey = () => "terrain-shoreline-perpixel-v5";
+    mat.customProgramCacheKey = () => "terrain-clean-snow-vista-v6";
     mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uSkyHorizon = globalUniforms.uSkyHorizon;
       shader.vertexShader = shader.vertexShader.replace(
         "#include <common>",
         "#include <common>\nvarying vec3 vWorldPosTerrain;"
@@ -134,6 +163,7 @@ export default function Terrain() {
         "#include <common>",
         [
           "#include <common>",
+          "uniform vec3 uSkyHorizon;",
           "varying vec3 vWorldPosTerrain;",
           "float hashTerrain(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }",
           "float noiseTerrain(vec2 p) {",
@@ -145,7 +175,26 @@ export default function Terrain() {
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <color_fragment>",
         [
-          "#include <color_fragment>",
+          "// 1. Extract grass detail luminance BEFORE vertex color multiplication",
+          "float grassDetailTex = diffuseColor.g;",
+          "// 2. Detect green grass biome vs Snow / Sand / Stone Plaza:",
+          "//    Green grass has vColor.g significantly higher than vColor.r and vColor.b!",
+          "float greenDominance = clamp((vColor.g - max(vColor.r, vColor.b)) * 4.5, 0.0, 1.0);",
+          "float snowBiomeMask = max(smoothstep(-135.0, -210.0, vWorldPosTerrain.z), smoothstep(16.5, 22.0, vWorldPosTerrain.y));",
+          "float grassDetailStrength = greenDominance * (1.0 - snowBiomeMask);",
+          "// 3. Apply grass blades ONLY on green grass! On Snow/Stone/Sand, use smooth surface!",
+          "float smoothMicroNoise = 0.97 + 0.05 * noiseTerrain(vWorldPosTerrain.xz * 0.35);",
+          "float finalTexMod = mix(smoothMicroNoise, clamp(grassDetailTex * 1.12, 0.78, 1.15), grassDetailStrength);",
+          "diffuseColor.rgb = vColor.rgb * finalTexMod;",
+
+          "// 4. Pure Powdery Snow Sparkle in Snow Biome (Zero grey grass lines!)",
+          "if (snowBiomeMask > 0.01) {",
+          "  float snowSparkle = smoothstep(0.82, 0.98, noiseTerrain(vWorldPosTerrain.xz * 1.8)) * 0.08;",
+          "  vec3 pureSnowCol = vec3(0.95, 0.97, 1.0) * (0.96 + 0.04 * noiseTerrain(vWorldPosTerrain.xz * 0.12)) + snowSparkle;",
+          "  diffuseColor.rgb = mix(diffuseColor.rgb, pureSnowCol, snowBiomeMask);",
+          "}",
+
+          "// 5. Per-Pixel Coastal Sand Transition",
           "float coastWest = smoothstep(-330.0, -415.0, vWorldPosTerrain.x);",
           "float coastSouth = smoothstep(390.0, 460.0, vWorldPosTerrain.z);",
           "float coastMask = max(coastWest, coastSouth);",
@@ -154,19 +203,35 @@ export default function Terrain() {
           "  float n2 = noiseTerrain(vWorldPosTerrain.xz * 0.15) * 0.48;",
           "  float organicH = vWorldPosTerrain.y + n1 + n2 - 0.55;",
           "  float sandFactor = (1.0 - smoothstep(2.1, 5.8, organicH)) * coastMask;",
-          "  float texLum = dot(diffuseColor.rgb, vec3(0.333)) / max(0.15, dot(vColor.rgb, vec3(0.333)));",
-          "  texLum = clamp(texLum, 0.80, 1.16);",
-          "  vec3 drySand = vec3(0.94, 0.85, 0.67) * texLum;",
-          "  vec3 wetSand = vec3(0.76, 0.66, 0.50) * texLum;",
+          "  vec3 drySand = vec3(0.93, 0.84, 0.66) * smoothMicroNoise;",
+          "  vec3 wetSand = vec3(0.76, 0.66, 0.50) * smoothMicroNoise;",
           "  float wetMask = 1.0 - smoothstep(-0.2, 1.5, vWorldPosTerrain.y);",
           "  vec3 targetSand = mix(drySand, wetSand, wetMask);",
           "  diffuseColor.rgb = mix(diffuseColor.rgb, targetSand, clamp(sandFactor, 0.0, 1.0));",
           "}",
         ].join("\n")
       );
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <fog_fragment>",
+        [
+          "#include <fog_fragment>",
+          "// 6. Realistic Atmospheric Aerial Perspective Draw-Distance Blend",
+          "float camDist = length(vWorldPosTerrain - cameraPosition);",
+          "float aerialHaze = smoothstep(260.0, 740.0, camDist) * 0.65;",
+          "gl_FragColor.rgb = mix(gl_FragColor.rgb, uSkyHorizon, aerialHaze);",
+        ].join("\n")
+      );
     };
     return mat;
   }, [textures]);
 
-  return <mesh geometry={geometry} material={terrainMat} receiveShadow />;
+  return (
+    <group>
+      <mesh geometry={geometry} material={terrainMat} receiveShadow />
+      {/* 360-Degree Distant Mountain Vista Ring for Realistic Horizon Depth */}
+      <mesh geometry={mountainVistaGeo} position={[0, 0, 0]} frustumCulled={false}>
+        <meshStandardMaterial vertexColors side={THREE.BackSide} roughness={0.95} />
+      </mesh>
+    </group>
+  );
 }

@@ -96,7 +96,12 @@ export default function NPCSystem() {
       const p = allPeople[i];
       const distSq = (p.x - playerFrameState.x) * (p.x - playerFrameState.x) + (p.z - playerFrameState.z) * (p.z - playerFrameState.z);
       // Smart Distance Culling at 95m for Ultra-Smooth 60FPS
-      grp.visible = distSq < 95 * 95;
+      const dist = Math.sqrt(distSq);
+      grp.visible = dist < 220;
+      if (grp.visible) {
+        const fadeScale = dist > 180 ? Math.max(0.01, 1.0 - (dist - 180) / 40) : 1.0;
+        grp.scale.setScalar(fadeScale);
+      }
       if (!grp.visible) continue;
 
       const isMoving = Math.abs(p.dx) + Math.abs(p.dz) > 0.01;
