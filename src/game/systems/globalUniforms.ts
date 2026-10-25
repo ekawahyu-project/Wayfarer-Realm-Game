@@ -1,6 +1,12 @@
 import * as THREE from "three";
 
 export const globalUniforms = {
+  uWindowGlow: { value: 0.0 },
+  uRainStrength: { value: 0.0 },
+  uSnowStrength: { value: 0.0 },
+  uFogDensity: { value: 0.0 },
+  uFogColor: { value: new THREE.Color("#ffffff") },
+  uAmbientColor: { value: new THREE.Color("#ffffff") },
   uTime: { value: 0 },
   uNightFactor: { value: 0 },
   uSunDir: { value: new THREE.Vector3(0.5, 0.8, 0.3) },

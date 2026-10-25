@@ -127,6 +127,4 @@ export function sampleTimeOfDay(hour: number, out?: any): TimeSample {
   return target;
 }
 
-export function TimePhase(..._args: any[]): any { return undefined; }
 
-export function InterpolatedTimeSample(..._args: any[]): any { return undefined; }

@@ -189,7 +189,7 @@ export default function Village() {
 
   useFrame((_, delta) => {
     const dt = Math.min(delta, 0.05);
-    const glow = globalUniforms.uWindowGlow.value;
+    const glow = globalUniforms?.uWindowGlow?.value ?? globalUniforms?.uNightFactor?.value ?? 0;
     windowMaterial.emissiveIntensity = 0.55 + glow * 2.2;
 
     // High 750m Draw Distance so villages never pop abruptly!

@@ -76,6 +76,7 @@ export default function TimeOfDay() {
     globalUniforms.uMoonDir.value.set(-sunX, -sunY, -sunZ).normalize();
     globalUniforms.uTime.value = state.clock.elapsedTime;
     globalUniforms.uNightFactor.value = sample.nightFactor;
+    if (globalUniforms.uWindowGlow) globalUniforms.uWindowGlow.value = (typeof sample !== 'undefined' && sample.windowGlow !== undefined) ? sample.windowGlow : sample.nightFactor;
     globalUniforms.uSunColor.value.copy(sample.sunColor);
     globalUniforms.uSkyTop.value.copy(sample.skyTop);
     globalUniforms.uSkyHorizon.value.copy(sample.skyHorizon);
