@@ -150,19 +150,39 @@ export default function Village() {
   const allHouses = useMemo(() => [...eastHouses, ...swHouses, ...westHouses], [eastHouses, swHouses, westHouses]);
 
   useEffect(() => {
-    typeof clearCollidersByTag === "function" && clearCollidersByTag("village");
+    clearCollidersByTag("village");
     allHouses.forEach((h) => {
-      typeof addBoxCollider === "function" && addBoxCollider(h.x, h.z - 2.2, 9.6, 2.6, "village");
-      typeof addBoxCollider === "function" && addBoxCollider(h.x - 3.6, h.z, 2.2, 7.0, "village");
-      typeof addBoxCollider === "function" && addBoxCollider(h.x + 3.6, h.z, 2.2, 7.0, "village");
+      const cosR = Math.cos(h.rot);
+      const sinR = Math.sin(h.rot);
+      const addRotBox = (lx: number, lz: number, w: number, d: number) => {
+        const wx = h.x + lx * cosR + lz * sinR;
+        const wz = h.z - lx * sinR + lz * cosR;
+        addBoxCollider(wx, wz, w, d, "village", h.rot);
+      };
+      // Solid Back Wall, Left Wall, Right Wall, & Front Left/Right Walls (Leaving 2m Doorway gap)
+      addRotBox(0, -3.5, 9.8, 0.9);
+      addRotBox(-4.6, 0, 0.9, 7.6);
+      addRotBox(4.6, 0, 0.9, 7.6);
+      addRotBox(-2.8, 3.5, 3.9, 0.9);
+      addRotBox(2.8, 3.5, 3.9, 0.9);
+      if (h.variant === 'round_wizard_tower') addRotBox(3.8, 2.2, 4.6, 4.6);
+      if (h.variant === 'tavern_L_inn') addRotBox(-3.2, -5.2, 4.5, 3.9);
+    });
+    // Solid Colliders for Market Stalls (Fixes walking through stalls in image_07f2fe.jpg!)
+    stalls.forEach((s) => {
+      addBoxCollider(s.x, s.z, 3.5, 1.9, "village", s.rot);
+    });
+    // Solid Colliders for Street Lamps & Town Wells
+    lamps.forEach(([lx, , lz]) => {
+      addCylinderCollider(lx, lz, 0.35, "village");
     });
     wells.forEach(([wx, , wz]) => {
-      typeof addCylinderCollider === "function" && addCylinderCollider(wx, wz, 2.4, "village");
+      addCylinderCollider(wx, wz, 2.5, "village");
     });
     return () => {
-      typeof clearCollidersByTag === "function" && clearCollidersByTag("village");
+      clearCollidersByTag("village");
     };
-  }, [allHouses, wells]);
+  }, [allHouses, stalls, lamps, wells]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

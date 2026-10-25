@@ -109,7 +109,7 @@ export default function Terrain() {
     geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
     geo.computeVertexNormals();
 
-    const vistaGeo = new THREE.CylinderGeometry(760, 790, 145, 96, 8, true);
+    const vistaGeo = new THREE.CylinderGeometry(770, 795, 110, 160, 12, true);
     const vPos = vistaGeo.attributes.position;
     const vCols = new Float32Array(vPos.count * 3);
     for (let i = 0; i < vPos.count; i++) {
@@ -117,18 +117,17 @@ export default function Terrain() {
       const vy = vPos.getY(i);
       const vz = vPos.getZ(i);
       const angle = Math.atan2(vz, vx);
-      const hNorm = (vy + 72.5) / 145.0;
-      const oceanMask = smoothstep(-0.85, -0.35, Math.cos(angle - 2.35));
-      const peak1 = Math.sin(angle * 7.0 + 0.5) * 0.4 + Math.cos(angle * 13.0) * 0.35 + Math.sin(angle * 23.0) * 0.2;
-      const peakHeight = (22.0 + (peak1 * 0.5 + 0.5) * 68.0) * oceanMask;
-      const finalY = hNorm * peakHeight - 4.0;
+      const hNorm = Math.max(0, (vy + 55.0) / 110.0);
+      const oceanMask = smoothstep(-0.85, -0.25, Math.cos(angle - 2.35));
+      // Smooth rolling cosine hills (NO jagged triangular spikes!)
+      const wave = 0.5 + 0.25 * Math.sin(angle * 4.0 + 0.8) + 0.15 * Math.cos(angle * 9.0) + 0.10 * Math.sin(angle * 15.0);
+      const ridgeH = (12.0 + wave * 38.0) * oceanMask;
+      const finalY = Math.pow(hNorm, 1.15) * ridgeH - 4.0;
       vPos.setY(i, finalY);
-      const isSnowPeak = vz < -140 || finalY > 38.0;
-      const c = isSnowPeak ? new THREE.Color("#dbeafe") : new THREE.Color("#64748b");
-      c.lerp(new THREE.Color("#93c5fd"), 0.45);
-      vCols[i * 3] = c.r;
-      vCols[i * 3 + 1] = c.g;
-      vCols[i * 3 + 2] = c.b;
+      // Store height factor in vertex color for atmospheric sky-blending
+      vCols[i * 3] = hNorm;
+      vCols[i * 3 + 1] = hNorm;
+      vCols[i * 3 + 2] = hNorm;
     }
     vistaGeo.setAttribute("color", new THREE.BufferAttribute(vCols, 3));
     vistaGeo.computeVertexNormals();
@@ -227,7 +226,32 @@ export default function Terrain() {
     <group>
       <mesh geometry={geometry} material={terrainMat} receiveShadow />
       <mesh geometry={mountainVistaGeo} position={[0, 0, 0]} frustumCulled={false}>
-        <meshStandardMaterial vertexColors side={THREE.BackSide} roughness={0.95} />
+        <shaderMaterial
+          side={THREE.BackSide}
+          transparent
+          depthWrite={false}
+          uniforms={globalUniforms}
+          vertexShader={[
+            "attribute vec3 color;",
+            "varying float vH;",
+            "void main() {",
+            "  vH = color.r;",
+            "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+            "}"
+          ].join("\n")}
+          fragmentShader={[
+            "uniform vec3 uSkyHorizon;",
+            "uniform vec3 uSkyTop;",
+            "uniform float uNightFactor;",
+            "varying float vH;",
+            "void main() {",
+            "  vec3 baseRidge = mix(uSkyHorizon * 0.72, uSkyTop * 0.85, 0.45);",
+            "  vec3 col = mix(uSkyHorizon, baseRidge, smoothstep(0.0, 0.55, vH));",
+            "  float alpha = smoothstep(0.0, 0.18, vH) * (1.0 - smoothstep(0.75, 1.0, vH));",
+            "  gl_FragColor = vec4(col, alpha * 0.82);",
+            "}"
+          ].join("\n")}
+        />
       </mesh>
     </group>
   );

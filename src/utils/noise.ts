@@ -172,12 +172,15 @@ export function getTerrainSlope(x: number, z: number): number {
 }
 
 export function getWalkableHeight(x: number, z: number, currentY = 22.0): number {
-  // Smooth Walkable Arched Timber River Bridge at X = 215, Z = 0 (Connects Birch Forest & East Village across the river!)
-  if (Math.abs(z) <= 4.2 && x >= 194.0 && x <= 236.0) {
-    const mainRiverBridgeDeck = 1.0 - Math.pow((x - 215.0) / 21.0, 2);
-    const bridgeY = 8.0 + Math.max(0, mainRiverBridgeDeck) * 1.85;
-    const rawH = getExactMeshTerrainHeight(x, z);
-    if (bridgeY > rawH) return bridgeY;
+  // Smooth Walkable Arched Timber River Bridge accurately centered over the River at Z = 0!
+  if (Math.abs(z) <= 4.4) {
+    const rCenterX = typeof getRiverCenterX === 'function' ? getRiverCenterX(0) : 258.0;
+    if (Math.abs(x - rCenterX) <= 22.0) {
+      const mainRiverBridgeDeck = 1.0 - Math.pow((x - rCenterX) / 22.0, 2);
+      const bridgeY = 8.0 + Math.max(0, mainRiverBridgeDeck) * 1.95;
+      const rawH = getExactMeshTerrainHeight(x, z);
+      if (bridgeY > rawH) return bridgeY;
+    }
   }
   let h = getExactMeshTerrainHeight(x, z);
 

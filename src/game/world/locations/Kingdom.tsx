@@ -1,3 +1,4 @@
+import { addBoxCollider as addGlobalBox, addCylinderCollider as addGlobalCyl, clearCollidersByTag as clearGlobalTag } from "@/game/systems/Physics";
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
@@ -147,6 +148,30 @@ export default function Kingdom() {
       )}
     </group>
   );
+
+  useEffect(() => {
+    // kingdom-comprehensive-colliders
+    clearGlobalTag("kingdom_solid");
+    // Outer Curtain Walls (North Left/Right, South, West, East)
+    addGlobalBox(-47, 320, 74, 6.5, "kingdom_solid");
+    addGlobalBox(47, 320, 74, 6.5, "kingdom_solid");
+    addGlobalBox(-8.8, 320, 5.8, 6.8, "kingdom_solid");
+    addGlobalBox(8.8, 320, 5.8, 6.8, "kingdom_solid");
+    addGlobalBox(0, 480, 168, 6.5, "kingdom_solid");
+    addGlobalBox(-80, 400, 6.5, 168, "kingdom_solid");
+    addGlobalBox(80, 400, 6.5, 168, "kingdom_solid");
+    // Bastion Towers
+    [[-80, 320], [80, 320], [-80, 480], [80, 480], [-10.2, 320], [10.2, 320]].forEach(([tx, tz]) => {
+      addGlobalCyl(tx, tz, 5.2, "kingdom_solid");
+    });
+    // Inner Castle Keep Walls (Leaving front palace entrance open)
+    addGlobalBox(-24, 415, 28, 4.0, "kingdom_solid");
+    addGlobalBox(24, 415, 28, 4.0, "kingdom_solid");
+    addGlobalBox(0, 465, 76, 4.0, "kingdom_solid");
+    addGlobalBox(-36, 440, 4.0, 52, "kingdom_solid");
+    addGlobalBox(36, 440, 4.0, 52, "kingdom_solid");
+    return () => clearGlobalTag("kingdom_solid");
+  }, []);
 
   return (
     <group ref={kingdomRootRef} name="storrskog-medieval-citadel">

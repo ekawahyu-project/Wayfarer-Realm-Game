@@ -77,6 +77,7 @@ export default function PlayPage() {
               <button onClick={() => jumpTo(BIOME_CENTERS.nwShrine.x, BIOME_CENTERS.nwShrine.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">⛩️ Kuil</button>
               <button onClick={() => jumpTo(BIOME_CENTERS.northMountains.x, BIOME_CENTERS.northMountains.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">🏔️ Salju</button>
               <button onClick={() => jumpTo(BIOME_CENTERS.southHarbor.x, BIOME_CENTERS.southHarbor.z)} className="px-2 py-1 bg-amber-900/90 hover:bg-amber-700 rounded">⚓ Pelabuhan</button>
+            <button onClick={() => jumpTo(235, 214)} className="px-2.5 py-1 rounded text-xs font-semibold bg-cyan-700 hover:bg-cyan-600 text-white shadow transition">🌊 Air Terjun</button>
             </div>
             <div className="font-bold text-amber-300 pt-1">🕒 Ubah Suasana Waktu:</div>
             <div className="flex flex-wrap gap-1.5">

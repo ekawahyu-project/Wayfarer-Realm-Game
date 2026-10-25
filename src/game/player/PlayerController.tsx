@@ -1,3 +1,4 @@
+import { resolveWorldCollisions } from "@/game/systems/Physics";
 "use client";
 
 import { useEffect, useRef } from "react";

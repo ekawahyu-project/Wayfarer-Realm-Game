@@ -469,43 +469,96 @@ export function DigitalHumanCharacter({
           </group>
         </group>
 
-        {/* 3. TERRACOTTA SWEATER SLEEVES, BROWN CUFFS, FINGERLESS GLOVES, & 5-FINGERED HANDS */}
-        <group ref={leftUpperArmRef} position={[-0.165, 0.26, 0]}>
+        {/* 3. TERRACOTTA SWEATER SLEEVES, SCULPTED LARGE 5-FINGERED HANDS, GLOWING LANTERN LAMP (LEFT HAND) & ADVENTURER SWORD (RIGHT HAND)! */}
+        <group ref={leftUpperArmRef} position={[-0.168, 0.26, 0]}>
           <mesh position={[0.01, 0.01, 0]} material={sweaterMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={sweaterMat} />
           <group ref={leftForearmRef} position={[0, -0.17, 0]}>
             <mesh castShadow geometry={geos.forearm} material={sweaterMat} />
-            {/* Thick Brown Rolled Wrist Cuff */}
-            <mesh position={[0, -0.12, 0]} material={leatherBagMat}><cylinderGeometry args={[0.046, 0.044, 0.065, 12]} /></mesh>
-            {/* Fingerless Leather Explorer Glove & Articulated Fingers */}
-            <group position={[0, -0.175, 0.006]}>
-              <mesh scale={[0.50, 0.95, 0.85]} material={darkLeatherMat}><sphereGeometry args={[0.036, 12, 10]} /></mesh>
-              <mesh position={[0.010, -0.004, 0.025]} rotation={[0.55, 0, 0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.0065, 0.018, 4, 6]} /></mesh>
-              {[0.012, 0.004, -0.004, -0.012].map((fz, fIdx) => (
-                <mesh key={fIdx} position={[0.003, -0.030, fz]} rotation={[0, 0, 0.16]} material={pixarSkinMat}>
-                  <capsuleGeometry args={[0.0052, fIdx === 1 || fIdx === 2 ? 0.022 : 0.018, 4, 6]} />
+            <mesh position={[0, -0.115, 0]} material={leatherBagMat}><cylinderGeometry args={[0.048, 0.046, 0.065, 12]} /></mesh>
+            {/* Enlarged Sculpted Left Hand + Fingerless Glove + Articulated Thumb & 4 Bold Fingers */}
+            <group position={[0, -0.18, 0.008]}>
+              <mesh scale={[0.62, 1.05, 0.92]} material={darkLeatherMat}><sphereGeometry args={[0.042, 12, 10]} /></mesh>
+              <mesh position={[0.012, -0.016, 0.004]} scale={[0.58, 0.85, 0.88]} material={pixarSkinMat}><sphereGeometry args={[0.038, 12, 10]} /></mesh>
+              {/* Large Clear Thumb */}
+              <mesh position={[0.018, -0.006, 0.034]} rotation={[0.65, 0.15, 0.25]} material={pixarSkinMat}>
+                <capsuleGeometry args={[0.0095, 0.026, 6, 8]} />
+              </mesh>
+              {/* 4 Bold Articulated Fingers (Index, Middle, Ring, Pinky) */}
+              {[0.018, 0.006, -0.006, -0.018].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[0.006, -0.042, fz]} rotation={[0, 0, 0.22]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.0082, fIdx === 1 || fIdx === 2 ? 0.032 : 0.025, 6, 8]} />
                 </mesh>
               ))}
+              {/* WARM GLOWING ADVENTURER LANTERN LAMP HELD IN LEFT HAND! */}
+              {!isNpc && hasStaff && (
+                <group position={[0.0, -0.045, 0.045]} rotation={[0.22, 0, 0]}>
+                  {/* Iron Handle Ring & Chain */}
+                  <mesh position={[0, 0.03, 0]} rotation={[0, Math.PI / 2, 0]} material={goggleFrameMat}>
+                    <torusGeometry args={[0.022, 0.004, 6, 12]} />
+                  </mesh>
+                  {/* Lantern Top Dome & Cap */}
+                  <mesh position={[0, -0.01, 0]} material={goggleFrameMat}>
+                    <coneGeometry args={[0.048, 0.042, 6]} />
+                  </mesh>
+                  {/* Glowing Warm Amber Glass Core */}
+                  <mesh position={[0, -0.065, 0]}>
+                    <cylinderGeometry args={[0.034, 0.028, 0.075, 6]} />
+                    <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={3.2} roughness={0.15} />
+                  </mesh>
+                  {/* Lantern Bottom Base */}
+                  <mesh position={[0, -0.11, 0]} material={goggleFrameMat}>
+                    <cylinderGeometry args={[0.038, 0.042, 0.022, 6]} />
+                  </mesh>
+                  {/* Real Dynamic PointLight Illuminating Surroundings at Night! */}
+                  <pointLight position={[0, -0.07, 0.05]} intensity={1.65} distance={16} color="#fbbf24" />
+                </group>
+              )}
             </group>
           </group>
         </group>
 
-        <group ref={rightUpperArmRef} position={[0.165, 0.26, 0]}>
+        <group ref={rightUpperArmRef} position={[0.168, 0.26, 0]}>
           <mesh position={[-0.01, 0.01, 0]} material={sweaterMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={sweaterMat} />
           <group ref={rightForearmRef} position={[0, -0.17, 0]}>
             <mesh castShadow geometry={geos.forearm} material={sweaterMat} />
-            {/* Thick Brown Rolled Wrist Cuff */}
-            <mesh position={[0, -0.12, 0]} material={leatherBagMat}><cylinderGeometry args={[0.046, 0.044, 0.065, 12]} /></mesh>
-            {/* Fingerless Leather Explorer Glove & Articulated Fingers */}
-            <group position={[0, -0.175, 0.006]}>
-              <mesh scale={[0.50, 0.95, 0.85]} material={darkLeatherMat}><sphereGeometry args={[0.036, 12, 10]} /></mesh>
-              <mesh position={[-0.010, -0.004, 0.025]} rotation={[0.55, 0, -0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.0065, 0.018, 4, 6]} /></mesh>
-              {[0.012, 0.004, -0.004, -0.012].map((fz, fIdx) => (
-                <mesh key={fIdx} position={[-0.003, -0.030, fz]} rotation={[0, 0, -0.16]} material={pixarSkinMat}>
-                  <capsuleGeometry args={[0.0052, fIdx === 1 || fIdx === 2 ? 0.022 : 0.018, 4, 6]} />
+            <mesh position={[0, -0.115, 0]} material={leatherBagMat}><cylinderGeometry args={[0.048, 0.046, 0.065, 12]} /></mesh>
+            {/* Enlarged Sculpted Right Hand + Fingerless Glove + Articulated Thumb & 4 Bold Fingers + Adventurer Sword! */}
+            <group position={[0, -0.18, 0.008]}>
+              <mesh scale={[0.62, 1.05, 0.92]} material={darkLeatherMat}><sphereGeometry args={[0.042, 12, 10]} /></mesh>
+              <mesh position={[-0.012, -0.016, 0.004]} scale={[0.58, 0.85, 0.88]} material={pixarSkinMat}><sphereGeometry args={[0.038, 12, 10]} /></mesh>
+              {/* Large Clear Thumb */}
+              <mesh position={[-0.018, -0.006, 0.034]} rotation={[0.65, -0.15, -0.25]} material={pixarSkinMat}>
+                <capsuleGeometry args={[0.0095, 0.026, 6, 8]} />
+              </mesh>
+              {/* 4 Bold Articulated Fingers (Index, Middle, Ring, Pinky) */}
+              {[0.018, 0.006, -0.006, -0.018].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[-0.006, -0.042, fz]} rotation={[0, 0, -0.22]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.0082, fIdx === 1 || fIdx === 2 ? 0.032 : 0.025, 6, 8]} />
                 </mesh>
               ))}
+              {/* HEROIC ADVENTURER SWORD HELD IN RIGHT HAND! */}
+              {!isNpc && hasStaff && (
+                <group position={[-0.005, -0.032, 0.02]} rotation={[Math.PI * 0.42, 0, 0]}>
+                  {/* Leather-Wrapped Sword Hilt & Brass Pommel */}
+                  <mesh position={[0, -0.06, 0]} material={brassBuckleMat}>
+                    <sphereGeometry args={[0.020, 10, 10]} />
+                  </mesh>
+                  <mesh position={[0, 0.0, 0]} material={darkLeatherMat}>
+                    <cylinderGeometry args={[0.013, 0.015, 0.11, 10]} />
+                  </mesh>
+                  {/* Ornate Golden Crossguard */}
+                  <mesh position={[0, 0.06, 0]} material={brassBuckleMat}>
+                    <boxGeometry args={[0.024, 0.018, 0.14]} />
+                  </mesh>
+                  {/* Gleaming Forged Steel Sword Blade & Pointed Tip */}
+                  <mesh castShadow position={[0, 0.32, 0]} scale={[0.35, 1.0, 1.0]}>
+                    <cylinderGeometry args={[0.012, 0.024, 0.50, 8]} />
+                    <meshStandardMaterial color="#f8fafc" emissive="#93c5fd" emissiveIntensity={0.22} metalness={0.88} roughness={0.15} />
+                  </mesh>
+                </group>
+              )}
             </group>
           </group>
         </group>
