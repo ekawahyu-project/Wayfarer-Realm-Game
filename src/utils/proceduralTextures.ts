@@ -185,12 +185,12 @@ export function getWorldTextures(): Record<string, THREE.CanvasTexture> {
   }, 4, 4, 256);
 
   const leafFoliage = makeTex((ctx, w, h) => {
-    ctx.fillStyle = "#234d20"; ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 1200; i++) {
+    ctx.fillStyle = "#4d9e34"; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 1000; i++) {
       const x = rand() * w, y = rand() * h, angle = rand() * Math.PI * 2;
-      const g = Math.floor(95 + rand() * 110);
+      const g = Math.floor(145 + rand() * 85);
       ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-      ctx.fillStyle = "rgb(" + Math.floor(g * 0.52) + "," + g + "," + Math.floor(g * 0.3) + ")";
+      ctx.fillStyle = "rgb(" + Math.floor(g * 0.55) + "," + g + "," + Math.floor(g * 0.28) + ")";
       ctx.beginPath(); ctx.ellipse(0, 0, 10, 5, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
     }
@@ -207,9 +207,9 @@ export function getWorldTextures(): Record<string, THREE.CanvasTexture> {
   }, 10, 6, 256);
 
   const horseCoat = makeTex((ctx, w, h) => {
-    ctx.fillStyle = "#7c3f1c"; ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 900; i++) {
-      ctx.fillStyle = i % 2 === 0 ? "rgba(255,235,210,0.12)" : "rgba(45,20,5,0.18)";
+    ctx.fillStyle = "#b46934"; ctx.fillRect(0, 0, w, h);
+    for (let i = 0; i < 700; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "rgba(255,235,210,0.18)" : "rgba(120,55,20,0.15)";
       ctx.fillRect(rand() * w, rand() * h, 2, 10);
     }
   }, 1, 1, 256);
@@ -231,7 +231,7 @@ export function getWorldTextures(): Record<string, THREE.CanvasTexture> {
   }, 1, 2, 256);
 
   const oakBark = makeTex((ctx, w, h) => {
-    ctx.fillStyle = "#4a321f"; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = "#7c5334"; ctx.fillRect(0, 0, w, h);
     for (let x = 0; x < w; x += 8) {
       ctx.fillStyle = (x % 16 === 0) ? "#2e1d10" : "#614126";
       ctx.fillRect(x, 0, 5, h);

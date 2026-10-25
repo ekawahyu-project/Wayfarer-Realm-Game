@@ -317,6 +317,45 @@ export default function Water() {
         <dodecahedronGeometry args={[0.65, 1]} />
         <meshStandardMaterial color="#64748b" roughness={0.88} />
       </instancedMesh>
+          {/* Sturdy Medieval Arched Timber Bridge at X=215, Z=0 (Fixes missing/bugged river bridge!) */}
+      <group name="main-river-arched-bridge" position={[215, 0, 0]}>
+        {/* Stone Bridge Abutments & River Piers */}
+        {[-18, -9, 9, 18].map((bx, bIdx) => (
+          <group key={"pier_" + bIdx} position={[bx, 6.2, 0]}>
+            <mesh castShadow receiveShadow position={[0, 0, -2.8]}><cylinderGeometry args={[0.75, 0.95, 5.2, 10]} /><meshStandardMaterial color="#64748b" roughness={0.85} /></mesh>
+            <mesh castShadow receiveShadow position={[0, 0, 2.8]}><cylinderGeometry args={[0.75, 0.95, 5.2, 10]} /><meshStandardMaterial color="#64748b" roughness={0.85} /></mesh>
+            <mesh position={[0, 2.1, 0]}><boxGeometry args={[1.4, 0.45, 7.2]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
+          </group>
+        ))}
+        {/* Arched Wooden Plank Decking & Side Handrails */}
+        {Array.from({ length: 21 }).map((_, sIdx) => {
+          const t = (sIdx - 10) / 10; // -1 to +1
+          const bx = t * 20.0;
+          const archY = 8.0 + (1.0 - t * t) * 1.85;
+          const slopeAngle = Math.atan2(-2.0 * t * 1.85, 20.0);
+          return (
+            <group key={"deck_" + sIdx} position={[bx, archY, 0]} rotation={[0, 0, slopeAngle]}>
+              <mesh castShadow receiveShadow><boxGeometry args={[2.15, 0.28, 7.6]} /><meshStandardMaterial color="#8c5228" roughness={0.78} /></mesh>
+              <mesh position={[0, 0.02, -3.55]}><boxGeometry args={[2.18, 0.36, 0.35]} /><meshStandardMaterial color="#5c3618" roughness={0.8} /></mesh>
+              <mesh position={[0, 0.02, 3.55]}><boxGeometry args={[2.18, 0.36, 0.35]} /><meshStandardMaterial color="#5c3618" roughness={0.8} /></mesh>
+              {sIdx % 2 === 0 && (
+                <group>
+                  <mesh castShadow position={[0, 0.75, -3.55]}><boxGeometry args={[0.26, 1.45, 0.26]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
+                  <mesh castShadow position={[0, 0.75, 3.55]}><boxGeometry args={[0.26, 1.45, 0.26]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
+                  {(sIdx === 4 || sIdx === 10 || sIdx === 16) && (
+                    <group>
+                      <mesh position={[0, 1.65, -3.55]}><cylinderGeometry args={[0.18, 0.14, 0.38, 6]} /><meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={1.8} /></mesh>
+                      <mesh position={[0, 1.65, 3.55]}><cylinderGeometry args={[0.18, 0.14, 0.38, 6]} /><meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={1.8} /></mesh>
+                    </group>
+                  )}
+                </group>
+              )}
+              <mesh castShadow position={[0, 1.32, -3.55]}><boxGeometry args={[2.22, 0.18, 0.22]} /><meshStandardMaterial color="#5c3618" roughness={0.78} /></mesh>
+              <mesh castShadow position={[0, 1.32, 3.55]}><boxGeometry args={[2.22, 0.18, 0.22]} /><meshStandardMaterial color="#5c3618" roughness={0.78} /></mesh>
+            </group>
+          );
+        })}
+      </group>
     </group>
   );
 }

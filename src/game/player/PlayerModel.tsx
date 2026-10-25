@@ -27,49 +27,50 @@ let sharedPixarGeos: {
 export function getSculptedHumanGeometries() {
   if (sharedPixarGeos) return sharedPixarGeos;
 
+  // Smooth Spline-Sculpted Boy Explorer Torso (Soft natural proportions matching reference image_ddbb63.jpg)
   const torsoCurve = new THREE.SplineCurve([
-    new THREE.Vector2(0.142, -0.17),
-    new THREE.Vector2(0.124, -0.07),
-    new THREE.Vector2(0.116, 0.02),
-    new THREE.Vector2(0.144, 0.16),
-    new THREE.Vector2(0.154, 0.26),
-    new THREE.Vector2(0.122, 0.33),
-    new THREE.Vector2(0.060, 0.36),
+    new THREE.Vector2(0.142, -0.16),
+    new THREE.Vector2(0.136, -0.06),
+    new THREE.Vector2(0.138, 0.05),
+    new THREE.Vector2(0.148, 0.18),
+    new THREE.Vector2(0.145, 0.27),
+    new THREE.Vector2(0.115, 0.33),
+    new THREE.Vector2(0.064, 0.36),
   ]);
-  const torsoTunic = new THREE.LatheGeometry(torsoCurve.getPoints(28), 24);
-  torsoTunic.scale(1.12, 1.0, 0.78);
+  const torsoTunic = new THREE.LatheGeometry(torsoCurve.getPoints(24), 22);
+  torsoTunic.scale(1.10, 1.0, 0.84);
   torsoTunic.computeVertexNormals();
 
   const thighCurve = new THREE.SplineCurve([
-    new THREE.Vector2(0.052, -0.27),
-    new THREE.Vector2(0.066, -0.15),
-    new THREE.Vector2(0.076, -0.04),
-    new THREE.Vector2(0.072, 0.05),
+    new THREE.Vector2(0.064, -0.25),
+    new THREE.Vector2(0.074, -0.14),
+    new THREE.Vector2(0.082, -0.04),
+    new THREE.Vector2(0.078, 0.05),
   ]);
-  const thigh = new THREE.LatheGeometry(thighCurve.getPoints(18), 16);
+  const thigh = new THREE.LatheGeometry(thighCurve.getPoints(16), 16);
   thigh.computeVertexNormals();
 
   const calfCurve = new THREE.SplineCurve([
-    new THREE.Vector2(0.046, -0.26),
-    new THREE.Vector2(0.044, -0.18),
-    new THREE.Vector2(0.058, -0.08),
-    new THREE.Vector2(0.052, 0.04),
+    new THREE.Vector2(0.054, -0.25),
+    new THREE.Vector2(0.052, -0.16),
+    new THREE.Vector2(0.062, -0.07),
+    new THREE.Vector2(0.058, 0.04),
   ]);
-  const calfBoot = new THREE.LatheGeometry(calfCurve.getPoints(18), 16);
+  const calfBoot = new THREE.LatheGeometry(calfCurve.getPoints(16), 16);
   calfBoot.computeVertexNormals();
 
   const upperArmCurve = new THREE.SplineCurve([
-    new THREE.Vector2(0.042, -0.19),
-    new THREE.Vector2(0.048, -0.09),
-    new THREE.Vector2(0.054, 0.04),
+    new THREE.Vector2(0.046, -0.18),
+    new THREE.Vector2(0.054, -0.09),
+    new THREE.Vector2(0.058, 0.04),
   ]);
   const upperArm = new THREE.LatheGeometry(upperArmCurve.getPoints(14), 14);
   upperArm.computeVertexNormals();
 
   const forearmCurve = new THREE.SplineCurve([
-    new THREE.Vector2(0.030, -0.17),
-    new THREE.Vector2(0.039, -0.08),
-    new THREE.Vector2(0.042, 0.03),
+    new THREE.Vector2(0.038, -0.16),
+    new THREE.Vector2(0.046, -0.08),
+    new THREE.Vector2(0.045, 0.03),
   ]);
   const forearm = new THREE.LatheGeometry(forearmCurve.getPoints(14), 14);
   forearm.computeVertexNormals();
@@ -79,9 +80,9 @@ export function getSculptedHumanGeometries() {
 }
 
 export function DigitalHumanCharacter({
-  coatColor = "#2563eb",
-  skirtColor = "#334155",
-  hairColor = "#4a2511",
+  coatColor = "#d95338",
+  skirtColor = "#4a2c18",
+  hairColor = "#3b1d0e",
   isNpc = false,
   npcWalkSpeed = 0,
   npcSeed = 0,
@@ -94,7 +95,8 @@ export function DigitalHumanCharacter({
   const headRef = useRef<THREE.Group>(null);
   const leftEyelidRef = useRef<THREE.Mesh>(null);
   const rightEyelidRef = useRef<THREE.Mesh>(null);
-  const ponytailRef = useRef<THREE.Group>(null);
+  const backpackRef = useRef<THREE.Group>(null);
+  const satchelRef = useRef<THREE.Group>(null);
 
   const leftThighRef = useRef<THREE.Group>(null);
   const leftShinRef = useRef<THREE.Group>(null);
@@ -108,25 +110,36 @@ export function DigitalHumanCharacter({
   const phaseRef = useRef(npcSeed * 3.1);
   const moveBlendRef = useRef(0);
 
-  // Warm Disney/Pixar Materials with Soft Subsurface Emissive Glow so Character NEVER looks like a black silhouette!
+  // Exact Reference Palette from image_ddbb63.jpg (Warm Pixar Subsurface Skin, Terracotta Sweater, Cream Sherpa Fleece, Rich Leather)
   const pixarSkinMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#ffe0c2", emissive: "#fb7185", emissiveIntensity: 0.08, roughness: 0.42 }),
+    () => new THREE.MeshStandardMaterial({ color: "#ffcaa6", emissive: "#f43f5e", emissiveIntensity: 0.08, roughness: 0.42 }),
     []
   );
-  const blushMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fda4af", emissive: "#f43f5e", emissiveIntensity: 0.1, roughness: 0.5 }), []);
-  const coatMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: coatColor, emissive: coatColor, emissiveIntensity: 0.12, roughness: 0.48 }),
+  const noseBlushMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#f87171", emissive: "#e11d48", emissiveIntensity: 0.12, roughness: 0.45 }), []);
+  const sweaterMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: coatColor, emissive: coatColor, emissiveIntensity: 0.10, roughness: 0.62 }),
     [coatColor]
   );
-  const creamShirtMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fffbeb", emissive: "#fef3c7", emissiveIntensity: 0.12, roughness: 0.55 }), []);
-  const pantMat = useMemo(() => new THREE.MeshStandardMaterial({ color: skirtColor, emissive: skirtColor, emissiveIntensity: 0.08, roughness: 0.65 }), [skirtColor]);
-  const hairMat = useMemo(() => new THREE.MeshStandardMaterial({ color: hairColor, emissive: "#78350f", emissiveIntensity: 0.10, roughness: 0.38 }), [hairColor]);
-  const leatherMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#7c2d12", emissive: "#451a03", emissiveIntensity: 0.08, roughness: 0.58 }), []);
-  const bootMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#5c2d0c", roughness: 0.60 }), []);
-  const goldMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#fbbf24", emissive: "#d97706", emissiveIntensity: 0.15, metalness: 0.75, roughness: 0.22 }), []);
+  const scarfMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#c83223", emissive: "#991b1b", emissiveIntensity: 0.10, roughness: 0.68 }), []);
+  const creamFleeceMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#f5ead8", emissive: "#fef3c7", emissiveIntensity: 0.10, roughness: 0.85 }), []);
+  const pantMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: skirtColor, emissive: skirtColor, emissiveIntensity: 0.08, roughness: 0.72 }),
+    [skirtColor]
+  );
+  const hairMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: hairColor, emissive: "#451a03", emissiveIntensity: 0.08, roughness: 0.45 }),
+    [hairColor]
+  );
+  const leatherBagMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#854621", emissive: "#451a03", emissiveIntensity: 0.08, roughness: 0.62 }), []);
+  const darkLeatherMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#542b14", roughness: 0.65 }), []);
+  const strapTanMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#b8865c", roughness: 0.65 }), []);
+  const goggleFrameMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#574c43", metalness: 0.65, roughness: 0.32 }), []);
+  const goggleLensMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#334155", metalness: 0.85, roughness: 0.12 }), []);
+  const brassBuckleMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#e5a93c", metalness: 0.75, roughness: 0.25 }), []);
   const scleraMat = useMemo(() => new THREE.MeshBasicMaterial({ color: "#ffffff" }), []);
-  const irisMat = useMemo(() => new THREE.MeshBasicMaterial({ color: "#0284c7" }), []);
+  const hazelIrisMat = useMemo(() => new THREE.MeshBasicMaterial({ color: "#6b3410" }), []);
   const pupilMat = useMemo(() => new THREE.MeshBasicMaterial({ color: "#0f172a" }), []);
+  const autumnLeafMat = useMemo(() => new THREE.MeshStandardMaterial({ color: "#ea580c", emissive: "#ea580c", emissiveIntensity: 0.2, roughness: 0.5 }), []);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
@@ -138,11 +151,11 @@ export function DigitalHumanCharacter({
     const isGrounded = isNpc ? true : playerFrameState.isGrounded;
     const isSwimming = isNpc ? false : playerFrameState.isSwimming && !playerFrameState.isInBoat;
 
-    const targetBlend = isMoving ? (isRunning ? 1.25 : 0.85) : isSwimming ? 0.75 : 0.0;
-    moveBlendRef.current = THREE.MathUtils.lerp(moveBlendRef.current, targetBlend, dt * 11);
+    const targetBlend = isMoving ? (isRunning ? 1.25 : 0.88) : isSwimming ? 0.75 : 0.0;
+    moveBlendRef.current = THREE.MathUtils.lerp(moveBlendRef.current, targetBlend, dt * 10);
     const m = moveBlendRef.current;
 
-    const cycleSpeed = isSwimming ? 6.5 : isRunning ? 14.0 : 8.8;
+    const cycleSpeed = isSwimming ? 6.5 : isRunning ? 13.5 : 8.5;
     if (isMoving || isSwimming) {
       phaseRef.current += dt * cycleSpeed;
     } else {
@@ -153,30 +166,38 @@ export function DigitalHumanCharacter({
     const sinP = Math.sin(p);
     const cosP = Math.cos(p);
 
-    const bounce = isGrounded && !isSwimming ? Math.abs(sinP) * 0.044 * m : 0;
-    const breath = Math.sin(t * 2.6) * 0.007;
+    // Fluid Pixar Idle Breathing, Weight Shift, & Bouncy Walk Cycle (Never stiff like a doll!)
+    const walkBounce = isGrounded && !isSwimming ? Math.abs(sinP) * 0.052 * m : 0;
+    const idleBreath = Math.sin(t * 2.4) * 0.010;
+    const idleSwayX = (1.0 - Math.min(1, m)) * Math.sin(t * 1.2) * 0.012;
     const ridingY = !isNpc && playerFrameState.mountedHorseIndex !== -1 ? 0.34 : 0;
     const ridingZ = !isNpc && playerFrameState.mountedHorseIndex !== -1 ? -0.08 : 0;
-    rootRef.current.position.y = isSwimming ? -0.35 + breath * 2 : ridingY + bounce + breath;
-    rootRef.current.position.z = ridingZ;
+    rootRef.current.position.set(idleSwayX, isSwimming ? -0.35 + idleBreath * 2 : ridingY + walkBounce + idleBreath, ridingZ);
 
-    const targetPitch = isSwimming ? (isMoving ? 1.2 : 0.45) : !isGrounded ? 0.14 : isMoving ? (isRunning ? 0.14 : 0.04) : 0;
+    const targetPitch = isSwimming ? (isMoving ? 1.2 : 0.45) : !isGrounded ? 0.16 : isMoving ? (isRunning ? 0.16 : 0.06) : Math.sin(t * 1.2) * 0.015;
     rootRef.current.rotation.x = THREE.MathUtils.lerp(rootRef.current.rotation.x, targetPitch, dt * 10);
-    rootRef.current.rotation.z = THREE.MathUtils.lerp(rootRef.current.rotation.z, cosP * 0.024 * m, dt * 10);
+    rootRef.current.rotation.z = THREE.MathUtils.lerp(rootRef.current.rotation.z, cosP * 0.032 * m + idleSwayX * 0.8, dt * 10);
 
-    torsoRef.current.rotation.y = sinP * 0.14 * m;
-    headRef.current.rotation.y = -sinP * 0.09 * m + (m < 0.05 ? Math.sin(t * 0.9) * 0.07 : 0);
-    headRef.current.rotation.x = isSwimming ? -0.6 : -rootRef.current.rotation.x * 0.45;
+    // Natural Contra-Body Spine Twist & Curious Pixar Head Tilt
+    torsoRef.current.rotation.y = sinP * 0.16 * m + (1.0 - Math.min(1, m)) * Math.sin(t * 0.8) * 0.04;
+    torsoRef.current.rotation.z = -cosP * 0.025 * m;
+    headRef.current.rotation.y = -sinP * 0.11 * m + (m < 0.05 ? Math.sin(t * 0.9) * 0.10 : 0);
+    headRef.current.rotation.z = (m < 0.05 ? Math.cos(t * 0.7) * 0.045 : -cosP * 0.03 * m);
+    headRef.current.rotation.x = isSwimming ? -0.6 : -rootRef.current.rotation.x * 0.45 + Math.sin(t * 1.8) * 0.025;
 
-    const isBlinking = (t * 0.26) % 1.0 > 0.95;
+    // Secondary Follow-Through Motion on Backpack & Side Herb Satchel
+    if (backpackRef.current) {
+      backpackRef.current.position.y = 0.09 + Math.sin(p * 2.0 - 0.5) * 0.016 * m;
+      backpackRef.current.rotation.x = 0.04 + Math.abs(cosP) * 0.06 * m;
+    }
+    if (satchelRef.current) {
+      satchelRef.current.rotation.z = -0.08 - Math.abs(sinP) * 0.12 * m;
+    }
+
+    const isBlinking = (t * 0.27) % 1.0 > 0.95;
     if (leftEyelidRef.current && rightEyelidRef.current) {
       leftEyelidRef.current.visible = isBlinking;
       rightEyelidRef.current.visible = isBlinking;
-    }
-
-    if (ponytailRef.current) {
-      ponytailRef.current.rotation.x = 0.22 + m * 0.40 + Math.sin(t * 9.0) * (0.05 + m * 0.09);
-      ponytailRef.current.rotation.z = cosP * 0.14 * m;
     }
 
     const isRidingHorse = !isNpc && playerFrameState.mountedHorseIndex !== -1;
@@ -192,10 +213,11 @@ export function DigitalHumanCharacter({
         rightThighRef.current.rotation.set(0.25, 0, 0);
         rightShinRef.current.rotation.x = 0.45;
       } else {
-        leftThighRef.current.rotation.set(sinP * 0.65 * m, 0, 0);
-        rightThighRef.current.rotation.set(-sinP * 0.65 * m, 0, 0);
-        leftShinRef.current.rotation.x = Math.max(0, -cosP) * 0.80 * m + m * 0.05;
-        rightShinRef.current.rotation.x = Math.max(0, cosP) * 0.80 * m + m * 0.05;
+        const idleKnee = (1.0 - Math.min(1, m)) * 0.05;
+        leftThighRef.current.rotation.set(sinP * 0.68 * m - idleKnee * 0.5, 0.04, 0.02);
+        rightThighRef.current.rotation.set(-sinP * 0.68 * m - idleKnee * 0.5, -0.04, -0.02);
+        leftShinRef.current.rotation.x = Math.max(0, -cosP) * 0.82 * m + m * 0.06 + idleKnee;
+        rightShinRef.current.rotation.x = Math.max(0, cosP) * 0.82 * m + m * 0.06 + idleKnee;
       }
     }
 
@@ -211,169 +233,277 @@ export function DigitalHumanCharacter({
         leftForearmRef.current.rotation.x = -0.65;
         rightForearmRef.current.rotation.x = -0.65;
       } else {
-        const armSwing = -sinP * 0.54 * m;
-        leftUpperArmRef.current.rotation.set(armSwing, 0, 0.12);
-        rightUpperArmRef.current.rotation.set(-armSwing, 0, -0.12);
-        const idleElbow = -0.18;
-        const runElbow = isRunning ? -0.65 : -0.32;
-        leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m));
-        rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m));
+        const armSwing = -sinP * 0.58 * m;
+        const idleArmBreath = Math.sin(t * 2.4) * 0.02;
+        leftUpperArmRef.current.rotation.set(armSwing + 0.04, 0, 0.15 + idleArmBreath);
+        rightUpperArmRef.current.rotation.set(-armSwing + 0.04, 0, -0.15 - idleArmBreath);
+        const idleElbow = -0.24;
+        const runElbow = isRunning ? -0.72 : -0.38;
+        leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, -armSwing) * 0.25;
+        rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, armSwing) * 0.25;
       }
     }
   });
 
   return (
     <group ref={rootRef}>
-      {/* Dedicated Pixar Studio Rim & Fill Light so the Player is ALWAYS vividly lit from any camera angle! */}
+      {/* Warm Pixar Studio Rim & Fill Lights */}
       {!isNpc && <pointLight position={[0, 0.85, -0.65]} intensity={0.85} distance={3.5} color="#fff7ed" />}
       {!isNpc && <pointLight position={[0, 0.75, 0.75]} intensity={0.55} distance={3.0} color="#fed7aa" />}
 
-      <group ref={torsoRef} position={[0, 0.04, 0]}>
-        {/* 1. Royal-Blue Pixar Adventurer Tunic Vest with Cream Collar & Gold Trim */}
-        <mesh castShadow receiveShadow geometry={geos.torsoTunic} material={coatMat} />
-        {/* Cream Inner Shirt Collar & Chest Placket */}
-        <mesh position={[0, 0.345, 0]} scale={[1.08, 1.0, 0.82]} material={creamShirtMat}>
-          <cylinderGeometry args={[0.068, 0.092, 0.05, 16]} />
+      <group ref={torsoRef} position={[0, 0.02, 0]}>
+        {/* 1. Red-Terracotta Explorer Sweater & Cream Front Chest Bib Apron (Exact match to image_ddbb63.jpg!) */}
+        <mesh castShadow receiveShadow geometry={geos.torsoTunic} material={sweaterMat} />
+        {/* Padded Cream Front Chest Bib / Overalls Apron */}
+        <mesh castShadow position={[0, 0.11, 0.072]} scale={[0.95, 1.0, 0.55]} material={creamFleeceMat}>
+          <boxGeometry args={[0.22, 0.34, 0.14]} />
         </mesh>
-        <mesh position={[0, 0.22, 0.105]} material={creamShirtMat}>
-          <boxGeometry args={[0.065, 0.22, 0.025]} />
-        </mesh>
-        {/* Gold Vest Buttons */}
-        {[0.24, 0.16, 0.08].map((by, bIdx) => (
-          <mesh key={bIdx} position={[0, by, 0.118]} material={goldMat}><sphereGeometry args={[0.012, 8, 8]} /></mesh>
+        {/* Vertical Brown Suspender Straps over Shoulders */}
+        {[-0.088, 0.088].map((sx, sIdx) => (
+          <mesh key={sIdx} position={[sx, 0.17, 0.005]} scale={[1.0, 1.0, 0.88]} material={darkLeatherMat}>
+            <boxGeometry args={[0.042, 0.36, 0.24]} />
+          </mesh>
         ))}
-        {/* Gold Hem Trim at Bottom of Tunic */}
-        <mesh position={[0, -0.155, 0]} scale={[1.13, 1.0, 0.79]} material={goldMat}>
-          <cylinderGeometry args={[0.141, 0.144, 0.022, 20]} />
-        </mesh>
-        {/* Contoured Trousers Pelvis */}
-        <mesh position={[0, -0.16, 0]} scale={[1.10, 0.88, 0.76]} material={pantMat}>
-          <sphereGeometry args={[0.134, 14, 12]} />
-        </mesh>
-        {/* Rich Brown Leather Adventurer Belt, Side Pouch & Gold Buckle */}
-        <mesh position={[0, -0.04, 0]} scale={[1.14, 1.0, 0.80]} material={leatherMat}>
-          <cylinderGeometry args={[0.126, 0.131, 0.058, 18]} />
-        </mesh>
-        <mesh position={[0, -0.04, 0.106]} material={goldMat}><boxGeometry args={[0.050, 0.052, 0.018]} /></mesh>
-        <mesh position={[-0.135, -0.06, 0.03]} rotation={[0, 0, 0.15]} material={leatherMat}><boxGeometry args={[0.045, 0.075, 0.065]} /></mesh>
-
-        {/* Smooth Neck */}
-        <mesh position={[0, 0.39, 0]} material={pixarSkinMat}>
-          <cylinderGeometry args={[0.048, 0.058, 0.13, 14]} />
+        {/* Diagonal Leather Cross-Body Satchel Strap across Chest */}
+        <mesh position={[0, 0.13, 0.015]} rotation={[0, 0, -0.68]} scale={[1.12, 1.0, 0.86]} material={strapTanMat}>
+          <cylinderGeometry args={[0.142, 0.142, 0.038, 16]} />
         </mesh>
 
-        {/* Back-Slung Ornate Samurai Katana */}
+        {/* Thick Folded Red-Orange Knit Neck Scarf (Exact match to image_ddbb63.jpg!) */}
+        <group position={[0, 0.34, 0.01]}>
+          <mesh castShadow rotation={[Math.PI / 2 + 0.08, 0, 0]} scale={[1.08, 0.92, 1.0]} material={scarfMat}>
+            <torusGeometry args={[0.105, 0.042, 12, 20]} />
+          </mesh>
+          <mesh castShadow position={[0, 0.038, 0.005]} rotation={[Math.PI / 2 + 0.05, 0, 0]} scale={[1.02, 0.88, 0.95]} material={scarfMat}>
+            <torusGeometry args={[0.096, 0.036, 10, 18]} />
+          </mesh>
+        </group>
+
+        {/* Contoured Dark Brown Cargo Trousers Pelvis */}
+        <mesh castShadow position={[0, -0.15, 0]} scale={[1.12, 0.90, 0.80]} material={pantMat}>
+          <sphereGeometry args={[0.140, 14, 12]} />
+        </mesh>
+
+        {/* Tan & Brown Utility Belt with Brass Buckle, Belt Loops & Side Pouches */}
+        <mesh position={[0, -0.05, 0]} scale={[1.14, 1.0, 0.85]} material={strapTanMat}>
+          <cylinderGeometry args={[0.135, 0.138, 0.055, 18]} />
+        </mesh>
+        <mesh position={[0, -0.05, 0.118]} material={brassBuckleMat}><boxGeometry args={[0.052, 0.055, 0.018]} /></mesh>
+        {[-0.075, 0.075].map((lx, lIdx) => (
+          <mesh key={lIdx} position={[lx, -0.05, 0.112]} material={darkLeatherMat}><boxGeometry args={[0.018, 0.062, 0.022]} /></mesh>
+        ))}
+        {/* Left Hip Utility Vial/Pouch */}
+        <mesh position={[0.145, -0.06, 0.03]} rotation={[0, 0, -0.12]} material={creamFleeceMat}>
+          <cylinderGeometry args={[0.022, 0.022, 0.065, 8]} />
+        </mesh>
+
+        {/* RIGHT HIP BOTANICAL SATCHEL BAG WITH AUTUMN TWIGS & BERRIES (Exact match to front view of image_ddbb63.jpg!) */}
         {hasStaff && (
-          <group position={[0.02, 0.15, -0.118]} rotation={[0, 0, -0.58]}>
-            <mesh castShadow position={[0, -0.06, 0]}>
-              <capsuleGeometry args={[0.015, 0.72, 6, 10]} />
-              <meshStandardMaterial color="#7f1d1d" roughness={0.25} metalness={0.3} />
+          <group ref={satchelRef} position={[-0.165, -0.12, 0.02]} rotation={[0, 0, -0.08]}>
+            {/* Rounded Leather Side Bag & Flap */}
+            <mesh castShadow scale={[0.75, 1.0, 1.1]} material={leatherBagMat}>
+              <sphereGeometry args={[0.088, 12, 10]} />
             </mesh>
-            <mesh position={[0, 0.12, 0]} material={goldMat}>
-              <cylinderGeometry args={[0.019, 0.019, 0.08, 8]} />
+            <mesh position={[0.02, 0.04, 0]} scale={[0.78, 0.55, 1.12]} material={darkLeatherMat}>
+              <sphereGeometry args={[0.088, 10, 8]} />
             </mesh>
-            <mesh position={[0, 0.30, 0]} material={goldMat}>
-              <cylinderGeometry args={[0.048, 0.048, 0.015, 12]} />
+            {/* Cream Rolled Scrolls inside Satchel */}
+            <mesh position={[-0.01, 0.08, 0.03]} rotation={[0.2, 0, 0.25]} material={creamFleeceMat}>
+              <cylinderGeometry args={[0.014, 0.014, 0.08, 8]} />
             </mesh>
-            <mesh position={[0, 0.43, 0]}>
-              <cylinderGeometry args={[0.015, 0.017, 0.22, 8]} />
-              <meshStandardMaterial color="#fef3c7" roughness={0.5} />
+            {/* Branching Autumn Twigs & Orange Leaves Sprouting from Side Satchel! */}
+            <group position={[-0.02, 0.08, -0.01]} rotation={[0, 0, 0.38]}>
+              <mesh position={[0, 0.14, 0]} material={darkLeatherMat}><cylinderGeometry args={[0.004, 0.007, 0.28, 5]} /></mesh>
+              <mesh position={[-0.04, 0.18, 0.02]} rotation={[0.2, 0, 0.55]} material={darkLeatherMat}><cylinderGeometry args={[0.003, 0.005, 0.16, 5]} /></mesh>
+              {[
+                [0.01, 0.24, 0.01], [-0.04, 0.22, 0.03], [-0.08, 0.24, 0.02],
+                [0.03, 0.18, -0.02], [-0.02, 0.15, 0.04], [-0.06, 0.17, -0.01],
+              ].map(([lx, ly, lz], li) => (
+                <mesh key={li} position={[lx, ly, lz]} scale={[1.2, 0.7, 0.8]} material={autumnLeafMat}>
+                  <dodecahedronGeometry args={[0.016, 0]} />
+                </mesh>
+              ))}
+            </group>
+          </group>
+        )}
+
+        {/* DETAILED LEATHER EXPLORER BACKPACK WITH TWIN STRAPS, TOP BEDROLL, & PROTRUDING GEAR (Exact match to side & back views of image_ddbb63.jpg!) */}
+        {hasStaff && (
+          <group ref={backpackRef} position={[0, 0.09, -0.155]}>
+            {/* Sculpted Rounded Leather Main Pack Body */}
+            <mesh castShadow position={[0, -0.02, 0]} scale={[1.15, 1.22, 0.85]} material={leatherBagMat}>
+              <sphereGeometry args={[0.135, 16, 14]} />
             </mesh>
-            <mesh position={[0, 0.55, 0]} material={goldMat}>
-              <cylinderGeometry args={[0.018, 0.018, 0.022, 8]} />
+            {/* Top Folded Leather Flap & Center Brass Clasp */}
+            <mesh castShadow position={[0, 0.08, 0.01]} scale={[1.18, 0.55, 0.88]} material={ strapTanMat }>
+              <sphereGeometry args={[0.132, 14, 10]} />
+            </mesh>
+            <mesh position={[0, 0.04, -0.112]} material={brassBuckleMat}><sphereGeometry args={[0.018, 8, 8]} /></mesh>
+            {/* Twin Vertical Dark Leather Straps on Back of Pack */}
+            {[-0.055, 0.055].map((bx, bIdx) => (
+              <mesh key={bIdx} position={[bx, -0.02, -0.105]} material={darkLeatherMat}>
+                <boxGeometry args={[0.024, 0.24, 0.025]} />
+              </mesh>
+            ))}
+            {/* Side Pocket Pouches on Backpack */}
+            {[-0.135, 0.135].map((px, pIdx) => (
+              <mesh key={pIdx} castShadow position={[px, -0.04, 0.01]} scale={[0.55, 0.85, 0.75]} material={darkLeatherMat}>
+                <sphereGeometry args={[0.068, 10, 10]} />
+              </mesh>
+            ))}
+            {/* Top Rolled Tan Bedroll / Blanket & Protruding Explorer Map/Bottle */}
+            <mesh castShadow position={[-0.02, 0.155, 0.02]} rotation={[0, 0.2, Math.PI / 2 - 0.15]} material={strapTanMat}>
+              <cylinderGeometry args={[0.036, 0.036, 0.16, 12]} />
+            </mesh>
+            <mesh position={[0.055, 0.19, 0.01]} rotation={[-0.25, 0, -0.22]} material={creamFleeceMat}>
+              <cylinderGeometry args={[0.022, 0.024, 0.14, 10]} />
+            </mesh>
+            <mesh position={[0.072, 0.25, 0.0]} rotation={[-0.25, 0, -0.22]} material={sweaterMat}>
+              <cylinderGeometry args={[0.014, 0.016, 0.08, 8]} />
             </mesh>
           </group>
         )}
 
-        {/* 2. DISNEY/PIXAR EXPRESSIVE HEAD, CLEAR EYES WITH DOUBLE CATCHLIGHTS, & LUSH SCULPTED HAIR */}
-        <group ref={headRef} position={[0, 0.49, 0.01]} scale={[0.92, 0.92, 0.92]}>
-          <mesh castShadow position={[0, 0.02, 0]} scale={[0.92, 1.0, 0.92]} material={pixarSkinMat}>
-            <sphereGeometry args={[0.152, 22, 22]} />
+        {/* 2. PIXAR BOY EXPLORER HEAD, AVIATOR SHERPA HAT, & BIG GOGGLES (100% faithful to image_ddbb63.jpg!) */}
+        <group ref={headRef} position={[0, 0.48, 0.015]} scale={[0.98, 0.96, 0.98]}>
+          {/* Warm Rounded Pixar Boy Face & Cheeks */}
+          <mesh castShadow position={[0, 0.01, 0]} scale={[0.98, 0.95, 0.94]} material={pixarSkinMat}>
+            <sphereGeometry args={[0.154, 24, 22]} />
           </mesh>
-          <mesh position={[0, 0.002, 0.142]} scale={[0.85, 0.72, 1.1]} material={pixarSkinMat}>
-            <sphereGeometry args={[0.018, 10, 10]} />
+          {/* Rosy Cheeks & Cute Rounded Reddish Pixar Button Nose */}
+          <mesh position={[-0.082, -0.015, 0.118]} scale={[1.25, 0.8, 0.5]} material={noseBlushMat}><sphereGeometry args={[0.024, 10, 10]} /></mesh>
+          <mesh position={[0.082, -0.015, 0.118]} scale={[1.25, 0.8, 0.5]} material={noseBlushMat}><sphereGeometry args={[0.024, 10, 10]} /></mesh>
+          <mesh castShadow position={[0, 0.0, 0.148]} scale={[1.15, 0.82, 0.95]} material={noseBlushMat}>
+            <sphereGeometry args={[0.021, 12, 12]} />
           </mesh>
-          <mesh position={[-0.075, -0.018, 0.118]} scale={[1.2, 0.75, 0.5]} material={blushMat}><sphereGeometry args={[0.022, 8, 8]} /></mesh>
-          <mesh position={[0.075, -0.018, 0.118]} scale={[1.2, 0.75, 0.5]} material={blushMat}><sphereGeometry args={[0.022, 8, 8]} /></mesh>
-          <mesh position={[0, -0.048, 0.130]} scale={[1.35, 0.50, 0.6]}>
-            <sphereGeometry args={[0.015, 10, 8]} />
-            <meshStandardMaterial color="#e11d48" roughness={0.4} />
+          {/* Warm Friendly Pixar Boy Smile */}
+          <mesh position={[0, -0.048, 0.136]} rotation={[0.15, 0, 0]} scale={[1.4, 0.45, 0.5]} material={darkLeatherMat}>
+            <torusGeometry args={[0.022, 0.0045, 6, 12, Math.PI]} />
           </mesh>
-          <mesh position={[-0.138, 0.005, -0.01]} scale={[0.45, 0.78, 0.6]} material={pixarSkinMat}><sphereGeometry args={[0.036, 10, 10]} /></mesh>
-          <mesh position={[0.138, 0.005, -0.01]} scale={[0.45, 0.78, 0.6]} material={pixarSkinMat}><sphereGeometry args={[0.036, 10, 10]} /></mesh>
+          {/* Expressive Sticking-Out Pixar Ears (Characteristic silhouette from image_ddbb63.jpg!) */}
+          {[-1, 1].map((dir, eIdx) => (
+            <group key={eIdx} position={[dir * 0.152, 0.0, -0.005]} rotation={[0, -dir * 0.28, dir * 0.18]}>
+              <mesh castShadow scale={[0.72, 0.95, 0.45]} material={pixarSkinMat}><sphereGeometry args={[0.044, 12, 12]} /></mesh>
+              <mesh position={[dir * 0.004, 0, 0.012]} scale={[0.48, 0.65, 0.3]} material={noseBlushMat}><sphereGeometry args={[0.036, 10, 10]} /></mesh>
+            </group>
+          ))}
 
-          {[-0.048, 0.048].map((ex, idx) => (
+          {/* Large Warm Brown-Hazel Pixar Eyes with Double White Catchlights & Thick Eyebrows */}
+          {[-0.050, 0.050].map((ex, idx) => (
             <group key={idx} position={[ex, 0.022, 0.128]} rotation={[0, idx === 0 ? -0.12 : 0.12, 0]}>
-              <mesh scale={[1.08, 1.18, 0.45]} material={scleraMat}><sphereGeometry args={[0.026, 12, 12]} /></mesh>
-              <mesh position={[0, 0, 0.006]} scale={[0.74, 0.84, 0.42]} material={irisMat}><sphereGeometry args={[0.024, 12, 12]} /></mesh>
-              <mesh position={[0, 0, 0.010]} scale={[0.44, 0.52, 0.38]} material={pupilMat}><sphereGeometry args={[0.022, 10, 10]} /></mesh>
-              <mesh position={[0.006, 0.008, 0.018]} material={scleraMat}><sphereGeometry args={[0.006, 8, 8]} /></mesh>
-              <mesh position={[-0.005, -0.006, 0.018]} material={scleraMat}><sphereGeometry args={[0.003, 6, 6]} /></mesh>
-              <mesh ref={idx === 0 ? leftEyelidRef : rightEyelidRef} visible={false} position={[0, 0, 0.004]} scale={[1.1, 1.2, 0.50]} material={pixarSkinMat}>
-                <sphereGeometry args={[0.026, 10, 10]} />
+              <mesh scale={[1.12, 1.18, 0.46]} material={scleraMat}><sphereGeometry args={[0.027, 14, 14]} /></mesh>
+              <mesh position={[0, 0, 0.006]} scale={[0.78, 0.84, 0.44]} material={hazelIrisMat}><sphereGeometry args={[0.026, 14, 14]} /></mesh>
+              <mesh position={[0, 0, 0.011]} scale={[0.48, 0.54, 0.40]} material={pupilMat}><sphereGeometry args={[0.024, 10, 10]} /></mesh>
+              <mesh position={[-0.006, 0.008, 0.019]} material={scleraMat}><sphereGeometry args={[0.0065, 8, 8]} /></mesh>
+              <mesh position={[0.006, -0.006, 0.019]} material={scleraMat}><sphereGeometry args={[0.0035, 6, 6]} /></mesh>
+              <mesh ref={idx === 0 ? leftEyelidRef : rightEyelidRef} visible={false} position={[0, 0, 0.004]} scale={[1.14, 1.20, 0.50]} material={pixarSkinMat}>
+                <sphereGeometry args={[0.027, 10, 10]} />
               </mesh>
-              <mesh position={[0, 0.038, 0.008]} rotation={[0, 0, (idx === 0 ? -0.10 : 0.10) + Math.PI / 2]} material={hairMat}>
-                <capsuleGeometry args={[0.005, 0.034, 4, 6]} />
+              <mesh position={[0, 0.042, 0.010]} rotation={[0, 0, (idx === 0 ? -0.12 : 0.08) + Math.PI / 2]} material={hairMat}>
+                <capsuleGeometry args={[0.007, 0.036, 4, 8]} />
               </mesh>
             </group>
           ))}
 
-          {/* Voluminous Chestnut-Brown Pixar Hair & Golden Hair-Tie */}
-          <mesh castShadow position={[0, 0.055, -0.012]} scale={[1.0, 1.04, 1.02]} material={hairMat}>
-            <sphereGeometry args={[0.164, 20, 18]} />
+          {/* Swept Dark Brown Boy Hair Fringe & Sideburns under Aviator Hat */}
+          <mesh position={[0, 0.03, -0.02]} scale={[0.98, 0.96, 0.98]} material={hairMat}>
+            <sphereGeometry args={[0.158, 18, 16]} />
           </mesh>
-          <mesh position={[-0.038, 0.096, 0.114]} rotation={[0.25, 0.15, 0.45]} scale={[0.9, 1.0, 0.68]} material={hairMat}>
-            <capsuleGeometry args={[0.038, 0.09, 8, 10]} />
+          <mesh position={[-0.025, 0.078, 0.122]} rotation={[0.22, 0.15, 1.18]} scale={[0.85, 1.1, 0.65]} material={hairMat}>
+            <capsuleGeometry args={[0.028, 0.095, 6, 10]} />
           </mesh>
-          <mesh position={[0.048, 0.092, 0.112]} rotation={[0.25, -0.15, -0.40]} scale={[0.9, 1.0, 0.68]} material={hairMat}>
-            <capsuleGeometry args={[0.036, 0.08, 8, 10]} />
+          <mesh position={[0.042, 0.082, 0.118]} rotation={[0.25, -0.1, 0.95]} scale={[0.75, 1.0, 0.6]} material={hairMat}>
+            <capsuleGeometry args={[0.024, 0.075, 6, 10]} />
           </mesh>
-          {[-0.130, 0.130].map((sx, sIdx) => (
-            <mesh key={sIdx} position={[sx, -0.015, 0.065]} rotation={[0.14, 0, sx < 0 ? 0.12 : -0.12]} material={hairMat}>
-              <capsuleGeometry args={[0.028, 0.12, 8, 10]} />
+          {[-0.128, 0.128].map((sx, sIdx) => (
+            <mesh key={sIdx} position={[sx, -0.01, 0.065]} rotation={[0.15, 0, sx < 0 ? 0.12 : -0.12]} material={hairMat}>
+              <capsuleGeometry args={[0.022, 0.085, 6, 8]} />
             </mesh>
           ))}
-          <group ref={ponytailRef} position={[0, 0.02, -0.152]}>
-            <mesh position={[0, -0.01, 0]} material={goldMat}><torusGeometry args={[0.032, 0.009, 8, 12]} /></mesh>
-            <mesh position={[0, -0.12, -0.03]} rotation={[0.22, 0, 0]} material={hairMat}>
-              <capsuleGeometry args={[0.050, 0.22, 8, 10]} />
+
+          {/* TERRACOTTA-ORANGE AVIATOR HAT WITH CREAM SHERPA FLEECE TRIM & CENTER STRIPE (Exact match to front/side/back of image_ddbb63.jpg!) */}
+          <group position={[0, 0.055, -0.012]} rotation={[-0.12, 0, 0]}>
+            {/* Orange-Red Aviator Crown Dome */}
+            <mesh castShadow position={[0, 0.025, 0]} scale={[1.02, 0.92, 1.05]} material={sweaterMat}>
+              <sphereGeometry args={[0.162, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
             </mesh>
+            {/* Cream Center Stripe Running Over Top & Back of Hat (Visible in Back View of image_ddbb63.jpg!) */}
+            <mesh position={[0, 0.032, -0.005]} scale={[0.32, 0.94, 1.07]} material={creamFleeceMat}>
+              <sphereGeometry args={[0.163, 14, 14, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
+            </mesh>
+            {/* Thick Fluffy Cream Sherpa Fleece Band Around Forehead, Sides & Back */}
+            <mesh castShadow position={[0, 0.015, 0.005]} rotation={[Math.PI / 2, 0, 0]} scale={[1.04, 1.08, 1.15]} material={creamFleeceMat}>
+              <torusGeometry args={[0.148, 0.038, 12, 24]} />
+            </mesh>
+            {/* Sherpa Fleece Side Flaps Behind Ears */}
+            {[-0.145, 0.145].map((fx, fIdx) => (
+              <mesh key={fIdx} castShadow position={[fx, -0.035, -0.025]} rotation={[0.2, 0, fx < 0 ? 0.18 : -0.18]} material={creamFleeceMat}>
+                <capsuleGeometry args={[0.035, 0.065, 6, 10]} />
+              </mesh>
+            ))}
+
+            {/* OVERSIZED AVIATOR GOGGLES ON FOREHEAD (Exact match to image_ddbb63.jpg!) */}
+            <group position={[0, 0.068, 0.132]} rotation={[-0.28, 0, 0]}>
+              {/* Center Leather Nose Bridge */}
+              <mesh position={[0, 0, 0.01]} material={darkLeatherMat}><boxGeometry args={[0.045, 0.022, 0.025]} /></mesh>
+              {[-0.058, 0.058].map((gx, gIdx) => (
+                <group key={gIdx} position={[gx, 0, 0]} rotation={[0, gIdx === 0 ? -0.18 : 0.18, 0]}>
+                  {/* Padded Cream/Tan Goggle Cushion Ring */}
+                  <mesh rotation={[Math.PI / 2, 0, 0]} material={strapTanMat}>
+                    <cylinderGeometry args={[0.050, 0.052, 0.024, 18]} />
+                  </mesh>
+                  {/* Metallic Gunmetal-Bronze Goggle Rim */}
+                  <mesh position={[0, 0, 0.016]} material={goggleFrameMat}>
+                    <torusGeometry args={[0.044, 0.009, 10, 20]} />
+                  </mesh>
+                  {/* Curved Glossy Dark Aviator Lens + White Specular Highlight */}
+                  <mesh position={[0, 0, 0.014]} scale={[1.0, 1.0, 0.42]} material={goggleLensMat}>
+                    <sphereGeometry args={[0.043, 14, 12]} />
+                  </mesh>
+                  <mesh position={[-0.012, 0.014, 0.032]} material={scleraMat}>
+                    <sphereGeometry args={[0.006, 6, 6]} />
+                  </mesh>
+                </group>
+              ))}
+            </group>
           </group>
         </group>
 
-        {/* 3. PIXAR ARMS WITH CREAM ROLLED SLEEVES, LEATHER WRIST BRACERS, & 5-FINGERED HANDS */}
-        <group ref={leftUpperArmRef} position={[-0.165, 0.27, 0]}>
-          <mesh position={[0.01, 0.01, 0]} material={coatMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
-          <mesh castShadow geometry={geos.upperArm} material={creamShirtMat} />
-          <mesh position={[0, -0.18, 0]} material={creamShirtMat}><cylinderGeometry args={[0.046, 0.044, 0.04, 12]} /></mesh>
-          <group ref={leftForearmRef} position={[0, -0.18, 0]}>
-            <mesh geometry={geos.forearm} material={pixarSkinMat} />
-            <mesh position={[0, -0.10, 0]} material={leatherMat}><cylinderGeometry args={[0.038, 0.033, 0.08, 12]} /></mesh>
-            <group position={[0, -0.185, 0.006]}>
-              <mesh scale={[0.45, 1.08, 0.84]} material={pixarSkinMat}><sphereGeometry args={[0.033, 12, 10]} /></mesh>
-              <mesh position={[0.009, -0.004, 0.024]} rotation={[0.55, 0, 0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.006, 0.018, 4, 6]} /></mesh>
+        {/* 3. TERRACOTTA SWEATER SLEEVES, BROWN CUFFS, FINGERLESS GLOVES, & 5-FINGERED HANDS */}
+        <group ref={leftUpperArmRef} position={[-0.165, 0.26, 0]}>
+          <mesh position={[0.01, 0.01, 0]} material={sweaterMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
+          <mesh castShadow geometry={geos.upperArm} material={sweaterMat} />
+          <group ref={leftForearmRef} position={[0, -0.17, 0]}>
+            <mesh castShadow geometry={geos.forearm} material={sweaterMat} />
+            {/* Thick Brown Rolled Wrist Cuff */}
+            <mesh position={[0, -0.12, 0]} material={leatherBagMat}><cylinderGeometry args={[0.046, 0.044, 0.065, 12]} /></mesh>
+            {/* Fingerless Leather Explorer Glove & Articulated Fingers */}
+            <group position={[0, -0.175, 0.006]}>
+              <mesh scale={[0.50, 0.95, 0.85]} material={darkLeatherMat}><sphereGeometry args={[0.036, 12, 10]} /></mesh>
+              <mesh position={[0.010, -0.004, 0.025]} rotation={[0.55, 0, 0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.0065, 0.018, 4, 6]} /></mesh>
               {[0.012, 0.004, -0.004, -0.012].map((fz, fIdx) => (
-                <mesh key={fIdx} position={[0.003, -0.032, fz]} rotation={[0, 0, 0.16]} material={pixarSkinMat}>
-                  <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.024 : 0.019, 4, 6]} />
+                <mesh key={fIdx} position={[0.003, -0.030, fz]} rotation={[0, 0, 0.16]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.0052, fIdx === 1 || fIdx === 2 ? 0.022 : 0.018, 4, 6]} />
                 </mesh>
               ))}
             </group>
           </group>
         </group>
 
-        <group ref={rightUpperArmRef} position={[0.165, 0.27, 0]}>
-          <mesh position={[-0.01, 0.01, 0]} material={coatMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
-          <mesh castShadow geometry={geos.upperArm} material={creamShirtMat} />
-          <mesh position={[0, -0.18, 0]} material={creamShirtMat}><cylinderGeometry args={[0.046, 0.044, 0.04, 12]} /></mesh>
-          <group ref={rightForearmRef} position={[0, -0.18, 0]}>
-            <mesh geometry={geos.forearm} material={pixarSkinMat} />
-            <mesh position={[0, -0.10, 0]} material={leatherMat}><cylinderGeometry args={[0.038, 0.033, 0.08, 12]} /></mesh>
-            <group position={[0, -0.185, 0.006]}>
-              <mesh scale={[0.45, 1.08, 0.84]} material={pixarSkinMat}><sphereGeometry args={[0.033, 12, 10]} /></mesh>
-              <mesh position={[-0.009, -0.004, 0.024]} rotation={[0.55, 0, -0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.006, 0.018, 4, 6]} /></mesh>
+        <group ref={rightUpperArmRef} position={[0.165, 0.26, 0]}>
+          <mesh position={[-0.01, 0.01, 0]} material={sweaterMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
+          <mesh castShadow geometry={geos.upperArm} material={sweaterMat} />
+          <group ref={rightForearmRef} position={[0, -0.17, 0]}>
+            <mesh castShadow geometry={geos.forearm} material={sweaterMat} />
+            {/* Thick Brown Rolled Wrist Cuff */}
+            <mesh position={[0, -0.12, 0]} material={leatherBagMat}><cylinderGeometry args={[0.046, 0.044, 0.065, 12]} /></mesh>
+            {/* Fingerless Leather Explorer Glove & Articulated Fingers */}
+            <group position={[0, -0.175, 0.006]}>
+              <mesh scale={[0.50, 0.95, 0.85]} material={darkLeatherMat}><sphereGeometry args={[0.036, 12, 10]} /></mesh>
+              <mesh position={[-0.010, -0.004, 0.025]} rotation={[0.55, 0, -0.18]} material={pixarSkinMat}><capsuleGeometry args={[0.0065, 0.018, 4, 6]} /></mesh>
               {[0.012, 0.004, -0.004, -0.012].map((fz, fIdx) => (
-                <mesh key={fIdx} position={[-0.003, -0.032, fz]} rotation={[0, 0, -0.16]} material={pixarSkinMat}>
-                  <capsuleGeometry args={[0.0048, fIdx === 1 || fIdx === 2 ? 0.024 : 0.019, 4, 6]} />
+                <mesh key={fIdx} position={[-0.003, -0.030, fz]} rotation={[0, 0, -0.16]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.0052, fIdx === 1 || fIdx === 2 ? 0.022 : 0.018, 4, 6]} />
                 </mesh>
               ))}
             </group>
@@ -381,21 +511,36 @@ export function DigitalHumanCharacter({
         </group>
       </group>
 
-      {/* 4. LEGS & CUFFED LEATHER ADVENTURER BOOTS */}
-      <group ref={leftThighRef} position={[-0.082, -0.15, 0]}>
+      {/* 4. CARGO TROUSERS, CREAM FLEECE CUFFS, GAITERS, & LACED HIKING BOOTS (Exact match to image_ddbb63.jpg!) */}
+      <group ref={leftThighRef} position={[-0.084, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
-        <group ref={leftShinRef} position={[0, -0.26, 0]}>
-          <mesh position={[0, -0.02, 0]} material={leatherMat}><cylinderGeometry args={[0.056, 0.052, 0.06, 14]} /></mesh>
-          <mesh castShadow geometry={geos.calfBoot} material={bootMat} />
-          <mesh position={[0, -0.26, 0.032]} scale={[0.88, 0.75, 1.42]} material={bootMat}><sphereGeometry args={[0.056, 12, 10]} /></mesh>
+        <group ref={leftShinRef} position={[0, -0.25, 0]}>
+          {/* Rolled Cream Fleece Trouser Cuff below Knee */}
+          <mesh position={[0, -0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={creamFleeceMat}>
+            <torusGeometry args={[0.056, 0.018, 8, 14]} />
+          </mesh>
+          {/* Dark Gaiter & Laced Brown Leather Boot */}
+          <mesh position={[0, -0.10, 0]} material={darkLeatherMat}><cylinderGeometry args={[0.055, 0.052, 0.10, 12]} /></mesh>
+          <mesh castShadow geometry={geos.calfBoot} material={leatherBagMat} />
+          <mesh castShadow position={[0, -0.25, 0.034]} scale={[0.92, 0.78, 1.45]} material={leatherBagMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
+          {/* Thick Dark Boot Sole */}
+          <mesh position={[0, -0.285, 0.034]} scale={[0.95, 0.25, 1.48]} material={darkLeatherMat}><cylinderGeometry args={[0.058, 0.058, 0.08, 12]} /></mesh>
         </group>
       </group>
-      <group ref={rightThighRef} position={[0.082, -0.15, 0]}>
+
+      <group ref={rightThighRef} position={[0.084, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
-        <group ref={rightShinRef} position={[0, -0.26, 0]}>
-          <mesh position={[0, -0.02, 0]} material={leatherMat}><cylinderGeometry args={[0.056, 0.052, 0.06, 14]} /></mesh>
-          <mesh castShadow geometry={geos.calfBoot} material={bootMat} />
-          <mesh position={[0, -0.26, 0.032]} scale={[0.88, 0.75, 1.42]} material={bootMat}><sphereGeometry args={[0.056, 12, 10]} /></mesh>
+        <group ref={rightShinRef} position={[0, -0.25, 0]}>
+          {/* Rolled Cream Fleece Trouser Cuff below Knee */}
+          <mesh position={[0, -0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={creamFleeceMat}>
+            <torusGeometry args={[0.056, 0.018, 8, 14]} />
+          </mesh>
+          {/* Dark Gaiter & Laced Brown Leather Boot */}
+          <mesh position={[0, -0.10, 0]} material={darkLeatherMat}><cylinderGeometry args={[0.055, 0.052, 0.10, 12]} /></mesh>
+          <mesh castShadow geometry={geos.calfBoot} material={leatherBagMat} />
+          <mesh castShadow position={[0, -0.25, 0.034]} scale={[0.92, 0.78, 1.45]} material={leatherBagMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
+          {/* Thick Dark Boot Sole */}
+          <mesh position={[0, -0.285, 0.034]} scale={[0.95, 0.25, 1.48]} material={darkLeatherMat}><cylinderGeometry args={[0.058, 0.058, 0.08, 12]} /></mesh>
         </group>
       </group>
     </group>
