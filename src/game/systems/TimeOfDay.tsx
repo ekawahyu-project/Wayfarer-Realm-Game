@@ -56,7 +56,9 @@ export default function TimeOfDay() {
   }, [setTimeScale]);
 
   useFrame((state, delta) => {
-    const dt = Math.min(delta, 0.05);
+    
+    if (typeof globalThis !== 'undefined') (globalThis as any).__wayfarerTimeState = timeFrameState;
+const dt = Math.min(delta, 0.05);
     const hoursPerSecond = 24 / (Math.max(1, dayLengthMinutes) * 60);
     timeFrameState.hour += dt * hoursPerSecond * timeScale;
     if (timeFrameState.hour >= 24) {

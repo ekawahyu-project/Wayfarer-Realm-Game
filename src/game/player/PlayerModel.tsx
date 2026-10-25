@@ -233,13 +233,20 @@ export function DigitalHumanCharacter({
         leftForearmRef.current.rotation.x = -0.65;
         rightForearmRef.current.rotation.x = -0.65;
       } else {
+        const eq = (playerFrameState as any).equippedItem || "sword";
         const armSwing = -sinP * 0.58 * m;
         const idleArmBreath = Math.sin(t * 2.4) * 0.02;
-        leftUpperArmRef.current.rotation.set(armSwing + 0.04, 0, 0.15 + idleArmBreath);
-        rightUpperArmRef.current.rotation.set(-armSwing + 0.04, 0, -0.15 - idleArmBreath);
         const idleElbow = -0.24;
         const runElbow = isRunning ? -0.72 : -0.38;
-        leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, -armSwing) * 0.25;
+        if (!isNpc && eq === "lantern") {
+          // Raise Left Arm & Forearm Forward to Hold Lantern Aloft!
+          leftUpperArmRef.current.rotation.set(THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.x, -1.05 + Math.sin(t * 3.0) * 0.04, dt * 12), -0.18, 0.12);
+          leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(leftForearmRef.current.rotation.x, -0.68 + Math.cos(t * 3.0) * 0.04, dt * 12);
+        } else {
+          leftUpperArmRef.current.rotation.set(armSwing + 0.04, 0, 0.15 + idleArmBreath);
+          leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, -armSwing) * 0.25;
+        }
+        rightUpperArmRef.current.rotation.set(-armSwing + 0.04, 0, -0.15 - idleArmBreath);
         rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, armSwing) * 0.25;
       }
     }
@@ -490,28 +497,23 @@ export function DigitalHumanCharacter({
                   <capsuleGeometry args={[0.0082, fIdx === 1 || fIdx === 2 ? 0.032 : 0.025, 6, 8]} />
                 </mesh>
               ))}
-              {/* WARM GLOWING ADVENTURER LANTERN LAMP HELD IN LEFT HAND! */}
-              {!isNpc && hasStaff && (
-                <group position={[0.0, -0.045, 0.045]} rotation={[0.22, 0, 0]}>
-                  {/* Iron Handle Ring & Chain */}
-                  <mesh position={[0, 0.03, 0]} rotation={[0, Math.PI / 2, 0]} material={goggleFrameMat}>
-                    <torusGeometry args={[0.022, 0.004, 6, 12]} />
+              {/* WARM GLOWING ADVENTURER LANTERN LAMP HELD ALOFT IN RAISED LEFT HAND (Only when equippedItem === 'lantern')! */}
+              {!isNpc && ((playerFrameState as any).equippedItem === "lantern") && (
+                <group position={[0.0, -0.045, 0.025]} rotation={[1.72, 0, 0]}>
+                  <mesh position={[0, -0.02, 0]} rotation={[0, Math.PI / 2, 0]} material={goggleFrameMat}>
+                    <torusGeometry args={[0.024, 0.0045, 6, 12]} />
                   </mesh>
-                  {/* Lantern Top Dome & Cap */}
-                  <mesh position={[0, -0.01, 0]} material={goggleFrameMat}>
-                    <coneGeometry args={[0.048, 0.042, 6]} />
+                  <mesh position={[0, -0.06, 0]} material={goggleFrameMat}>
+                    <coneGeometry args={[0.052, 0.045, 6]} />
                   </mesh>
-                  {/* Glowing Warm Amber Glass Core */}
-                  <mesh position={[0, -0.065, 0]}>
-                    <cylinderGeometry args={[0.034, 0.028, 0.075, 6]} />
-                    <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={3.2} roughness={0.15} />
+                  <mesh position={[0, -0.115, 0]}>
+                    <cylinderGeometry args={[0.038, 0.032, 0.082, 6]} />
+                    <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={3.6} roughness={0.15} />
                   </mesh>
-                  {/* Lantern Bottom Base */}
-                  <mesh position={[0, -0.11, 0]} material={goggleFrameMat}>
-                    <cylinderGeometry args={[0.038, 0.042, 0.022, 6]} />
+                  <mesh position={[0, -0.165, 0]} material={goggleFrameMat}>
+                    <cylinderGeometry args={[0.042, 0.046, 0.024, 6]} />
                   </mesh>
-                  {/* Real Dynamic PointLight Illuminating Surroundings at Night! */}
-                  <pointLight position={[0, -0.07, 0.05]} intensity={1.65} distance={16} color="#fbbf24" />
+                  <pointLight position={[0, -0.12, 0.08]} intensity={2.4} distance={22} color="#fbbf24" />
                 </group>
               )}
             </group>

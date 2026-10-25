@@ -162,6 +162,21 @@ export default function PlayerController() {
   }, [gl.domElement, setInBoat]);
 
   useFrame((state, delta) => {
+    if ((playerFrameState as any).pendingTeleport) {
+      const pt = (playerFrameState as any).pendingTeleport;
+      (playerFrameState as any).pendingTeleport = null;
+      playerFrameState.mountedHorseIndex = -1;
+      playerFrameState.isInBoat = false;
+      playerFrameState.x = pt.x;
+      playerFrameState.y = pt.y;
+      playerFrameState.z = pt.z;
+      if (typeof playerPos !== 'undefined' && playerPos.current) playerPos.current.set(pt.x, pt.y, pt.z);
+      if (typeof pos !== 'undefined' && pos.current) pos.current.set(pt.x, pt.y, pt.z);
+      if (typeof positionRef !== 'undefined' && positionRef.current) positionRef.current.set(pt.x, pt.y, pt.z);
+      if (typeof groupRef !== 'undefined' && groupRef.current) groupRef.current.position.set(pt.x, pt.y, pt.z);
+      if (typeof playerRef !== 'undefined' && playerRef.current) playerRef.current.position.set(pt.x, pt.y, pt.z);
+      state.camera.position.set(pt.x, pt.y + 4.5, pt.z + 8.5);
+    }
     const dt = Math.min(delta, 0.05);
     const p = phys.current;
 

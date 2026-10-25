@@ -176,6 +176,7 @@ export default function Village() {
     lamps.forEach(([lx, , lz]) => {
       addCylinderCollider(lx, lz, 0.35, "village");
     });
+    [[360, 0], [-280, 240], [-245, -95]].forEach(([vx, vz]) => { addBoxCollider(vx - 10, vz - 12, 7.0, 5.0, 'village'); });
     wells.forEach(([wx, , wz]) => {
       addCylinderCollider(wx, wz, 2.5, "village");
     });
@@ -362,6 +363,36 @@ export default function Village() {
       <group ref={eastGroupRef}>{eastHouses.map(renderHouse)}</group>
       <group ref={swGroupRef}>{swHouses.map(renderHouse)}</group>
       <group ref={westGroupRef}>{westHouses.map(renderHouse)}</group>
+
+            {/* Dedicated Master Blacksmith Forge in Every Village (East, SW, & West Forest Villages)! */}
+      {[[360, 0], [-280, 240], [-245, -95]].map(([vx, vz], bIdx) => {
+        const bx = vx - 10;
+        const bz = vz - 12;
+        const by = getTerrainHeight(bx, bz);
+        return (
+          <group key={"blacksmith_" + bIdx} name="village-blacksmith-shop" position={[bx, by, bz]}>
+            {/* Stone Blacksmith Workshop Base & Timber Frame */}
+            <mesh castShadow receiveShadow position={[0, 0.25, 0]} material={stoneTrimMat}><boxGeometry args={[7.2, 0.5, 5.4]} /></mesh>
+            <mesh castShadow receiveShadow position={[-1.8, 2.0, -0.8]} material={stoneTrimMat}><boxGeometry args={[3.4, 3.5, 3.6]} /></mesh>
+            <mesh castShadow position={[-1.8, 4.6, -0.8]} rotation={[0, Math.PI / 4, 0]} material={palette.roofs[0]}><coneGeometry args={[3.2, 2.0, 4]} /></mesh>
+            {/* Tall Stone Smelting Chimney & Glowing Red-Orange Coal Furnace! */}
+            <mesh castShadow position={[1.4, 3.2, -1.2]} material={stoneTrimMat}><boxGeometry args={[2.2, 6.0, 2.2]} /></mesh>
+            <mesh position={[1.4, 1.3, 0.0]}><boxGeometry args={[1.3, 1.2, 0.4]} /><meshStandardMaterial color="#ff4500" emissive="#ff2200" emissiveIntensity={3.5} /></mesh>
+            <pointLight position={[1.4, 1.5, 1.2]} intensity={1.8} distance={14} color="#fb923c" />
+            {/* Blacksmith Awning Roof Over Outdoor Anvil Workspace */}
+            <mesh castShadow position={[1.4, 3.3, 1.2]} rotation={[0.25, 0, 0]} material={doorMat}><boxGeometry args={[3.6, 0.18, 3.2]} /></mesh>
+            <mesh position={[3.0, 1.7, 2.4]} material={beamMat}><cylinderGeometry args={[0.12, 0.12, 3.4, 8]} /></mesh>
+            <mesh position={[-0.2, 1.7, 2.4]} material={beamMat}><cylinderGeometry args={[0.12, 0.12, 3.4, 8]} /></mesh>
+            {/* Iron Anvil on Oak Stump, Water Quench Barrel, & Weapon Display Rack */}
+            <mesh castShadow position={[1.2, 0.65, 1.4]} material={doorMat}><cylinderGeometry args={[0.38, 0.42, 0.8, 10]} /></mesh>
+            <mesh castShadow position={[1.2, 1.18, 1.4]}><boxGeometry args={[0.75, 0.32, 0.36]} /><meshStandardMaterial color="#1e293b" metalness={0.85} roughness={0.25} /></mesh>
+            <mesh castShadow position={[2.5, 0.7, 1.4]} material={doorMat}><cylinderGeometry args={[0.42, 0.38, 0.95, 12]} /></mesh>
+            <mesh position={[2.5, 1.18, 1.4]} rotation={[-Math.PI / 2, 0, 0]}><circleGeometry args={[0.36, 12]} /><meshBasicMaterial color="#38bdf8" /></mesh>
+            {/* Hanging Blacksmith Signboard (Anvil & Crossed Swords) */}
+            <mesh position={[-1.8, 3.1, 1.2]} material={beamMat}><boxGeometry args={[1.8, 0.65, 0.12]} /></mesh>
+          </group>
+        );
+      })}
 
       {/* Market Stalls */}
       {stalls.map((s, i) => (

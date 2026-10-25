@@ -28,7 +28,8 @@ export default function Terrain() {
     const cLushGrass = new THREE.Color("#529e34");
     const cMeadowGrass = new THREE.Color("#6cb543");
     const cForestFloor = new THREE.Color("#3b7524");
-    const cAutumnGrass = new THREE.Color("#b07d35");
+    const cAutumnGrass = new THREE.Color("#c27828");
+    const cFarmlandSoil = new THREE.Color("#6e4726");
     const cDirtPath = new THREE.Color("#a8895e");
     const cRiverBed = new THREE.Color("#2d7780");
     const cPlazaStone = new THREE.Color("#9e9284");
@@ -59,9 +60,16 @@ export default function Terrain() {
         temp.lerp(cForestFloor, Math.max(0, Math.min(1, fBlend * 0.65)));
       }
 
+      // Golden Autumn Maple Shrine Ground (Protected from Snow!)
       const distShrine = Math.hypot(x - shX, z - shZ);
-      if (distShrine < 110) {
-        temp.lerp(cAutumnGrass, Math.min(1, (1 - distShrine / 110) * 0.75));
+      if (distShrine < 125) {
+        temp.lerp(cAutumnGrass, Math.min(1, (1 - distShrine / 125) * 0.88));
+      }
+
+      // Farmland & Plantation Rich Soil near River Branch (X=195, Z=85)
+      const distFarm = Math.hypot(x - 190, z - 85);
+      if (distFarm < 58) {
+        temp.lerp(cFarmlandSoil, (1.0 - smoothstep(28, 58, distFarm)) * 0.65);
       }
 
       const distEast = Math.min(Math.hypot(x - eastX, z - eastZ), Math.hypot(x - 360, z));
@@ -92,12 +100,12 @@ export default function Terrain() {
         temp.lerp(cSand, sandBlend * 0.55);
       }
 
-      if (z < -150 || y > 18) {
-        const snowFactor = Math.max(
-          z < -150 ? Math.min(1, (-150 - z) / 110) : 0,
-          y > 18 ? Math.min(1, (y - 18) / 14) : 0
-        );
-        if (y > 14 && y <= 24) temp.lerp(cRock, 0.55);
+      // STRICT SNOW BIOME MASK: ONLY in the Northern Snow Mountains (z < -230 AND x > -175 so NW Shrine & South Kingdom NEVER turn into snow!)
+      if (z < -220 && x > -185) {
+        const northMask = smoothstep(-220, -295, z);
+        const eastOfShrineMask = smoothstep(-185, -125, x);
+        const snowFactor = northMask * eastOfShrineMask;
+        if (y > 14 && y <= 24) temp.lerp(cRock, snowFactor * 0.45);
         temp.lerp(cSnow, snowFactor);
       }
 
@@ -119,12 +127,10 @@ export default function Terrain() {
       const angle = Math.atan2(vz, vx);
       const hNorm = Math.max(0, (vy + 55.0) / 110.0);
       const oceanMask = smoothstep(-0.85, -0.25, Math.cos(angle - 2.35));
-      // Smooth rolling cosine hills (NO jagged triangular spikes!)
       const wave = 0.5 + 0.25 * Math.sin(angle * 4.0 + 0.8) + 0.15 * Math.cos(angle * 9.0) + 0.10 * Math.sin(angle * 15.0);
       const ridgeH = (12.0 + wave * 38.0) * oceanMask;
       const finalY = Math.pow(hNorm, 1.15) * ridgeH - 4.0;
       vPos.setY(i, finalY);
-      // Store height factor in vertex color for atmospheric sky-blending
       vCols[i * 3] = hNorm;
       vCols[i * 3 + 1] = hNorm;
       vCols[i * 3 + 2] = hNorm;
@@ -145,7 +151,7 @@ export default function Terrain() {
       metalness: 0.02,
     });
 
-    mat.customProgramCacheKey = () => "terrain-clean-snow-vista-v7";
+    mat.customProgramCacheKey = () => "terrain-strict-snow-no-kingdom-bug-v8";
     mat.onBeforeCompile = (shader) => {
       shader.uniforms.uSkyHorizon = globalUniforms.uSkyHorizon;
       shader.vertexShader = shader.vertexShader.replace(
@@ -169,13 +175,13 @@ export default function Terrain() {
           "}",
         ].join("\n")
       );
-      // Erase grass-blade texture lines on Snow, Stone Plazas, and Beaches!
+      // Strict Snow Mask ONLY in North Snow Biome (z < -225 && x > -180) so Kingdom & Shrine NEVER get snow!
       shader.fragmentShader = shader.fragmentShader.replace(
         "#include <map_fragment>",
         [
           "#ifdef USE_MAP",
           "  vec4 sampledDiffuseColor = texture2D( map, vMapUv );",
-          "  float snowBiomeMask = max(smoothstep(-135.0, -205.0, vWorldPosTerrain.z), smoothstep(16.0, 21.0, vWorldPosTerrain.y));",
+          "  float snowBiomeMask = smoothstep(-220.0, -290.0, vWorldPosTerrain.z) * smoothstep(-185.0, -125.0, vWorldPosTerrain.x);",
           "  float coastMask = max(smoothstep(-330.0, -415.0, vWorldPosTerrain.x), smoothstep(390.0, 460.0, vWorldPosTerrain.z));",
           "  float nonGrassMask = clamp(max(snowBiomeMask, coastMask), 0.0, 1.0);",
           "  sampledDiffuseColor.rgb = mix(sampledDiffuseColor.rgb, vec3(0.99), nonGrassMask);",
@@ -187,7 +193,7 @@ export default function Terrain() {
         "#include <color_fragment>",
         [
           "#include <color_fragment>",
-          "float snowBiomeMask2 = max(smoothstep(-135.0, -205.0, vWorldPosTerrain.z), smoothstep(16.0, 21.0, vWorldPosTerrain.y));",
+          "float snowBiomeMask2 = smoothstep(-220.0, -290.0, vWorldPosTerrain.z) * smoothstep(-185.0, -125.0, vWorldPosTerrain.x);",
           "if (snowBiomeMask2 > 0.01) {",
           "  float snowSparkle = smoothstep(0.82, 0.98, noiseTerrain(vWorldPosTerrain.xz * 1.8)) * 0.07;",
           "  vec3 pureSnowCol = vec3(0.95, 0.97, 1.0) * (0.97 + 0.03 * noiseTerrain(vWorldPosTerrain.xz * 0.12)) + snowSparkle;",
@@ -242,7 +248,6 @@ export default function Terrain() {
           fragmentShader={[
             "uniform vec3 uSkyHorizon;",
             "uniform vec3 uSkyTop;",
-            "uniform float uNightFactor;",
             "varying float vH;",
             "void main() {",
             "  vec3 baseRidge = mix(uSkyHorizon * 0.72, uSkyTop * 0.85, 0.45);",

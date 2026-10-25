@@ -20,7 +20,9 @@ interface PlayerState {
   clearTeleport: () => void;
 }
 
-export const playerFrameState = {
+export const playerFrameState: Record<string, any> = {
+  equippedItem: "sword" as "sword" | "lantern" | "none",
+  pendingTeleport: null as { x: number; y: number; z: number } | null,
   x: -532,
   y: 4,
   z: 0,

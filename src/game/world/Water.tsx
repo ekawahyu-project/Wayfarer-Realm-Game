@@ -135,7 +135,40 @@ const riverFragmentShader = [
   "}"
 ].join("\n");
 
+const waterfallVertexShader = [
+  "varying vec2 vUv;",
+  "void main() {",
+  "  vUv = uv;",
+  "  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);",
+  "}"
+].join("\n");
+
+const waterfallFragmentShader = [
+  "uniform float uTime;",
+  "uniform float uNightFactor;",
+  "varying vec2 vUv;",
+  "float hashWf(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }",
+  "float noiseWf(vec2 p) {",
+  "  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);",
+  "  return mix(mix(hashWf(i), hashWf(i + vec2(1.0, 0.0)), f.x), mix(hashWf(i + vec2(0.0, 1.0)), hashWf(i + vec2(1.0, 1.0)), f.x), f.y);",
+  "}",
+  "void main() {",
+  "  vec2 flowUv = vec2(vUv.x * 6.0, vUv.y * 3.5 + uTime * 2.8);",
+  "  float n1 = noiseWf(flowUv);",
+  "  float n2 = noiseWf(vec2(vUv.x * 14.0, vUv.y * 7.0 + uTime * 4.5));",
+  "  float streaks = smoothstep(0.32, 0.78, n1 * 0.6 + n2 * 0.4);",
+  "  float topFoam = smoothstep(0.75, 1.0, vUv.y) * 0.85;",
+  "  float bottomSplash = (1.0 - smoothstep(0.0, 0.28, vUv.y)) * 0.95;",
+  "  float edgeFade = smoothstep(0.0, 0.15, vUv.x) * (1.0 - smoothstep(0.85, 1.0, vUv.x));",
+  "  vec3 deepWater = mix(vec3(0.08, 0.58, 0.86), vec3(0.04, 0.25, 0.45), uNightFactor * 0.7);",
+  "  vec3 foamCol = mix(vec3(0.96, 0.99, 1.0), vec3(0.55, 0.78, 0.95), uNightFactor * 0.6);",
+  "  vec3 col = mix(deepWater, foamCol, clamp(streaks + topFoam + bottomSplash, 0.0, 1.0));",
+  "  gl_FragColor = vec4(col, edgeFade * 0.94);",
+  "}"
+].join("\n");
+
 export default function Water() {
+  const waterwheelRef = useRef<THREE.Group>(null);
   const lilyPadRef = useRef<THREE.InstancedMesh>(null);
   const lotusOuterRef = useRef<THREE.InstancedMesh>(null);
   const lotusCenterRef = useRef<THREE.InstancedMesh>(null);
@@ -355,64 +388,131 @@ export default function Water() {
         })}
       </group>
 
-      {/* 2. GRAND CASCADING WATERFALL SANCTUARY & LAGOON AT RIVER HEADWATERS (X=235, Z=238)! */}
-      <group name="grand-waterfall-sanctuary" position={[typeof getRiverCenterX === "function" ? getRiverCenterX(220) : 235, 7.5, 238]}>
-        {/* Extended River Lagoon Basin Connecting the Main River to the Waterfall Cliff */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, -24]}>
-          <planeGeometry args={[34, 68, 24, 24]} />
-          <meshStandardMaterial color="#0ea5e9" emissive="#0284c7" emissiveIntensity={0.22} roughness={0.15} metalness={0.1} transparent opacity={0.92} />
+            {/* 2. NATURAL MOUNTAIN RANGE, CANYON GORGE & DYNAMIC FLOWING WATERFALL AT RIVER HEADWATERS! */}
+      <group name="grand-waterfall-sanctuary" position={[typeof getRiverCenterX === "function" ? getRiverCenterX(185) : 235, 7.45, 225]}>
+        {/* Continuous River Channel Connecting Main River (Z=-45..0) into Waterfall Plunge Lagoon */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, -28]}>
+          <planeGeometry args={[32, 76, 16, 16]} />
+          <shaderMaterial side={THREE.DoubleSide} transparent uniforms={uniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
         </mesh>
-        {/* Glowing Turquoise Plunge Pool at Base of Waterfall */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 0]}>
-          <circleGeometry args={[22, 32]} />
-          <meshStandardMaterial color="#38bdf8" emissive="#0ea5e9" emissiveIntensity={0.35} roughness={0.1} />
-        </mesh>
-        {/* Concentric White Foam Ripples in Plunge Pool */}
-        {[7.5, 11.5, 15.5].map((rad, rIdx) => (
-          <mesh key={"ripple_" + rIdx} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.16, 2]}>
-            <ringGeometry args={[rad, rad + 0.65, 32]} />
-            <meshBasicMaterial color="#f0f9ff" transparent opacity={0.65 - rIdx * 0.15} side={THREE.DoubleSide} />
-          </mesh>
-        ))}
-        {/* Majestic Tiered Basalt & Mossy Limestone Waterfall Cliff Amphitheater */}
+        {/* Natural Sculpted Mountain Range Surrounding the Waterfall (Replaces ugly grey boxes in image_3387f5.jpg!) */}
         {[
-          [-18, 11, 8, 12, 24, 12], [18, 11, 8, 12, 24, 12],
-          [-11, 13, 12, 10, 28, 10], [11, 13, 12, 10, 28, 10],
-          [0, 12, 15, 22, 26, 10], [-25, 8, 2, 10, 18, 10], [25, 8, 2, 10, 18, 10],
-        ].map(([cx, cy, cz, cw, ch, cd], cIdx) => (
-          <group key={"cliff_" + cIdx} position={[cx, cy, cz]}>
-            <mesh castShadow receiveShadow><boxGeometry args={[cw, ch, cd]} /><meshStandardMaterial color="#475569" roughness={0.88} /></mesh>
-            <mesh receiveShadow position={[0, ch * 0.5 + 0.4, 0]}><boxGeometry args={[cw + 0.6, 1.0, cd + 0.6]} /><meshStandardMaterial color="#4d9e34" emissive="#166534" emissiveIntensity={0.15} roughness={0.85} /></mesh>
+          [-38, 0, 22, 34, 46, "#475569", "#4d9e34"],
+          [38, 0, 22, 34, 48, "#475569", "#4d9e34"],
+          [-20, 0, 26, 26, 38, "#64748b", "#529e34"],
+          [20, 0, 26, 26, 39, "#64748b", "#529e34"],
+          [0, 0, 36, 38, 54, "#475569", "#3b7524"],
+          [-56, 0, 12, 28, 34, "#64748b", "#4d9e34"],
+          [56, 0, 12, 28, 36, "#64748b", "#4d9e34"],
+        ].map(([mx, my, mz, mr, mh, rockCol, grassCol], mIdx) => (
+          <group key={"mt_peak_" + mIdx} position={[mx as number, my as number, mz as number]}>
+            {/* Sculpted Multi-Faceted Mountain Peak */}
+            <mesh castShadow receiveShadow position={[0, (mh as number) * 0.45, 0]} rotation={[0, mIdx * 1.1, 0]}>
+              <coneGeometry args={[mr as number, mh as number, 7]} />
+              <meshStandardMaterial color={rockCol as string} roughness={0.88} />
+            </mesh>
+            {/* Lush Green Mountain Foothill & Mossy Shoulder */}
+            <mesh receiveShadow position={[0, (mh as number) * 0.22, -2]} rotation={[0, mIdx * 0.7, 0]}>
+              <coneGeometry args={[(mr as number) * 1.12, (mh as number) * 0.55, 7]} />
+              <meshStandardMaterial color={grassCol as string} emissive="#166534" emissiveIntensity={0.14} roughness={0.85} />
+            </mesh>
           </group>
         ))}
-        {/* Twin Cascading Waterfall Curtains (Animated-Look Glowing Foam & Cyan Water Stream) */}
-        <mesh position={[0, 13.0, 9.2]} rotation={[-0.14, 0, 0]}>
-          <planeGeometry args={[13.5, 26.5, 16, 24]} />
-          <meshStandardMaterial color="#e0f2fe" emissive="#38bdf8" emissiveIntensity={0.75} roughness={0.15} transparent opacity={0.94} side={THREE.DoubleSide} />
+        {/* Upper Mountain Lake Rim & Rocky Spillway Ledge */}
+        <mesh castShadow receiveShadow position={[0, 14.5, 22]} scale={[1.4, 1.0, 0.9]}>
+          <cylinderGeometry args={[12, 18, 29, 9]} />
+          <meshStandardMaterial color="#475569" roughness={0.9} />
         </mesh>
-        <mesh position={[-5.2, 12.5, 8.8]} rotation={[-0.16, 0.08, 0]}>
-          <planeGeometry args={[4.5, 25.0, 8, 16]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.75} side={THREE.DoubleSide} />
+        {/* Animated Cascading Main Waterfall Stream (Uses uTime flowing water & foam shader!) */}
+        <mesh position={[0, 14.2, 11.8]} rotation={[-0.22, 0, 0]}>
+          <planeGeometry args={[14.5, 30.0, 24, 32]} />
+          <shaderMaterial transparent depthWrite={false} side={THREE.DoubleSide} uniforms={uniforms} vertexShader={waterfallVertexShader} fragmentShader={waterfallFragmentShader} />
         </mesh>
-        <mesh position={[5.2, 12.5, 8.8]} rotation={[-0.16, -0.08, 0]}>
-          <planeGeometry args={[4.5, 25.0, 8, 16]} />
-          <meshBasicMaterial color="#ffffff" transparent opacity={0.75} side={THREE.DoubleSide} />
+        {/* Secondary Tiered Side Cascade Streams */}
+        <mesh position={[-8.5, 11.0, 13.5]} rotation={[-0.26, 0.18, 0]}>
+          <planeGeometry args={[5.5, 23.0, 12, 20]} />
+          <shaderMaterial transparent depthWrite={false} side={THREE.DoubleSide} uniforms={uniforms} vertexShader={waterfallVertexShader} fragmentShader={waterfallFragmentShader} />
         </mesh>
-        {/* Billowing Waterfall Mist Clouds & Glowing Sanctuary Lanterns at Base */}
-        {[-6, -2, 2, 6].map((mx, mIdx) => (
-          <mesh key={"mist_" + mIdx} position={[mx, 1.8 + (mIdx % 2) * 0.8, 5.5]}>
-            <sphereGeometry args={[3.2, 12, 10]} />
-            <meshBasicMaterial color="#f0f9ff" transparent opacity={0.38} depthWrite={false} />
+        <mesh position={[8.5, 11.0, 13.5]} rotation={[-0.26, -0.18, 0]}>
+          <planeGeometry args={[5.5, 23.0, 12, 20]} />
+          <shaderMaterial transparent depthWrite={false} side={THREE.DoubleSide} uniforms={uniforms} vertexShader={waterfallVertexShader} fragmentShader={waterfallFragmentShader} />
+        </mesh>
+        {/* Natural River Boulders Framing the Plunge Pool */}
+        {[[-13, 0.8, 6, 3.2], [13, 0.8, 6, 3.4], [-9, 0.5, 9, 2.5], [9, 0.5, 9, 2.6], [-15, 0.4, -4, 2.2], [15, 0.4, -4, 2.4]].map(([rx, ry, rz, rr], rIdx) => (
+          <mesh key={"wf_rock_" + rIdx} castShadow receiveShadow position={[rx, ry, rz]} scale={[1.2, 0.75, 1.1]}>
+            <dodecahedronGeometry args={[rr, 1]} />
+            <meshStandardMaterial color="#64748b" roughness={0.85} />
           </mesh>
         ))}
-        {/* Wooden Viewing Deck & Lanterns for Teleport Arrival at [235, 8, 212] */}
-        <group position={[0, 0.6, -22]}>
-          <mesh receiveShadow><boxGeometry args={[8.5, 0.35, 6.5]} /><meshStandardMaterial color="#8c5228" roughness={0.8} /></mesh>
-          <mesh position={[-3.8, 1.6, 2.8]}><cylinderGeometry args={[0.1, 0.12, 3.2, 8]} /><meshStandardMaterial color="#4a2c14" /></mesh>
-          <mesh position={[3.8, 1.6, 2.8]}><cylinderGeometry args={[0.1, 0.12, 3.2, 8]} /><meshStandardMaterial color="#4a2c14" /></mesh>
-          <mesh position={[-3.8, 3.3, 2.8]}><cylinderGeometry args={[0.24, 0.18, 0.45, 6]} /><meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={2.5} /></mesh>
-          <mesh position={[3.8, 3.3, 2.8]}><cylinderGeometry args={[0.24, 0.18, 0.45, 6]} /><meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={2.5} /></mesh>
-          <pointLight position={[0, 4.5, 16]} intensity={2.2} distance={45} color="#38bdf8" />
+        {/* Animated White Water Foam Rings at Waterfall Impact Zone */}
+        {[5.5, 9.5, 13.5].map((rad, rIdx) => (
+          <mesh key={"wf_ring_" + rIdx} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.15, 6]}>
+            <ringGeometry args={[rad, rad + 0.85, 32]} />
+            <meshBasicMaterial color="#f0f9ff" transparent opacity={0.7 - rIdx * 0.18} side={THREE.DoubleSide} />
+          </mesh>
+        ))}
+      </group>
+
+      {/* 3. CONNECTED RIVER IRRIGATION BRANCH, ROTATING WATERMILL & FARMLAND PLANTATION (X=215, Z=85)! */}
+      <group name="river-watermill-farmland" position={[typeof getRiverCenterX === "function" ? getRiverCenterX(85) : 248, 7.52, 85]}>
+        {/* Connected Irrigation River Branch Flowing from Main River (X=0) Westward into the Farmland (X=-68) */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-34, 0.04, 0]}>
+          <planeGeometry args={[72, 11.5, 24, 8]} />
+          <shaderMaterial side={THREE.DoubleSide} transparent uniforms={uniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
+        </mesh>
+        {/* Stone Embankment Lining the Agricultural River Canal */}
+        {[-6.2, 6.2].map((cz, cIdx) => (
+          <mesh key={"canal_bank_" + cIdx} receiveShadow position={[-34, -0.1, cz]}>
+            <boxGeometry args={[68, 0.75, 1.4]} />
+            <meshStandardMaterial color="#78716c" roughness={0.88} />
+          </mesh>
+        ))}
+        {/* Half-Timber Watermill House Sitting Directly Beside the River & Canal Confluence */}
+        <group position={[-16, 0.3, -10.5]}>
+          <mesh castShadow receiveShadow position={[0, 0.4, 0]}><boxGeometry args={[10.5, 1.0, 8.2]} /><meshStandardMaterial color="#78716c" roughness={0.88} /></mesh>
+          <mesh castShadow receiveShadow position={[0, 2.8, 0]}><boxGeometry args={[9.8, 4.2, 7.6]} /><meshStandardMaterial color="#dfd3be" roughness={0.82} /></mesh>
+          <mesh castShadow position={[0, 6.4, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[7.8, 3.6, 4]} /><meshStandardMaterial color="#b45309" roughness={0.78} /></mesh>
+          {/* Rotating Giant Wooden Waterwheel Positioned Directly in the Flowing River Stream! */}
+          <group position={[0, 1.6, 4.8]} ref={waterwheelRef}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.45, 0.45, 1.8, 12]} /><meshStandardMaterial color="#3b2210" /></mesh>
+            <mesh><torusGeometry args={[3.2, 0.22, 10, 24]} /><meshStandardMaterial color="#5c3618" roughness={0.8} /></mesh>
+            <mesh position={[0, 0, 0.65]}><torusGeometry args={[3.2, 0.18, 8, 24]} /><meshStandardMaterial color="#5c3618" roughness={0.8} /></mesh>
+            {Array.from({ length: 12 }).map((_, pIdx) => {
+              const ang = (pIdx / 12) * Math.PI * 2;
+              return (
+                <group key={"paddle_" + pIdx} rotation={[0, 0, ang]}>
+                  <mesh position={[0, 1.6, 0.32]}><boxGeometry args={[0.18, 3.2, 0.18]} /><meshStandardMaterial color="#4a2c14" /></mesh>
+                  <mesh position={[0, 3.2, 0.32]}><boxGeometry args={[0.85, 0.22, 1.35]} /><meshStandardMaterial color="#8c5228" /></mesh>
+                </group>
+              );
+            })}
+          </group>
+        </group>
+        {/* Irrigated Golden Wheat Fields, Vegetable Orchards, Hay Bales & Wooden Fences */}
+        <group position={[-46, 0.35, 0]}>
+          {/* North & South Cultivated Crop Plots Flanking the River Canal */}
+          {[-16, -28, 14, 26].map((fz, fIdx) => (
+            <group key={"field_" + fIdx} position={[0, 0, fz]}>
+              {/* Furrowed Rich Soil Bed */}
+              <mesh receiveShadow position={[0, 0.08, 0]}><boxGeometry args={[28, 0.22, 9.5]} /><meshStandardMaterial color="#5c3a1e" roughness={0.92} /></mesh>
+              {/* Rows of Golden Wheat & Lush Green Crops */}
+              {[-11, -7, -3, 1, 5, 9, 13].map((cx, cIdx) => (
+                <group key={"crop_row_" + cIdx} position={[cx, 0.55, 0]}>
+                  <mesh castShadow><boxGeometry args={[1.25, 0.95, 8.6]} /><meshStandardMaterial color={fIdx < 2 ? "#eab308" : "#4d9e34"} emissive={fIdx < 2 ? "#a16207" : "#166534"} emissiveIntensity={0.18} roughness={0.78} /></mesh>
+                  {fIdx >= 2 && [-3, 0, 3].map((pz, pIdx) => (
+                    <mesh key={"pumpkin_" + pIdx} position={[0, -0.2, pz]}><sphereGeometry args={[0.38, 10, 8]} /><meshStandardMaterial color="#ea580c" roughness={0.5} /></mesh>
+                  ))}
+                </group>
+              ))}
+            </group>
+          ))}
+          {/* Golden Hay Bales & Wooden Farm Windbreak Fences */}
+          {[[-16, -9], [-12, -9], [14, 9], [18, 9]].map(([hx, hz], hIdx) => (
+            <mesh key={"hay_" + hIdx} castShadow position={[hx, 0.65, hz]} rotation={[0, hIdx * 0.5, Math.PI / 2]}>
+              <cylinderGeometry args={[0.65, 0.65, 1.35, 12]} />
+              <meshStandardMaterial color="#facc15" roughness={0.85} />
+            </mesh>
+          ))}
         </group>
       </group>
     </group>
