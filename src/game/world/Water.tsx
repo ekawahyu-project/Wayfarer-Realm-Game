@@ -5,10 +5,8 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { globalUniforms } from "@/game/systems/globalUniforms";
 import { getRiverCenterX, getTerrainHeight, noise2D } from "@/utils/noise";
-import { getWorldTextures } from "@/utils/proceduralTextures";
 import { addBoxCollider, addCylinderCollider, clearCollidersByTag } from "@/game/systems/Physics";
 
-// Ultra-Fast Geometry Batch Merger: Combines hundreds of static meshes into a SINGLE draw call!
 interface BatchItem {
   geo: THREE.BufferGeometry;
   matrix: THREE.Matrix4;
@@ -156,6 +154,7 @@ const oceanFragmentShader = [
   "}"
 ].join("\n");
 
+// Dynamic 3D Flowing River Shader: Grounded shoreline, active 3D ripples, flowing rapids, & natural sky reflection!
 const riverVertexShader = [
   "uniform float uTime;",
   "varying vec3 vWorldPos;",
@@ -163,7 +162,11 @@ const riverVertexShader = [
   "void main() {",
   "  vUv = uv;",
   "  vec4 wp = modelMatrix * vec4(position, 1.0);",
-  "  wp.y += sin(wp.z * 0.18 + wp.x * 0.14 + uTime * 2.6) * 0.028;",
+  "  // Taper wave height to 0 at riverbanks (uv.x = 0 or 1) so edges NEVER lift off the ground!",
+  "  float centerMask = sin(uv.x * 3.14159265);",
+  "  float wave1 = sin(wp.z * 0.28 + uTime * 3.8) * cos(wp.x * 0.22 - uTime * 2.4) * 0.065;",
+  "  float wave2 = sin(wp.z * 0.65 + wp.x * 0.45 + uTime * 5.2) * 0.028;",
+  "  wp.y += (wave1 + wave2) * centerMask;",
   "  vWorldPos = wp.xyz;",
   "  gl_Position = projectionMatrix * viewMatrix * wp;",
   "}"
@@ -174,6 +177,7 @@ const riverFragmentShader = [
   "uniform float uNightFactor;",
   "uniform vec3 uSunDir;",
   "uniform vec3 uSunColor;",
+  "uniform vec3 uSkyHorizon;",
   "varying vec3 vWorldPos;",
   "varying vec2 vUv;",
   "float hashR(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }",
@@ -181,28 +185,50 @@ const riverFragmentShader = [
   "  vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);",
   "  return mix(mix(hashR(i), hashR(i + vec2(1.0, 0.0)), f.x), mix(hashR(i + vec2(0.0, 1.0)), hashR(i + vec2(1.0, 1.0)), f.x), f.y);",
   "}",
+  "float fbmRiver(vec2 p) {",
+  "  return noiseR(p) * 0.55 + noiseR(p * 2.1 + vec2(1.7, 3.2)) * 0.30 + noiseR(p * 4.3) * 0.15;",
+  "}",
   "void main() {",
   "  vec3 viewDir = normalize(cameraPosition - vWorldPos);",
-  "  vec2 flow1 = vWorldPos.xz * 0.15 + vec2(uTime * 0.18, uTime * 0.65);",
-  "  vec2 flow2 = vWorldPos.xz * 0.30 - vec2(uTime * 0.22, -uTime * 0.45);",
-  "  float n1 = noiseR(flow1);",
-  "  float n2 = noiseR(flow2);",
-  "  float n = n1 * 0.6 + n2 * 0.4;",
-  "  float causticNet = smoothstep(0.60, 0.88, n1 * n2 * 2.2);",
-  "  vec3 norm = normalize(vec3((n - 0.5) * 0.42, 1.0, (noiseR(flow1 + 4.2) - 0.5) * 0.42));",
-  "  float bankDist = 1.0 - abs(vUv.x - 0.5) * 2.0;",
-  "  float centerDepth = smoothstep(0.0, 0.55, bankDist);",
-  "  vec3 shallowTeal = mix(vec3(0.16, 0.76, 0.74), vec3(0.05, 0.26, 0.32), uNightFactor);",
-  "  vec3 deepCerulean = mix(vec3(0.03, 0.44, 0.68), vec3(0.02, 0.14, 0.28), uNightFactor);",
-  "  vec3 waterCol = mix(shallowTeal, deepCerulean, centerDepth);",
-  "  waterCol += vec3(0.55, 0.95, 1.0) * (causticNet * 0.38) * (1.0 - uNightFactor * 0.5);",
-  "  float bankFoamMask = (1.0 - smoothstep(0.0, 0.16, bankDist)) * smoothstep(0.35, 0.75, n2);",
-  "  waterCol = mix(waterCol, vec3(0.94, 0.98, 1.0), bankFoamMask * 0.65 * (1.0 - uNightFactor * 0.4));",
+  "  // Continuous downstream current flow (+uTime flows from South Waterfall toward North)",
+  "  vec2 flowUv1 = vec2(vWorldPos.x * 0.16, vWorldPos.z * 0.14 + uTime * 1.15);",
+  "  vec2 flowUv2 = vec2(vWorldPos.x * 0.32 - uTime * 0.25, vWorldPos.z * 0.28 + uTime * 1.75);",
+  "  float n1 = fbmRiver(flowUv1);",
+  "  float n2 = fbmRiver(flowUv2);",
+  "  float n = n1 * 0.55 + n2 * 0.45;",
+
+  "  // Organic noise-warped shoreline distance (Eliminates straight floating white line!)",
+  "  float rawBankDist = 1.0 - abs(vUv.x - 0.5) * 2.0;",
+  "  float shorelineNoise = (n1 - 0.5) * 0.22;",
+  "  float organicBankDist = clamp(rawBankDist + shorelineNoise, 0.0, 1.0);",
+
+  "  // Natural River Color Palette: Warm muddy-sand shallow edge -> Emerald-Teal -> Deep River Blue",
+  "  vec3 wetShoreCol = mix(vec3(0.24, 0.42, 0.38), vec3(0.05, 0.12, 0.16), uNightFactor);",
+  "  vec3 midEmerald = mix(vec3(0.07, 0.52, 0.62), vec3(0.03, 0.18, 0.28), uNightFactor);",
+  "  vec3 deepRiver = mix(vec3(0.03, 0.34, 0.54), vec3(0.01, 0.10, 0.20), uNightFactor);",
+
+  "  vec3 waterCol = mix(wetShoreCol, midEmerald, smoothstep(0.04, 0.32, organicBankDist));",
+  "  waterCol = mix(waterCol, deepRiver, smoothstep(0.32, 0.78, organicBankDist));",
+
+  "  // Animated 3D Wave Normals & Sky Fresnel Reflection",
+  "  vec3 norm = normalize(vec3((n1 - 0.5) * 0.65, 1.0, (n2 - 0.5) * 0.65));",
+  "  float fresnel = pow(1.0 - max(dot(norm, viewDir), 0.0), 2.8);",
+  "  waterCol = mix(waterCol, uSkyHorizon * (1.0 - uNightFactor * 0.65), fresnel * 0.42);",
+
+  "  // Flowing White-Cyan Rapids & Current Streaks in the Center Channel (Never on the outer bank edge!)",
+  "  float centerStreamMask = smoothstep(0.18, 0.45, organicBankDist);",
+  "  float rapidStreaks = smoothstep(0.64, 0.84, n1 * 0.6 + n2 * 0.5) * centerStreamMask;",
+  "  float causticSparkle = smoothstep(0.72, 0.92, n1 * n2 * 2.1) * centerStreamMask;",
+  "  waterCol += vec3(0.75, 0.96, 1.0) * (rapidStreaks * 0.32 + causticSparkle * 0.38) * (1.0 - uNightFactor * 0.5);",
+
+  "  // Sun Specular Glint",
   "  vec3 halfVec = normalize(normalize(uSunDir) + viewDir);",
-  "  float spec = pow(max(dot(norm, halfVec), 0.0), 120.0) * 1.5 + pow(max(dot(norm, halfVec), 0.0), 24.0) * 0.42;",
-  "  waterCol += uSunColor * spec * (1.0 - uNightFactor * 0.5);",
-  "  float edgeAlpha = smoothstep(0.0, 0.06, bankDist);",
-  "  gl_FragColor = vec4(waterCol, mix(0.76, 0.94, edgeAlpha));",
+  "  float spec = pow(max(dot(norm, halfVec), 0.0), 90.0) * 1.4 + pow(max(dot(norm, halfVec), 0.0), 20.0) * 0.35;",
+  "  waterCol += uSunColor * spec * centerStreamMask * (1.0 - uNightFactor * 0.5);",
+
+  "  // Soft Feathered Shoreline Alpha so Water Melts Seamlessly into the Ground Bank!",
+  "  float shoreAlpha = smoothstep(0.02, 0.22, organicBankDist);",
+  "  gl_FragColor = vec4(waterCol, shoreAlpha * 0.94);",
   "}"
 ].join("\n");
 
@@ -224,15 +250,15 @@ const waterfallFragmentShader = [
   "  return mix(mix(hashWf(i), hashWf(i + vec2(1.0, 0.0)), f.x), mix(hashWf(i + vec2(0.0, 1.0)), hashWf(i + vec2(1.0, 1.0)), f.x), f.y);",
   "}",
   "void main() {",
-  "  vec2 flow1 = vec2(vUv.x * 9.0, vUv.y * 4.5 + uTime * 3.6);",
-  "  vec2 flow2 = vec2(vUv.x * 20.0, vUv.y * 9.0 + uTime * 5.4);",
+  "  vec2 flow1 = vec2(vUv.x * 9.0, vUv.y * 4.5 + uTime * 3.8);",
+  "  vec2 flow2 = vec2(vUv.x * 20.0, vUv.y * 9.0 + uTime * 5.6);",
   "  float n1 = noiseWf(flow1);",
   "  float n2 = noiseWf(flow2);",
   "  float streaks = smoothstep(0.25, 0.75, n1 * 0.55 + n2 * 0.45);",
   "  float crestFoam = smoothstep(0.80, 1.0, vUv.y) * 0.95;",
   "  float plungeFoam = (1.0 - smoothstep(0.0, 0.25, vUv.y)) * 0.95;",
   "  float sideSoft = smoothstep(0.0, 0.12, vUv.x) * (1.0 - smoothstep(0.88, 1.0, vUv.x));",
-  "  vec3 aquaBase = mix(vec3(0.18, 0.70, 0.90), vec3(0.05, 0.26, 0.45), uNightFactor * 0.7);",
+  "  vec3 aquaBase = mix(vec3(0.14, 0.62, 0.82), vec3(0.04, 0.22, 0.40), uNightFactor * 0.7);",
   "  vec3 pureFoam = mix(vec3(0.98, 0.99, 1.0), vec3(0.65, 0.84, 0.96), uNightFactor * 0.5);",
   "  vec3 finalCol = mix(aquaBase, pureFoam, clamp(streaks * 0.85 + crestFoam + plungeFoam, 0.0, 1.0));",
   "  gl_FragColor = vec4(finalCol, sideSoft * 0.96);",
@@ -240,13 +266,54 @@ const waterfallFragmentShader = [
 ].join("\n");
 
 export default function Water() {
-  const textures = useMemo(() => getWorldTextures(), []);
   const mainWheelRef = useRef<THREE.Group>(null);
+  const lotusGroupRef = useRef<THREE.Mesh>(null);
 
   const rX0 = useMemo(() => getRiverCenterX(0), []);
   const rX95 = useMemo(() => getRiverCenterX(95), []);
   const wfX = 238;
   const wfZ = 224;
+  const WATER_LEVEL = 7.24;
+
+  // Dedicated ShaderMaterial instances whose uTime is updated directly every frame in useFrame!
+  const oceanShaderMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        transparent: true,
+        uniforms: globalUniforms,
+        vertexShader: oceanVertexShader,
+        fragmentShader: oceanFragmentShader,
+      }),
+    []
+  );
+
+  const riverShaderMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthWrite: true,
+        polygonOffset: true,
+        polygonOffsetFactor: -2,
+        uniforms: globalUniforms,
+        vertexShader: riverVertexShader,
+        fragmentShader: riverFragmentShader,
+      }),
+    []
+  );
+
+  const waterfallShaderMat = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+        depthWrite: false,
+        uniforms: globalUniforms,
+        vertexShader: waterfallVertexShader,
+        fragmentShader: waterfallFragmentShader,
+      }),
+    []
+  );
 
   const cliffRockMat = useMemo(() => {
     const naturalTex = getNaturalCliffRockTexture();
@@ -265,10 +332,10 @@ export default function Water() {
     []
   );
 
-  const { riverGeo, farmStreamGeo, farmStreamBedGeo, canyonCliffGeo, curvedWaterfallGeo, mergedLotusAndFloraGeo, mergedBridgeAndFarmGeo } = useMemo(() => {
-    // 1. Main River Ribbon (Optimized 96 steps)
-    const lengthSteps = 96;
-    const widthSteps = 6;
+  const { riverGeo, farmStreamGeo, farmStreamBedGeo, canyonCliffGeo, curvedWaterfallGeo, mergedLotusGeo, mergedBankFloraGeo, mergedBridgeAndFarmGeo } = useMemo(() => {
+    // 1. Ground-Conforming Main River Ribbon (Edges tuck cleanly into the earthen riverbanks — ZERO Floating!)
+    const lengthSteps = 120;
+    const widthSteps = 10;
     const zStart = -240;
     const zEnd = 238;
     const verts: number[] = [];
@@ -281,12 +348,18 @@ export default function Water() {
       const rawCx = getRiverCenterX(Math.min(165, z));
       const blendToWf = Math.max(0, Math.min(1, (z - 160) / 55));
       const cx = rawCx * (1 - blendToWf) + wfX * blendToWf;
-      const poolBulge = z > 195 ? Math.sin(Math.min(1, (z - 195) / 40) * Math.PI) * 11.5 : 0;
-      const halfW = 15.0 + poolBulge;
+      const poolBulge = z > 195 ? Math.sin(Math.min(1, (z - 195) / 40) * Math.PI) * 12.0 : 0;
+      // Organic meandering width variation so riverbanks are never ruler-straight!
+      const organicW = Math.sin(z * 0.08) * 1.4 + Math.cos(z * 0.19) * 0.8;
+      const halfW = 16.8 + poolBulge + organicW;
       for (let j = 0; j <= widthSteps; j++) {
         const u = j / widthSteps;
         const x = cx + (u - 0.5) * 2.0 * halfW;
-        verts.push(x, 7.64, z);
+        const terrainY = getTerrainHeight(x, z);
+        // Outer vertices (j === 0 or j === widthSteps) tuck slightly down into the terrain bank so there is NEVER a floating gap!
+        const isEdge = j === 0 || j === widthSteps;
+        const y = isEdge ? Math.min(WATER_LEVEL - 0.08, terrainY - 0.05) : WATER_LEVEL;
+        verts.push(x, y, z);
         uvs.push(u, v * 18);
       }
     }
@@ -304,8 +377,8 @@ export default function Water() {
     rGeo.computeVertexNormals();
 
     // 2. Winding Farmland Irrigation Stream Water + Stream Bed
-    const fsSteps = 36;
-    const fsWidthSteps = 4;
+    const fsSteps = 40;
+    const fsWidthSteps = 6;
     const fsVerts: number[] = [];
     const fsBedVerts: number[] = [];
     const fsUvs: number[] = [];
@@ -316,15 +389,16 @@ export default function Water() {
       const t = i / fsSteps;
       const x = xStart + t * (xEnd - xStart);
       const centerZ = 95.0 + Math.sin((246.0 - x) * 0.075) * 2.4;
-      const halfW = 4.2 * (1.0 - t * 0.18);
-      const bedHalfW = halfW + 1.8;
-      const waterY = Math.max(7.64, getTerrainHeight(x, centerZ) + 0.35);
+      const halfW = 4.5 * (1.0 - t * 0.16);
+      const bedHalfW = halfW + 1.6;
+      const baseWaterY = Math.max(WATER_LEVEL + 0.12, getTerrainHeight(x, centerZ) + 0.28);
       for (let j = 0; j <= fsWidthSteps; j++) {
         const u = j / fsWidthSteps;
         const z = centerZ + (u - 0.5) * 2.0 * halfW;
         const bedZ = centerZ + (u - 0.5) * 2.0 * bedHalfW;
-        fsVerts.push(x, waterY, z);
-        fsBedVerts.push(x, waterY - 0.06, bedZ);
+        const isEdge = j === 0 || j === fsWidthSteps;
+        fsVerts.push(x, isEdge ? baseWaterY - 0.12 : baseWaterY, z);
+        fsBedVerts.push(x, baseWaterY - 0.08, bedZ);
         fsUvs.push(u, t * 7.0);
       }
     }
@@ -386,7 +460,7 @@ export default function Water() {
         const nCrag = noise2D(spreadX * 0.26, localY * 0.38) * 1.1;
         const edgeTaper = 1.0 - Math.pow(Math.abs(u), 3.8) * 0.78;
         const finalX = spreadX + nLarge * 0.55;
-        const finalY = Math.max(-1.8, localY * edgeTaper - 1.2);
+        const finalY = Math.max(-2.2, localY * edgeTaper - 1.5);
         const finalZ = horseshoeZ + depthOffsetZ + (nLarge + nCrag) * (v < 0.78 ? 0.95 : 0.25);
         cVerts.push(finalX, finalY, finalZ);
         cUvs.push(iu / segU, iv / segV);
@@ -418,7 +492,7 @@ export default function Water() {
     const wfIdx: number[] = [];
     for (let iy = 0; iy <= wfH; iy++) {
       const ty = iy / wfH;
-      const y = ty * 17.5;
+      const y = ty * 17.8 - 0.3;
       const z = 6.2 + Math.pow(ty, 2.0) * 6.5;
       const widthAtHeight = 13.5 - ty * 2.0;
       for (let ix = 0; ix <= wfW; ix++) {
@@ -442,10 +516,11 @@ export default function Water() {
     wfGeo.setIndex(wfIdx);
     wfGeo.computeVertexNormals();
 
-    // 5. MERGED BATCH #1: All Blooming Lotus Clusters + Riverbank Boulders + Cattails + Ferns -> 1 SINGLE DRAW CALL!
-    const floraBatch: BatchItem[] = [];
-    const padGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.03, 10);
-    const smallPadGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.03, 8);
+    // 5. MERGED LOTUS CLUSTERS (Separate mesh so it gently bobs with the river waves in useFrame!)
+    const lotusBatch: BatchItem[] = [];
+    const bankBatch: BatchItem[] = [];
+    const padGeo = new THREE.CylinderGeometry(0.95, 0.95, 0.03, 10);
+    const smallPadGeo = new THREE.CylinderGeometry(0.62, 0.62, 0.03, 8);
     const lotusCrownGeo = new THREE.ConeGeometry(0.38, 0.32, 7);
     const lotusInnerGeo = new THREE.ConeGeometry(0.24, 0.38, 6);
     const boulderGeo = new THREE.DodecahedronGeometry(1.0, 1);
@@ -475,67 +550,69 @@ export default function Water() {
       arr.push({ geo, matrix: m4.clone(), color: col });
     };
 
-    for (let z = -150; z <= 212; z += 12) {
-      if (Math.abs(z) < 7) continue;
+    for (let z = -150; z <= 212; z += 13) {
+      if (Math.abs(z) < 7.5) continue;
       const rawCx = getRiverCenterX(Math.min(165, z));
       const blend = Math.max(0, Math.min(1, (z - 160) / 55));
       const cx = rawCx * (1 - blend) + wfX * blend;
-      const side = Math.floor(z / 12) % 2 === 0 ? -1 : 1;
-      [side * (5.5 + (Math.abs(z * 17) % 5)), -side * (7.2 + (Math.abs(z * 23) % 4))].forEach((off, oIdx) => {
+      const side = Math.floor(z / 13) % 2 === 0 ? -1 : 1;
+      [side * (4.8 + (Math.abs(z * 17) % 4)), -side * (6.2 + (Math.abs(z * 23) % 4))].forEach((off, oIdx) => {
         const lx = cx + off;
         const lz = z + oIdx * 4.5;
-        const s = 1.15;
-        pushItem(floraBatch, padGeo, lx, 7.66, lz, 0, z * 0.4, 0, s, 1, s, cPad);
-        pushItem(floraBatch, smallPadGeo, lx + 0.75 * s, 7.65, lz + 0.4 * s, 0, 0, 0, s, 1, s, cPad);
-        pushItem(floraBatch, lotusCrownGeo, lx, 7.80, lz, Math.PI, z * 0.5, 0, s, s, s, oIdx === 0 ? cPink : cWhite);
-        pushItem(floraBatch, lotusInnerGeo, lx, 7.84, lz, 0, z * 0.8, 0, s, s, s, cGold);
+        const s = 1.12;
+        pushItem(lotusBatch, padGeo, lx, WATER_LEVEL + 0.03, lz, 0, z * 0.4, 0, s, 1, s, cPad);
+        pushItem(lotusBatch, smallPadGeo, lx + 0.72 * s, WATER_LEVEL + 0.025, lz + 0.4 * s, 0, 0, 0, s, 1, s, cPad);
+        pushItem(lotusBatch, lotusCrownGeo, lx, WATER_LEVEL + 0.16, lz, Math.PI, z * 0.5, 0, s, s, s, oIdx === 0 ? cPink : cWhite);
+        pushItem(lotusBatch, lotusInnerGeo, lx, WATER_LEVEL + 0.20, lz, 0, z * 0.8, 0, s, s, s, cGold);
       });
     }
 
+    // Grounded Riverbank Boulders, Cattails & Bushes (Embedded into exact getTerrainHeight(bx, bz) so ZERO floating rocks!)
     for (let z = -175; z <= 205; z += 10) {
       if (Math.abs(z) < 6.5) continue;
       const rawCx = getRiverCenterX(Math.min(165, z));
       const blend = Math.max(0, Math.min(1, (z - 160) / 55));
       const cx = rawCx * (1 - blend) + wfX * blend;
       const poolExtra = z > 195 ? Math.sin(Math.min(1, (z - 195) / 40) * Math.PI) * 10.5 : 0;
-      const halfW = 14.2 + poolExtra;
+      const halfW = 14.8 + poolExtra;
       [-1, 1].forEach((dir, dIdx) => {
         if (dir === -1 && z >= 88 && z <= 102) return;
-        const bx = cx + dir * (halfW + ((Math.abs(z * 13 + dIdx * 7) % 10) * 0.16 - 0.5));
+        const bx = cx + dir * (halfW + ((Math.abs(z * 13 + dIdx * 7) % 10) * 0.18));
         const bz = z + (dIdx === 0 ? -1.5 : 1.5);
-        const by = Math.max(7.55, getTerrainHeight(bx, bz));
+        // Embed directly into true terrain height (NO Math.max(7.55, ...) that made rocks float in air!)
+        const by = getTerrainHeight(bx, bz);
         const kind = Math.abs(Math.floor(z / 10) + dIdx * 3) % 3;
         if (kind === 0) {
-          pushItem(floraBatch, boulderGeo, bx, by + 0.25, bz, 0, z * 0.3, 0, 1.35, 0.72, 1.1, cRock);
-          pushItem(floraBatch, boulderGeo, bx + 0.8, by + 0.15, bz + 0.4, 0, z, 0, 0.85, 0.55, 0.8, cMossRock);
+          pushItem(bankBatch, boulderGeo, bx, by + 0.05, bz, 0, z * 0.3, 0, 1.35, 0.68, 1.15, cRock);
+          pushItem(bankBatch, boulderGeo, bx + 0.85, by - 0.02, bz + 0.4, 0, z, 0, 0.85, 0.52, 0.85, cMossRock);
         } else {
-          pushItem(floraBatch, reedGeo, bx, by + 1.0, bz, 0.06, 0, 0.05, 1, 1, 1, cReed);
-          pushItem(floraBatch, cattailTopGeo, bx, by + 1.75, bz, 0.06, 0, 0.05, 1, 1, 1, cCattail);
-          pushItem(floraBatch, reedGeo, bx + 0.35, by + 0.85, bz + 0.25, -0.08, 0, 0.06, 0.9, 0.85, 0.9, cReed);
-          pushItem(floraBatch, cattailTopGeo, bx + 0.35, by + 1.5, bz + 0.25, -0.08, 0, 0.06, 0.9, 0.85, 0.9, cCattail);
-          pushItem(floraBatch, boulderGeo, bx - 0.3, by + 0.35, bz, 0, 0, 0, 0.95, 0.65, 0.95, cReed);
+          pushItem(bankBatch, reedGeo, bx, by + 0.82, bz, 0.06, 0, 0.05, 1, 1, 1, cReed);
+          pushItem(bankBatch, cattailTopGeo, bx, by + 1.55, bz, 0.06, 0, 0.05, 1, 1, 1, cCattail);
+          pushItem(bankBatch, reedGeo, bx + 0.35, by + 0.68, bz + 0.25, -0.08, 0, 0.06, 0.9, 0.85, 0.9, cReed);
+          pushItem(bankBatch, cattailTopGeo, bx + 0.35, by + 1.32, bz + 0.25, -0.08, 0, 0.06, 0.9, 0.85, 0.9, cCattail);
+          pushItem(bankBatch, boulderGeo, bx - 0.3, by + 0.15, bz, 0, 0, 0, 0.95, 0.58, 0.95, cReed);
         }
       });
     }
 
-    // Stream bank rocks & cattails along Farmland Irrigation Stream
     for (let x = 175; x <= rX95 - 16; x += 8.5) {
       if (x >= 208 && x <= 216) continue;
       const cZ = 95.0 + Math.sin((246.0 - x) * 0.075) * 2.4;
       [-1, 1].forEach((dir, dIdx) => {
-        const bz = cZ + dir * 3.8;
-        const by = Math.max(7.60, getTerrainHeight(x, bz));
-        pushItem(floraBatch, boulderGeo, x, by + 0.2, bz, 0, x * 0.4, 0, 0.95, 0.55, 0.85, cRock);
+        const bz = cZ + dir * 4.0;
+        const by = getTerrainHeight(x, bz);
+        pushItem(bankBatch, boulderGeo, x, by + 0.05, bz, 0, x * 0.4, 0, 0.95, 0.52, 0.85, cRock);
         if ((Math.floor(x) + dIdx) % 2 === 0) {
-          pushItem(floraBatch, reedGeo, x + 0.4, by + 0.85, bz, 0.05, 0, 0, 0.85, 0.85, 0.85, cReed);
-          pushItem(floraBatch, cattailTopGeo, x + 0.4, by + 1.5, bz, 0.05, 0, 0, 0.85, 0.85, 0.85, cCattail);
+          pushItem(bankBatch, reedGeo, x + 0.4, by + 0.72, bz, 0.05, 0, 0, 0.85, 0.85, 0.85, cReed);
+          pushItem(bankBatch, cattailTopGeo, x + 0.4, by + 1.35, bz, 0.05, 0, 0, 0.85, 0.85, 0.85, cCattail);
         }
       });
     }
 
-    const mLotusFlora = mergeColoredGeos(floraBatch);
+    const mLotus = mergeColoredGeos(lotusBatch);
+    const mBankFlora = mergeColoredGeos(bankBatch);
 
-    // 6. MERGED BATCH #2: All Static Farmland Furrows, Wheat Sheaves, Pumpkins, Cabbages, Barn & Bridges -> 1 SINGLE DRAW CALL!
+    // 6. MERGED FARMLAND PLOTS
     const farmBatch: BatchItem[] = [];
     const furrowGeo = new THREE.CylinderGeometry(0.95, 1.15, 6.8, 7);
     const stalkGeo = new THREE.CylinderGeometry(0.32, 0.14, 0.9, 5);
@@ -548,24 +625,25 @@ export default function Water() {
     const cPumpkin = new THREE.Color("#ea580c");
 
     const farmOriginX = rX95 - 42;
-    const farmOriginY = getTerrainHeight(rX95 - 42, 78);
     const farmOriginZ = 95;
 
     [-13, -22, 13, 22].forEach((fz, fIdx) => {
       [-12, -7, -2, 3, 8, 13].forEach((rx, rIdx) => {
         const wx = farmOriginX + rx;
         const wz = farmOriginZ + fz;
-        pushItem(farmBatch, furrowGeo, wx, farmOriginY + 0.08, wz, Math.PI / 2, 0, 0, 1.1, 1.0, 0.32, cSoil);
+        const groundY = getTerrainHeight(wx, wz);
+        pushItem(farmBatch, furrowGeo, wx, groundY + 0.04, wz, Math.PI / 2, 0, 0, 1.1, 1.0, 0.32, cSoil);
         [-2.2, -0.7, 0.7, 2.2].forEach((cz, zIdx) => {
           const cx = wx;
           const czWorld = wz + cz;
+          const cy = getTerrainHeight(cx, czWorld);
           if (fIdx < 2) {
-            pushItem(farmBatch, stalkGeo, cx, farmOriginY + 0.70, czWorld, 0, 0, 0, 1, 1, 1, cStalk);
-            pushItem(farmBatch, wheatTopGeo, cx, farmOriginY + 1.20, czWorld, 0, 0, 0, 1.1, 1.4, 1.1, cWheat);
+            pushItem(farmBatch, stalkGeo, cx, cy + 0.55, czWorld, 0, 0, 0, 1, 1, 1, cStalk);
+            pushItem(farmBatch, wheatTopGeo, cx, cy + 1.05, czWorld, 0, 0, 0, 1.1, 1.4, 1.1, cWheat);
           } else if ((rIdx + zIdx) % 2 === 0) {
-            pushItem(farmBatch, pumpkinGeo, cx, farmOriginY + 0.42, czWorld, 0, 0, 0, 1.15, 0.8, 1.15, cPumpkin);
+            pushItem(farmBatch, pumpkinGeo, cx, cy + 0.32, czWorld, 0, 0, 0, 1.15, 0.8, 1.15, cPumpkin);
           } else {
-            pushItem(farmBatch, pumpkinGeo, cx, farmOriginY + 0.40, czWorld, 0, 0, 0, 1.2, 0.65, 1.2, cPad);
+            pushItem(farmBatch, pumpkinGeo, cx, cy + 0.30, czWorld, 0, 0, 0, 1.2, 0.65, 1.2, cPad);
           }
         });
       });
@@ -579,7 +657,8 @@ export default function Water() {
       farmStreamBedGeo: fsBedGeo,
       canyonCliffGeo: cGeo,
       curvedWaterfallGeo: wfGeo,
-      mergedLotusAndFloraGeo: mLotusFlora,
+      mergedLotusGeo: mLotus,
+      mergedBankFloraGeo: mBankFlora,
       mergedBridgeAndFarmGeo: mFarm,
     };
   }, [rX95]);
@@ -598,41 +677,48 @@ export default function Water() {
     return () => clearCollidersByTag("waterfall_cliffs");
   }, [rX0, rX95]);
 
+  // Real-Time Animation Loop: Guarantee uTime ticks every frame on all water shaders, wheel rotates, & lotus bobs!
   useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    globalUniforms.uTime.value = t;
+    if (riverShaderMat.uniforms?.uTime) riverShaderMat.uniforms.uTime.value = t;
+    if (oceanShaderMat.uniforms?.uTime) oceanShaderMat.uniforms.uTime.value = t;
+    if (waterfallShaderMat.uniforms?.uTime) waterfallShaderMat.uniforms.uTime.value = t;
+
     if (mainWheelRef.current) {
-      mainWheelRef.current.rotation.z = -state.clock.elapsedTime * 1.45;
+      mainWheelRef.current.rotation.z = -t * 1.45;
+    }
+    if (lotusGroupRef.current) {
+      lotusGroupRef.current.position.y = Math.sin(t * 2.4) * 0.028;
     }
   });
 
   return (
     <group name="world-water-systems">
       {/* 1. Western & Southern Ocean */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-920, 0.0, 0]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-920, 0.0, 0]} material={oceanShaderMat}>
         <planeGeometry args={[900, 2400, 24, 24]} />
-        <shaderMaterial transparent uniforms={globalUniforms} vertexShader={oceanVertexShader} fragmentShader={oceanFragmentShader} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 960]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 960]} material={oceanShaderMat}>
         <planeGeometry args={[2400, 900, 24, 24]} />
-        <shaderMaterial transparent uniforms={globalUniforms} vertexShader={oceanVertexShader} fragmentShader={oceanFragmentShader} />
       </mesh>
 
-      {/* 2. Continuous Main River & Waterfall Plunge Lagoon */}
-      <mesh geometry={riverGeo} frustumCulled={false}>
-        <shaderMaterial side={THREE.DoubleSide} transparent depthWrite={true} polygonOffset polygonOffsetFactor={-3} uniforms={globalUniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
-      </mesh>
+      {/* 2. Ground-Conforming Dynamic Flowing Main River */}
+      <mesh geometry={riverGeo} material={riverShaderMat} frustumCulled={false} />
 
-      {/* 2B. Farmland Irrigation Stream Bed & Flowing Water */}
+      {/* 2B. Farmland Irrigation Stream Bed & Dynamic Flowing Stream */}
       <mesh geometry={farmStreamBedGeo} frustumCulled={false}>
-        <meshStandardMaterial color="#786b59" roughness={0.95} polygonOffset polygonOffsetFactor={-1} />
+        <meshStandardMaterial color="#6e5d4b" roughness={0.95} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
-      <mesh geometry={farmStreamGeo} frustumCulled={false}>
-        <shaderMaterial side={THREE.DoubleSide} transparent depthWrite={true} polygonOffset polygonOffsetFactor={-4} uniforms={globalUniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
-      </mesh>
+      <mesh geometry={farmStreamGeo} material={riverShaderMat} frustumCulled={false} />
 
-      {/* 2C. SINGLE MERGED DRAW CALL FOR ALL LOTUS FLOWERS, LILY PADS, RIVER BOULDERS & CATTAILS (60 FPS!) */}
-      <mesh geometry={mergedLotusAndFloraGeo} material={mergedVertexColorMat} frustumCulled={false} />
+      {/* 2C. Gentle Wave-Bobbing Lotus Flowers & Lily Pads */}
+      <mesh ref={lotusGroupRef} geometry={mergedLotusGeo} material={mergedVertexColorMat} frustumCulled={false} />
 
-      {/* 2D. SINGLE MERGED DRAW CALL FOR ALL FARMLAND FURROWS, WHEAT, PUMPKINS & CABBAGES (60 FPS!) */}
+      {/* 2D. Ground-Embedded Riverbank Boulders, Cattails & Ferns (Zero Floating!) */}
+      <mesh geometry={mergedBankFloraGeo} material={mergedVertexColorMat} frustumCulled={false} />
+
+      {/* 2E. Ground-Conforming Farmland Plots */}
       <mesh geometry={mergedBridgeAndFarmGeo} material={mergedVertexColorMat} receiveShadow frustumCulled={false} />
 
       {/* 3. Arched Medieval Timber Bridge Centered Over River at Z=0 */}
@@ -662,17 +748,14 @@ export default function Water() {
       </group>
 
       {/* 4. NATURAL GRANITE MOUNTAIN GORGE & WATERFALL */}
-      <group name="grand-waterfall-sanctuary" position={[wfX, 7.55, wfZ]}>
+      <group name="grand-waterfall-sanctuary" position={[wfX, WATER_LEVEL, wfZ]}>
         <mesh geometry={canyonCliffGeo} material={cliffRockMat} receiveShadow />
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 17.3, 18]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 17.3, 18]} material={riverShaderMat}>
           <planeGeometry args={[12.5, 16.0]} />
-          <shaderMaterial side={THREE.DoubleSide} transparent uniforms={globalUniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
         </mesh>
-        <mesh geometry={curvedWaterfallGeo} frustumCulled={false}>
-          <shaderMaterial transparent depthWrite={false} side={THREE.DoubleSide} uniforms={globalUniforms} vertexShader={waterfallVertexShader} fragmentShader={waterfallFragmentShader} />
-        </mesh>
+        <mesh geometry={curvedWaterfallGeo} material={waterfallShaderMat} frustumCulled={false} />
         {[3.8, 7.2, 10.8].map((rad, rIdx) => (
-          <mesh key={"wf_foam_" + rIdx} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 6.2]}>
+          <mesh key={"wf_foam_" + rIdx} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.08, 6.2]}>
             <ringGeometry args={[rad, rad + 0.9, 24]} />
             <meshBasicMaterial color="#ffffff" transparent opacity={0.75 - rIdx * 0.20} side={THREE.DoubleSide} />
           </mesh>
@@ -680,7 +763,7 @@ export default function Water() {
       </group>
 
       {/* 5. RIVERBANK A-FRAME WATERWHEEL + FOOTBRIDGE + BARN */}
-      <group name="river-watermill-farmland" position={[rX95, 6.85, 95]}>
+      <group name="river-watermill-farmland" position={[rX95, 6.65, 95]}>
         <group position={[-13.2, 0.15, 0]}>
           {[-1.45, 1.45].map((sz, sIdx) => (
             <group key={"af_" + sIdx} position={[0, 0, sz]}>
@@ -721,15 +804,13 @@ export default function Water() {
           </group>
         </group>
 
-        {/* Footbridge Across Irrigation Stream */}
-        <group position={[212 - rX95, 1.25, 0.2]}>
+        <group position={[212 - rX95, 1.45, 0.2]}>
           <mesh receiveShadow><boxGeometry args={[4.2, 0.25, 9.8]} /><meshStandardMaterial color="#8c5228" roughness={0.8} /></mesh>
           <mesh position={[-1.9, 0.6, 0]}><boxGeometry args={[0.22, 1.1, 9.8]} /><meshStandardMaterial color="#5c3618" /></mesh>
           <mesh position={[1.9, 0.6, 0]}><boxGeometry args={[0.22, 1.1, 9.8]} /><meshStandardMaterial color="#5c3618" /></mesh>
         </group>
 
-        {/* Granary Barn */}
-        <group position={[-42, getTerrainHeight(rX95 - 42, 78) - 6.85, -25]}>
+        <group position={[-42, getTerrainHeight(rX95 - 42, 78) - 6.65, -25]}>
           <mesh position={[0, 0.3, 0]}><boxGeometry args={[9.2, 0.6, 7.2]} /><meshStandardMaterial color="#64748b" roughness={0.9} /></mesh>
           <mesh castShadow receiveShadow position={[0, 2.3, 0]}><boxGeometry args={[8.6, 3.6, 6.6]} /><meshStandardMaterial color="#9a3412" roughness={0.82} /></mesh>
           <mesh position={[0, 5.2, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[6.8, 3.0, 4]} /><meshStandardMaterial color="#78350f" roughness={0.85} /></mesh>
