@@ -56,13 +56,14 @@ export function getRiverDistance(x: number, z: number): number {
   const wfLagoonDist = distToSegment(x, z, 238, 165, 238, 232) * 0.72;
   const wfPoolBowl = Math.max(0, Math.hypot(x - 238, z - 224) - 8.5);
   const waterfallPoolDist = Math.min(wfLagoonDist, wfPoolBowl);
-  // Natural Winding Agricultural Irrigation Stream branching from the Riverbank Waterwheel (X=244, Z=95) through the Farmland (X=174, Z=95)
+  // Natural Winding Agricultural Irrigation Stream branching from the Riverbank Waterwheel (X=246, Z=95) through the Farmland (X=168, Z=95)
   let farmStreamDist = 9999;
-  if (x >= 170 && x <= 252 && Math.abs(z - 95) <= 18) {
-    const streamCurveZ = 95.0 + Math.sin((246.0 - x) * 0.085) * 2.6;
-    const dx = x < 174 ? 174 - x : x > 246 ? x - 246 : 0;
+  if (x >= 165 && x <= 254 && Math.abs(z - 95) <= 22) {
+    const streamCurveZ = 95.0 + Math.sin((246.0 - x) * 0.075) * 2.4;
+    const dx = x < 172 ? 172 - x : x > 248 ? x - 248 : 0;
     const dz = Math.abs(z - streamCurveZ);
-    farmStreamDist = Math.hypot(dx, dz) * 2.35;
+    // Wide enough (1.15 multiplier) so 10m terrain grid vertices carve cleanly down to Y=6.45m!
+    farmStreamDist = Math.hypot(dx, dz) * 1.15;
   }
   if (z < -240 || z > 220) return 999;
   return Math.abs(x - getRiverCenterX(z));
@@ -148,8 +149,18 @@ export function getTerrainHeight(x: number, z: number): number {
     const rMask = rDist < 11.5 ? 1.0 : 1.0 - smoothstep(11.5, 22.0, rDist);
     height = height * (1.0 - rMask) + 6.95 * rMask;
   }
-
-  return height;
+  // __carveAgriCanalHeight: Explicitly carve the farmland irrigation stream bed (X=168..250, Z≈95) down to Y=6.35m
+  let _finalH = height;
+  if (x >= 166 && x <= 252 && Math.abs(z - 95) <= 14.5) {
+    const _cZ = 95.0 + Math.sin((246.0 - x) * 0.075) * 2.4;
+    const _dStream = Math.hypot(x < 172 ? 172 - x : x > 248 ? x - 248 : 0, z - _cZ);
+    if (_dStream < 9.5) {
+      const _tCanal = Math.max(0, Math.min(1, (_dStream - 3.2) / 6.3));
+      const _sCanal = _tCanal * _tCanal * (3 - 2 * _tCanal);
+      _finalH = Math.min(_finalH, 6.35 * (1 - _sCanal) + _finalH * _sCanal);
+    }
+  }
+  return _finalH;
 }
 
 export function getExactMeshTerrainHeight(x: number, z: number): number {

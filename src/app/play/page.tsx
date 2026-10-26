@@ -50,6 +50,25 @@ const TIME_PRESETS = [
 
 export default function PlayPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [playerName, setPlayerName] = useState("Ekazaki");
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [nameDraft, setNameDraft] = useState("Ekazaki");
+
+  useEffect(() => {
+    const saved = localStorage.getItem("wayfarer_player_name");
+    if (saved && saved.trim()) {
+      setPlayerName(saved.trim());
+      setNameDraft(saved.trim());
+    }
+  }, []);
+
+  const savePlayerName = useCallback(() => {
+    const clean = nameDraft.trim() || "Ekazaki";
+    setPlayerName(clean);
+    setNameDraft(clean);
+    setIsEditingName(false);
+    localStorage.setItem("wayfarer_player_name", clean);
+  }, [nameDraft]);
   const [mapOpen, setMapOpen] = useState(false);
   const [journalOpen, setJournalOpen] = useState(false);
   const [photoMode, setPhotoMode] = useState(false);
@@ -323,6 +342,30 @@ export default function PlayPage() {
                 </button>
               </div>
 
+              {/* Kolom Ubah Nama Karakter di dalam Sidebar */}
+              <div className="rounded-xl border border-[#fbbf24]/30 bg-black/35 p-3" onKeyDown={(e) => e.stopPropagation()}>
+                <label className="mb-1.5 block text-[10px] font-black tracking-wider text-[#fbbf24] uppercase">
+                  ✏️ Ubah Nama Petualang:
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={nameDraft}
+                    maxLength={16}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') savePlayerName(); }}
+                    placeholder="Masukkan nama..."
+                    className="flex-1 rounded-lg border border-[#fbbf24]/50 bg-[#1a0901] px-2.5 py-1.5 text-xs font-bold text-[#fef08a] outline-none focus:border-[#fde047]"
+                  />
+                  <button
+                    onClick={savePlayerName}
+                    className="rounded-lg border border-amber-400/60 bg-gradient-to-b from-[#d97706] to-[#92400e] px-3 py-1.5 text-xs font-black text-white shadow hover:brightness-110"
+                  >
+                    Simpan
+                  </button>
+                </div>
+              </div>
+
               {/* Daftar Kartu Teleport Lokasi Cepat (Termasuk Pertanian & Air Terjun!) */}
               <div>
                 <h3 className="mb-2.5 flex items-center gap-1.5 text-[11px] font-black tracking-wider text-[#fbbf24] uppercase">
@@ -415,7 +458,7 @@ export default function PlayPage() {
         <div className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center bg-black/55 p-6 backdrop-blur-[1px]">
           <div className="relative w-full max-w-2xl rounded-3xl border-2 border-[#fbbf24]/60 bg-[#1e1b2e]/95 p-6 text-[#fef3c7] shadow-2xl">
             <div className="mb-3 inline-block rounded-xl border border-[#fbbf24]/50 bg-gradient-to-b from-[#fb923c] to-[#c2410c] px-4 py-1 text-xs font-black text-white">
-              📜 Jurnal Petualangan Ekazaki
+              📜 Jurnal Petualangan {playerName}
             </div>
             <ul className="space-y-2 text-xs leading-relaxed text-slate-200">
               <li>• Kunjungi <b>🌾 Wilayah Pertanian & Kincir Air</b> di tepi aliran cabang sungai (X: 205m, Z: 85m).</li>
