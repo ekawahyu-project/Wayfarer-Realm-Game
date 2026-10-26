@@ -8,13 +8,59 @@ import { getRiverCenterX, getTerrainHeight, noise2D } from "@/utils/noise";
 import { getWorldTextures } from "@/utils/proceduralTextures";
 import { addBoxCollider, addCylinderCollider, clearCollidersByTag } from "@/game/systems/Physics";
 
-function createNaturalCliffRockTexture(): THREE.CanvasTexture {
+// Ultra-Fast Geometry Batch Merger: Combines hundreds of static meshes into a SINGLE draw call!
+interface BatchItem {
+  geo: THREE.BufferGeometry;
+  matrix: THREE.Matrix4;
+  color: THREE.Color;
+}
+
+function mergeColoredGeos(items: BatchItem[]): THREE.BufferGeometry {
+  let totalVerts = 0;
+  const prepared = items.map((item) => {
+    const g = item.geo.index ? item.geo.toNonIndexed() : item.geo.clone();
+    g.applyMatrix4(item.matrix);
+    totalVerts += g.attributes.position.count;
+    return { g, col: item.color };
+  });
+
+  const positions = new Float32Array(totalVerts * 3);
+  const normals = new Float32Array(totalVerts * 3);
+  const colors = new Float32Array(totalVerts * 3);
+  let offset = 0;
+
+  for (let k = 0; k < prepared.length; k++) {
+    const { g, col } = prepared[k];
+    const pos = g.attributes.position;
+    const norm = g.attributes.normal;
+    positions.set(pos.array as Float32Array, offset * 3);
+    if (norm) normals.set(norm.array as Float32Array, offset * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const cIdx = (offset + i) * 3;
+      colors[cIdx] = col.r;
+      colors[cIdx + 1] = col.g;
+      colors[cIdx + 2] = col.b;
+    }
+    offset += pos.count;
+    g.dispose();
+  }
+
+  const merged = new THREE.BufferGeometry();
+  merged.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  merged.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+  merged.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  return merged;
+}
+
+let cachedNaturalCliffTex: THREE.CanvasTexture | null = null;
+function getNaturalCliffRockTexture(): THREE.CanvasTexture {
+  if (cachedNaturalCliffTex) return cachedNaturalCliffTex;
   const canvas = document.createElement("canvas");
-  canvas.width = 512;
-  canvas.height = 512;
+  canvas.width = 256;
+  canvas.height = 256;
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "#5c6460";
-  ctx.fillRect(0, 0, 512, 512);
+  ctx.fillRect(0, 0, 256, 256);
 
   let seed = 918273;
   const rand = () => {
@@ -22,18 +68,18 @@ function createNaturalCliffRockTexture(): THREE.CanvasTexture {
     return seed / 4294967296;
   };
 
-  for (let i = 0; i < 420; i++) {
-    const cx = rand() * 512;
-    const cy = rand() * 512;
-    const rx = 18 + rand() * 55;
-    const ry = 8 + rand() * 24;
+  for (let i = 0; i < 220; i++) {
+    const cx = rand() * 256;
+    const cy = rand() * 256;
+    const rx = 10 + rand() * 32;
+    const ry = 5 + rand() * 14;
     const shade = Math.floor(62 + rand() * 68);
     const greenTint = rand() > 0.72 ? 12 : 0;
-    ctx.fillStyle = `rgba(${shade - greenTint}, ${shade + greenTint}, ${shade - 4}, 0.35)`;
+    ctx.fillStyle = `rgba(${shade - greenTint}, ${shade + greenTint}, ${shade - 4}, 0.36)`;
     ctx.beginPath();
-    for (let a = 0; a < 7; a++) {
-      const ang = (a / 7) * Math.PI * 2;
-      const jitter = 0.7 + rand() * 0.5;
+    for (let a = 0; a < 6; a++) {
+      const ang = (a / 6) * Math.PI * 2;
+      const jitter = 0.75 + rand() * 0.45;
       const px = cx + Math.cos(ang) * rx * jitter;
       const py = cy + Math.sin(ang) * ry * jitter;
       if (a === 0) ctx.moveTo(px, py);
@@ -43,16 +89,16 @@ function createNaturalCliffRockTexture(): THREE.CanvasTexture {
     ctx.fill();
   }
 
-  ctx.lineWidth = 2.2;
-  for (let i = 0; i < 95; i++) {
-    let x = rand() * 512;
-    let y = rand() * 512;
+  ctx.lineWidth = 1.6;
+  for (let i = 0; i < 55; i++) {
+    let x = rand() * 256;
+    let y = rand() * 256;
     ctx.strokeStyle = rand() > 0.3 ? "rgba(28, 33, 30, 0.55)" : "rgba(45, 85, 38, 0.45)";
     ctx.beginPath();
     ctx.moveTo(x, y);
-    for (let s = 0; s < 6; s++) {
-      x += (rand() - 0.35) * 38;
-      y += (rand() - 0.5) * 18;
+    for (let s = 0; s < 5; s++) {
+      x += (rand() - 0.35) * 24;
+      y += (rand() - 0.5) * 12;
       ctx.lineTo(x, y);
     }
     ctx.stroke();
@@ -62,6 +108,7 @@ function createNaturalCliffRockTexture(): THREE.CanvasTexture {
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(6, 4);
   tex.needsUpdate = true;
+  cachedNaturalCliffTex = tex;
   return tex;
 }
 
@@ -109,7 +156,6 @@ const oceanFragmentShader = [
   "}"
 ].join("\n");
 
-// Upgraded Crystal-Clear Pixar River Shader with Caustics, Shoreline Foam, Depth Gradient & Sun Sparkles!
 const riverVertexShader = [
   "uniform float uTime;",
   "varying vec3 vWorldPos;",
@@ -117,7 +163,7 @@ const riverVertexShader = [
   "void main() {",
   "  vUv = uv;",
   "  vec4 wp = modelMatrix * vec4(position, 1.0);",
-  "  wp.y += sin(wp.z * 0.18 + wp.x * 0.14 + uTime * 2.6) * 0.032;",
+  "  wp.y += sin(wp.z * 0.18 + wp.x * 0.14 + uTime * 2.6) * 0.028;",
   "  vWorldPos = wp.xyz;",
   "  gl_Position = projectionMatrix * viewMatrix * wp;",
   "}"
@@ -137,36 +183,26 @@ const riverFragmentShader = [
   "}",
   "void main() {",
   "  vec3 viewDir = normalize(cameraPosition - vWorldPos);",
-  "  // Multi-layered flowing water ripples & underwater caustics",
   "  vec2 flow1 = vWorldPos.xz * 0.15 + vec2(uTime * 0.18, uTime * 0.65);",
-  "  vec2 flow2 = vWorldPos.xz * 0.32 - vec2(uTime * 0.25, -uTime * 0.45);",
+  "  vec2 flow2 = vWorldPos.xz * 0.30 - vec2(uTime * 0.22, -uTime * 0.45);",
   "  float n1 = noiseR(flow1);",
   "  float n2 = noiseR(flow2);",
   "  float n = n1 * 0.6 + n2 * 0.4;",
-  "  float causticNet = smoothstep(0.62, 0.88, n1 * n2 * 2.2);",
-  "  vec3 norm = normalize(vec3((n - 0.5) * 0.45, 1.0, (noiseR(flow1 + 4.2) - 0.5) * 0.45));",
-
-  "  // Edge-to-center depth profile (vUv.x: 0 and 1 are riverbanks, 0.5 is deep center channel)",
+  "  float causticNet = smoothstep(0.60, 0.88, n1 * n2 * 2.2);",
+  "  vec3 norm = normalize(vec3((n - 0.5) * 0.42, 1.0, (noiseR(flow1 + 4.2) - 0.5) * 0.42));",
   "  float bankDist = 1.0 - abs(vUv.x - 0.5) * 2.0;",
   "  float centerDepth = smoothstep(0.0, 0.55, bankDist);",
   "  vec3 shallowTeal = mix(vec3(0.16, 0.76, 0.74), vec3(0.05, 0.26, 0.32), uNightFactor);",
   "  vec3 deepCerulean = mix(vec3(0.03, 0.44, 0.68), vec3(0.02, 0.14, 0.28), uNightFactor);",
   "  vec3 waterCol = mix(shallowTeal, deepCerulean, centerDepth);",
-
-  "  // Add bright turquoise caustics & current streaks",
-  "  float currentStreak = smoothstep(0.66, 0.86, noiseR(vec2(vUv.x * 12.0, vUv.y * 2.5 + uTime * 0.9))) * 0.26;",
-  "  waterCol += vec3(0.55, 0.95, 1.0) * (causticNet * 0.35 + currentStreak) * (1.0 - uNightFactor * 0.5);",
-
-  "  // Soft white shoreline foam along both riverbanks",
+  "  waterCol += vec3(0.55, 0.95, 1.0) * (causticNet * 0.38) * (1.0 - uNightFactor * 0.5);",
   "  float bankFoamMask = (1.0 - smoothstep(0.0, 0.16, bankDist)) * smoothstep(0.35, 0.75, n2);",
   "  waterCol = mix(waterCol, vec3(0.94, 0.98, 1.0), bankFoamMask * 0.65 * (1.0 - uNightFactor * 0.4));",
-
-  "  // Crisp Sun Specular Highlights",
   "  vec3 halfVec = normalize(normalize(uSunDir) + viewDir);",
-  "  float spec = pow(max(dot(norm, halfVec), 0.0), 120.0) * 1.6 + pow(max(dot(norm, halfVec), 0.0), 24.0) * 0.45;",
+  "  float spec = pow(max(dot(norm, halfVec), 0.0), 120.0) * 1.5 + pow(max(dot(norm, halfVec), 0.0), 24.0) * 0.42;",
   "  waterCol += uSunColor * spec * (1.0 - uNightFactor * 0.5);",
   "  float edgeAlpha = smoothstep(0.0, 0.06, bankDist);",
-  "  gl_FragColor = vec4(waterCol, mix(0.75, 0.94, edgeAlpha));",
+  "  gl_FragColor = vec4(waterCol, mix(0.76, 0.94, edgeAlpha));",
   "}"
 ].join("\n");
 
@@ -213,62 +249,26 @@ export default function Water() {
   const wfZ = 224;
 
   const cliffRockMat = useMemo(() => {
-    const naturalTex = createNaturalCliffRockTexture();
+    const naturalTex = getNaturalCliffRockTexture();
     return new THREE.MeshStandardMaterial({
       map: naturalTex,
       bumpMap: naturalTex,
-      bumpScale: 0.45,
+      bumpScale: 0.42,
       vertexColors: true,
       roughness: 0.92,
       metalness: 0.03,
     });
   }, []);
 
-  const riverBoulderMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#64748b", roughness: 0.86 }),
+  const mergedVertexColorMat = useMemo(
+    () => new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0.04, side: THREE.DoubleSide }),
     []
-  );
-  const mossyRockMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#4d7c3f", roughness: 0.88 }),
-    []
-  );
-  const lilyPadMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#3f9e2f", emissive: "#166534", emissiveIntensity: 0.16, roughness: 0.65, side: THREE.DoubleSide }),
-    []
-  );
-  const lotusPinkMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#f472b6", emissive: "#ec4899", emissiveIntensity: 0.38, roughness: 0.35 }),
-    []
-  );
-  const lotusWhiteMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#fff1f2", emissive: "#fda4af", emissiveIntensity: 0.32, roughness: 0.35 }),
-    []
-  );
-  const lotusGoldMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#facc15", emissive: "#eab308", emissiveIntensity: 0.65, roughness: 0.3 }),
-    []
-  );
-  const reedStemMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#4d8c2b", emissive: "#15803d", emissiveIntensity: 0.12, roughness: 0.78 }),
-    []
-  );
-  const cattailHeadMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: "#5c2d16", roughness: 0.88 }),
-    []
-  );
-  const foliageMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ map: textures.leafFoliage, color: "#4d9e34", emissive: "#166534", emissiveIntensity: 0.15, roughness: 0.8 }),
-    [textures]
-  );
-  const trunkMat = useMemo(
-    () => new THREE.MeshStandardMaterial({ map: textures.oakBark, color: "#6e4726", roughness: 0.88 }),
-    [textures]
   );
 
-  const { riverGeo, farmStreamGeo, farmStreamBedGeo, canyonCliffGeo, curvedWaterfallGeo, lotusClusters, bankFloraAndRocks } = useMemo(() => {
-    // 1. Main River Ribbon
-    const lengthSteps = 160;
-    const widthSteps = 8;
+  const { riverGeo, farmStreamGeo, farmStreamBedGeo, canyonCliffGeo, curvedWaterfallGeo, mergedLotusAndFloraGeo, mergedBridgeAndFarmGeo } = useMemo(() => {
+    // 1. Main River Ribbon (Optimized 96 steps)
+    const lengthSteps = 96;
+    const widthSteps = 6;
     const zStart = -240;
     const zEnd = 238;
     const verts: number[] = [];
@@ -303,9 +303,9 @@ export default function Water() {
     rGeo.setIndex(indices);
     rGeo.computeVertexNormals();
 
-    // 2. Winding Farmland Irrigation Stream Water + Sandy/Pebble Stream Bed (Guaranteed visible along the red path in edited-image.jpg!)
-    const fsSteps = 56;
-    const fsWidthSteps = 6;
+    // 2. Winding Farmland Irrigation Stream Water + Stream Bed
+    const fsSteps = 36;
+    const fsWidthSteps = 4;
     const fsVerts: number[] = [];
     const fsBedVerts: number[] = [];
     const fsUvs: number[] = [];
@@ -318,7 +318,6 @@ export default function Water() {
       const centerZ = 95.0 + Math.sin((246.0 - x) * 0.075) * 2.4;
       const halfW = 4.2 * (1.0 - t * 0.18);
       const bedHalfW = halfW + 1.8;
-      // Ensure water height sits cleanly at 7.65m (or slightly above local ground if ground vertex is between grid cells)
       const waterY = Math.max(7.64, getTerrainHeight(x, centerZ) + 0.35);
       for (let j = 0; j <= fsWidthSteps; j++) {
         const u = j / fsWidthSteps;
@@ -349,13 +348,12 @@ export default function Water() {
     fsBedGeo.computeVertexNormals();
 
     // 3. Natural Craggy Mountain Gorge
-    const segU = 68;
-    const segV = 32;
+    const segU = 54;
+    const segV = 24;
     const cVerts: number[] = [];
     const cUvs: number[] = [];
     const cCols: number[] = [];
     const cIndices: number[] = [];
-
     const colWetGranite = new THREE.Color("#6e7872");
     const colCragStone = new THREE.Color("#9aa39c");
     const colMossLedge = new THREE.Color("#4a8f2e");
@@ -369,7 +367,6 @@ export default function Water() {
         const horseshoeZ = 10.0 - Math.pow(Math.abs(u), 1.35) * 24.0;
         const isCenterNotch = Math.exp(-(u * u) / 0.038);
         const maxPeakH = (28.0 + Math.sin(u * 8.0) * 5.0 + Math.cos(u * 4.0) * 4.5) * (1.0 - isCenterNotch * 0.38);
-
         let localY = 0;
         let depthOffsetZ = 0;
         if (v < 0.62) {
@@ -385,17 +382,14 @@ export default function Water() {
           localY = maxPeakH * (1.0 - tBack);
           depthOffsetZ = 18.5 + tBack * 24.0;
         }
-
         const nLarge = noise2D(spreadX * 0.09, localY * 0.14 + u * 2.5) * 2.5;
         const nCrag = noise2D(spreadX * 0.26, localY * 0.38) * 1.1;
         const edgeTaper = 1.0 - Math.pow(Math.abs(u), 3.8) * 0.78;
         const finalX = spreadX + nLarge * 0.55;
         const finalY = Math.max(-1.8, localY * edgeTaper - 1.2);
         const finalZ = horseshoeZ + depthOffsetZ + (nLarge + nCrag) * (v < 0.78 ? 0.95 : 0.25);
-
         cVerts.push(finalX, finalY, finalZ);
         cUvs.push(iu / segU, iv / segV);
-
         const mossMask = (v > 0.58 && v < 0.86 && Math.abs(u) > 0.13) || (nLarge > 1.1 && Math.abs(u) > 0.2) ? 0.78 : 0.0;
         tmpCol.copy(colCragStone).lerp(colWetGranite, isCenterNotch * 0.6);
         tmpCol.lerp(colMossLedge, mossMask);
@@ -417,8 +411,8 @@ export default function Water() {
     cGeo.computeVertexNormals();
 
     // 4. Curved Waterfall Sheet
-    const wfW = 24;
-    const wfH = 32;
+    const wfW = 18;
+    const wfH = 24;
     const wfVerts: number[] = [];
     const wfUvs: number[] = [];
     const wfIdx: number[] = [];
@@ -448,63 +442,146 @@ export default function Water() {
     wfGeo.setIndex(wfIdx);
     wfGeo.computeVertexNormals();
 
-    // 5. Lush Blooming Lotus Clusters (Bunga Teratai Mekar) Across the River & Lagoon!
-    const lotuses: Array<{ x: number; y: number; z: number; scale: number; rot: number; isPink: boolean }> = [];
-    for (let z = -150; z <= 212; z += 11) {
-      if (Math.abs(z) < 7) continue; // Keep clear under main bridge
+    // 5. MERGED BATCH #1: All Blooming Lotus Clusters + Riverbank Boulders + Cattails + Ferns -> 1 SINGLE DRAW CALL!
+    const floraBatch: BatchItem[] = [];
+    const padGeo = new THREE.CylinderGeometry(0.9, 0.9, 0.03, 10);
+    const smallPadGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.03, 8);
+    const lotusCrownGeo = new THREE.ConeGeometry(0.38, 0.32, 7);
+    const lotusInnerGeo = new THREE.ConeGeometry(0.24, 0.38, 6);
+    const boulderGeo = new THREE.DodecahedronGeometry(1.0, 1);
+    const reedGeo = new THREE.CylinderGeometry(0.04, 0.06, 2.0, 5);
+    const cattailTopGeo = new THREE.CylinderGeometry(0.08, 0.08, 0.42, 6);
+
+    const cPad = new THREE.Color("#3f9e2f");
+    const cPink = new THREE.Color("#f472b6");
+    const cWhite = new THREE.Color("#fff1f2");
+    const cGold = new THREE.Color("#facc15");
+    const cRock = new THREE.Color("#64748b");
+    const cMossRock = new THREE.Color("#4d7c3f");
+    const cReed = new THREE.Color("#4d8c2b");
+    const cCattail = new THREE.Color("#5c2d16");
+
+    const m4 = new THREE.Matrix4();
+    const posV = new THREE.Vector3();
+    const quat = new THREE.Quaternion();
+    const scl = new THREE.Vector3();
+    const eul = new THREE.Euler();
+    const pushItem = (arr: BatchItem[], geo: THREE.BufferGeometry, px: number, py: number, pz: number, rx: number, ry: number, rz: number, sx: number, sy: number, sz: number, col: THREE.Color) => {
+      eul.set(rx, ry, rz);
+      quat.setFromEuler(eul);
+      posV.set(px, py, pz);
+      scl.set(sx, sy, sz);
+      m4.compose(posV, quat, scl);
+      arr.push({ geo, matrix: m4.clone(), color: col });
+    };
+
+    for (let z = -150; z <= 212; z += 12) {
+      if (Math.abs(z) < 7) continue;
       const rawCx = getRiverCenterX(Math.min(165, z));
       const blend = Math.max(0, Math.min(1, (z - 160) / 55));
       const cx = rawCx * (1 - blend) + wfX * blend;
-      const side = (Math.floor(z / 11) % 2 === 0 ? -1 : 1);
-      const offsetA = side * (5.5 + (Math.abs(z * 17) % 5));
-      const offsetB = -side * (7.2 + (Math.abs(z * 23) % 4));
-      lotuses.push({ x: cx + offsetA, y: 7.67, z, scale: 1.15 + (Math.abs(z) % 3) * 0.2, rot: z * 0.4, isPink: true });
-      lotuses.push({ x: cx + offsetB, y: 7.67, z: z + 4.5, scale: 1.05 + (Math.abs(z + 2) % 3) * 0.18, rot: z * 0.7, isPink: z % 22 === 0 });
+      const side = Math.floor(z / 12) % 2 === 0 ? -1 : 1;
+      [side * (5.5 + (Math.abs(z * 17) % 5)), -side * (7.2 + (Math.abs(z * 23) % 4))].forEach((off, oIdx) => {
+        const lx = cx + off;
+        const lz = z + oIdx * 4.5;
+        const s = 1.15;
+        pushItem(floraBatch, padGeo, lx, 7.66, lz, 0, z * 0.4, 0, s, 1, s, cPad);
+        pushItem(floraBatch, smallPadGeo, lx + 0.75 * s, 7.65, lz + 0.4 * s, 0, 0, 0, s, 1, s, cPad);
+        pushItem(floraBatch, lotusCrownGeo, lx, 7.80, lz, Math.PI, z * 0.5, 0, s, s, s, oIdx === 0 ? cPink : cWhite);
+        pushItem(floraBatch, lotusInnerGeo, lx, 7.84, lz, 0, z * 0.8, 0, s, s, s, cGold);
+      });
     }
 
-    // 6. Natural Riverbank Ecosystem: Boulders, Mossy Rocks, Cattails (Bulrushes), Tall Reeds & Ferns on Both Riverbanks!
-    const bankItems: Array<{ x: number; y: number; z: number; scale: number; rot: number; kind: 'boulder' | 'cattail' | 'fern_bush' }> = [];
-    for (let z = -175; z <= 205; z += 9) {
-      if (Math.abs(z) < 6.5) continue; // Keep bridge approaches clear
+    for (let z = -175; z <= 205; z += 10) {
+      if (Math.abs(z) < 6.5) continue;
       const rawCx = getRiverCenterX(Math.min(165, z));
       const blend = Math.max(0, Math.min(1, (z - 160) / 55));
       const cx = rawCx * (1 - blend) + wfX * blend;
       const poolExtra = z > 195 ? Math.sin(Math.min(1, (z - 195) / 40) * Math.PI) * 10.5 : 0;
       const halfW = 14.2 + poolExtra;
-
-      // Left (West) Bank & Right (East) Bank
       [-1, 1].forEach((dir, dIdx) => {
-        // Skip right at the waterwheel / canal mouth (z = 89..101 on West bank)
         if (dir === -1 && z >= 88 && z <= 102) return;
-        const bx = cx + dir * (halfW + ((Math.abs(z * 13 + dIdx * 7) % 10) * 0.18 - 0.6));
+        const bx = cx + dir * (halfW + ((Math.abs(z * 13 + dIdx * 7) % 10) * 0.16 - 0.5));
         const bz = z + (dIdx === 0 ? -1.5 : 1.5);
         const by = Math.max(7.55, getTerrainHeight(bx, bz));
-        const selector = Math.abs(Math.floor(z / 9) + dIdx * 3) % 3;
-        const kind = selector === 0 ? 'cattail' : selector === 1 ? 'boulder' : 'fern_bush';
-        bankItems.push({
-          x: bx,
-          y: by,
-          z: bz,
-          scale: 0.9 + ((Math.abs(z * 7 + dIdx) % 5) * 0.12),
-          rot: (z * 0.37) + dIdx * 1.5,
-          kind,
-        });
+        const kind = Math.abs(Math.floor(z / 10) + dIdx * 3) % 3;
+        if (kind === 0) {
+          pushItem(floraBatch, boulderGeo, bx, by + 0.25, bz, 0, z * 0.3, 0, 1.35, 0.72, 1.1, cRock);
+          pushItem(floraBatch, boulderGeo, bx + 0.8, by + 0.15, bz + 0.4, 0, z, 0, 0.85, 0.55, 0.8, cMossRock);
+        } else {
+          pushItem(floraBatch, reedGeo, bx, by + 1.0, bz, 0.06, 0, 0.05, 1, 1, 1, cReed);
+          pushItem(floraBatch, cattailTopGeo, bx, by + 1.75, bz, 0.06, 0, 0.05, 1, 1, 1, cCattail);
+          pushItem(floraBatch, reedGeo, bx + 0.35, by + 0.85, bz + 0.25, -0.08, 0, 0.06, 0.9, 0.85, 0.9, cReed);
+          pushItem(floraBatch, cattailTopGeo, bx + 0.35, by + 1.5, bz + 0.25, -0.08, 0, 0.06, 0.9, 0.85, 0.9, cCattail);
+          pushItem(floraBatch, boulderGeo, bx - 0.3, by + 0.35, bz, 0, 0, 0, 0.95, 0.65, 0.95, cReed);
+        }
       });
     }
 
-    // Also line the Farmland Irrigation Stream banks with natural rocks, cattails & ferns!
-    for (let x = 175; x <= rX95 - 16; x += 7.5) {
-      if (x >= 208 && x <= 216) continue; // Keep footbridge clear
+    // Stream bank rocks & cattails along Farmland Irrigation Stream
+    for (let x = 175; x <= rX95 - 16; x += 8.5) {
+      if (x >= 208 && x <= 216) continue;
       const cZ = 95.0 + Math.sin((246.0 - x) * 0.075) * 2.4;
       [-1, 1].forEach((dir, dIdx) => {
         const bz = cZ + dir * 3.8;
         const by = Math.max(7.60, getTerrainHeight(x, bz));
-        const kind = (Math.floor(x) + dIdx) % 2 === 0 ? 'boulder' : 'cattail';
-        bankItems.push({ x, y: by, z: bz, scale: 0.78, rot: x * 0.5, kind });
+        pushItem(floraBatch, boulderGeo, x, by + 0.2, bz, 0, x * 0.4, 0, 0.95, 0.55, 0.85, cRock);
+        if ((Math.floor(x) + dIdx) % 2 === 0) {
+          pushItem(floraBatch, reedGeo, x + 0.4, by + 0.85, bz, 0.05, 0, 0, 0.85, 0.85, 0.85, cReed);
+          pushItem(floraBatch, cattailTopGeo, x + 0.4, by + 1.5, bz, 0.05, 0, 0, 0.85, 0.85, 0.85, cCattail);
+        }
       });
     }
 
-    return { riverGeo: rGeo, farmStreamGeo: fsGeo, farmStreamBedGeo: fsBedGeo, canyonCliffGeo: cGeo, curvedWaterfallGeo: wfGeo, lotusClusters: lotuses, bankFloraAndRocks: bankItems };
+    const mLotusFlora = mergeColoredGeos(floraBatch);
+
+    // 6. MERGED BATCH #2: All Static Farmland Furrows, Wheat Sheaves, Pumpkins, Cabbages, Barn & Bridges -> 1 SINGLE DRAW CALL!
+    const farmBatch: BatchItem[] = [];
+    const furrowGeo = new THREE.CylinderGeometry(0.95, 1.15, 6.8, 7);
+    const stalkGeo = new THREE.CylinderGeometry(0.32, 0.14, 0.9, 5);
+    const wheatTopGeo = new THREE.DodecahedronGeometry(0.28, 0);
+    const pumpkinGeo = new THREE.DodecahedronGeometry(0.40, 1);
+
+    const cSoil = new THREE.Color("#4a2e16");
+    const cStalk = new THREE.Color("#eab308");
+    const cWheat = new THREE.Color("#facc15");
+    const cPumpkin = new THREE.Color("#ea580c");
+
+    const farmOriginX = rX95 - 42;
+    const farmOriginY = getTerrainHeight(rX95 - 42, 78);
+    const farmOriginZ = 95;
+
+    [-13, -22, 13, 22].forEach((fz, fIdx) => {
+      [-12, -7, -2, 3, 8, 13].forEach((rx, rIdx) => {
+        const wx = farmOriginX + rx;
+        const wz = farmOriginZ + fz;
+        pushItem(farmBatch, furrowGeo, wx, farmOriginY + 0.08, wz, Math.PI / 2, 0, 0, 1.1, 1.0, 0.32, cSoil);
+        [-2.2, -0.7, 0.7, 2.2].forEach((cz, zIdx) => {
+          const cx = wx;
+          const czWorld = wz + cz;
+          if (fIdx < 2) {
+            pushItem(farmBatch, stalkGeo, cx, farmOriginY + 0.70, czWorld, 0, 0, 0, 1, 1, 1, cStalk);
+            pushItem(farmBatch, wheatTopGeo, cx, farmOriginY + 1.20, czWorld, 0, 0, 0, 1.1, 1.4, 1.1, cWheat);
+          } else if ((rIdx + zIdx) % 2 === 0) {
+            pushItem(farmBatch, pumpkinGeo, cx, farmOriginY + 0.42, czWorld, 0, 0, 0, 1.15, 0.8, 1.15, cPumpkin);
+          } else {
+            pushItem(farmBatch, pumpkinGeo, cx, farmOriginY + 0.40, czWorld, 0, 0, 0, 1.2, 0.65, 1.2, cPad);
+          }
+        });
+      });
+    });
+
+    const mFarm = mergeColoredGeos(farmBatch);
+
+    return {
+      riverGeo: rGeo,
+      farmStreamGeo: fsGeo,
+      farmStreamBedGeo: fsBedGeo,
+      canyonCliffGeo: cGeo,
+      curvedWaterfallGeo: wfGeo,
+      mergedLotusAndFloraGeo: mLotusFlora,
+      mergedBridgeAndFarmGeo: mFarm,
+    };
   }, [rX95]);
 
   useEffect(() => {
@@ -517,7 +594,7 @@ export default function Water() {
     addBoxCollider(rX0, -3.65, 42.0, 0.65, "waterfall_cliffs");
     addBoxCollider(rX0, 3.65, 42.0, 0.65, "waterfall_cliffs");
     addBoxCollider(rX95 - 13.2, 95, 5.2, 4.2, "waterfall_cliffs");
-    addBoxCollider(rX95 - 42.0, 71, 9.6, 7.6, "waterfall_cliffs");
+    addBoxCollider(rX95 - 42.0, 70, 9.6, 7.6, "waterfall_cliffs");
     return () => clearCollidersByTag("waterfall_cliffs");
   }, [rX0, rX95]);
 
@@ -530,134 +607,55 @@ export default function Water() {
   return (
     <group name="world-water-systems">
       {/* 1. Western & Southern Ocean */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-920, 0.0, 0]} receiveShadow>
-        <planeGeometry args={[900, 2400, 48, 48]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-920, 0.0, 0]}>
+        <planeGeometry args={[900, 2400, 24, 24]} />
         <shaderMaterial transparent uniforms={globalUniforms} vertexShader={oceanVertexShader} fragmentShader={oceanFragmentShader} />
       </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 960]} receiveShadow>
-        <planeGeometry args={[2400, 900, 48, 48]} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.0, 960]}>
+        <planeGeometry args={[2400, 900, 24, 24]} />
         <shaderMaterial transparent uniforms={globalUniforms} vertexShader={oceanVertexShader} fragmentShader={oceanFragmentShader} />
       </mesh>
 
       {/* 2. Continuous Main River & Waterfall Plunge Lagoon */}
-      <mesh geometry={riverGeo} receiveShadow frustumCulled={false}>
+      <mesh geometry={riverGeo} frustumCulled={false}>
         <shaderMaterial side={THREE.DoubleSide} transparent depthWrite={true} polygonOffset polygonOffsetFactor={-3} uniforms={globalUniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
       </mesh>
 
-      {/* 2B. Sandy/Pebble Stream Bed + Flowing Irrigation Stream Through Farmland (100% Visible Along Red Outline in edited-image.jpg!) */}
-      <mesh geometry={farmStreamBedGeo} receiveShadow frustumCulled={false}>
+      {/* 2B. Farmland Irrigation Stream Bed & Flowing Water */}
+      <mesh geometry={farmStreamBedGeo} frustumCulled={false}>
         <meshStandardMaterial color="#786b59" roughness={0.95} polygonOffset polygonOffsetFactor={-1} />
       </mesh>
-      <mesh geometry={farmStreamGeo} receiveShadow frustumCulled={false}>
+      <mesh geometry={farmStreamGeo} frustumCulled={false}>
         <shaderMaterial side={THREE.DoubleSide} transparent depthWrite={true} polygonOffset polygonOffsetFactor={-4} uniforms={globalUniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
       </mesh>
 
-      {/* 2C. LUSH BLOOMING 3D LOTUS CLUSTERS (Bunga Teratai Mekar Berkelopak 3D & Daun Lebar)! */}
-      {lotusClusters.map((lt, idx) => (
-        <group key={"lotus_" + idx} position={[lt.x, lt.y, lt.z]} rotation={[0, lt.rot, 0]} scale={[lt.scale, lt.scale, lt.scale]}>
-          {/* Main & Secondary Notched Lily Pads */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} material={lilyPadMat}>
-            <circleGeometry args={[0.92, 16, 0.15, Math.PI * 1.88]} />
-          </mesh>
-          <mesh position={[0.75, -0.01, 0.42]} rotation={[-Math.PI / 2, 0, 1.8]} material={lilyPadMat}>
-            <circleGeometry args={[0.62, 14, 0.15, Math.PI * 1.88]} />
-          </mesh>
-          {/* Multi-Petal 3D Blooming Lotus Flower + Glowing Golden Stamen Core */}
-          <group position={[0, 0.04, 0]}>
-            {[0, 1, 2, 3, 4, 5].map((pIdx) => (
-              <mesh key={"outer_p_" + pIdx} rotation={[0.55, (pIdx / 6) * Math.PI * 2, 0]} position={[0, 0.08, 0]} scale={[0.65, 1.0, 0.35]} material={lt.isPink ? lotusPinkMat : lotusWhiteMat}>
-                <coneGeometry args={[0.24, 0.42, 5]} />
-              </mesh>
-            ))}
-            {[0, 1, 2, 3, 4].map((pIdx) => (
-              <mesh key={"inner_p_" + pIdx} rotation={[0.28, (pIdx / 5) * Math.PI * 2 + 0.4, 0]} position={[0, 0.14, 0]} scale={[0.55, 1.0, 0.35]} material={lt.isPink ? lotusWhiteMat : lotusPinkMat}>
-                <coneGeometry args={[0.20, 0.36, 5]} />
-              </mesh>
-            ))}
-            <mesh position={[0, 0.16, 0]} material={lotusGoldMat}>
-              <sphereGeometry args={[0.13, 8, 8]} />
-            </mesh>
-          </group>
-        </group>
-      ))}
+      {/* 2C. SINGLE MERGED DRAW CALL FOR ALL LOTUS FLOWERS, LILY PADS, RIVER BOULDERS & CATTAILS (60 FPS!) */}
+      <mesh geometry={mergedLotusAndFloraGeo} material={mergedVertexColorMat} frustumCulled={false} />
 
-      {/* 2D. NATURAL RIVERBANK ECOSYSTEM: River Boulders, Cattails (Bulrushes), Tall Reeds & Riverside Ferns! */}
-      {bankFloraAndRocks.map((item, idx) => (
-        <group key={"bank_eco_" + idx} position={[item.x, item.y, item.z]} rotation={[0, item.rot, 0]} scale={[item.scale, item.scale, item.scale]}>
-          {item.kind === 'boulder' && (
-            <group>
-              <mesh castShadow receiveShadow position={[0, 0.25, 0]} scale={[1.35, 0.72, 1.1]} material={riverBoulderMat}>
-                <dodecahedronGeometry args={[1.05, 1]} />
-              </mesh>
-              <mesh castShadow receiveShadow position={[0.85, 0.15, 0.45]} scale={[1.1, 0.65, 0.95]} material={mossyRockMat}>
-                <dodecahedronGeometry args={[0.68, 1]} />
-              </mesh>
-            </group>
-          )}
-          {item.kind === 'cattail' && (
-            <group>
-              {[
-                [0, 0, 0.06, 2.2, true],
-                [0.35, 0.25, -0.08, 1.85, true],
-                [-0.32, 0.18, 0.10, 1.95, false],
-                [0.18, -0.28, -0.05, 1.65, false],
-                [-0.22, -0.22, 0.08, 1.75, true],
-              ].map(([rx, rz, tilt, h, hasHead], rIdx) => (
-                <group key={"reed_" + rIdx} position={[rx as number, 0, rz as number]} rotation={[tilt as number, rIdx * 0.8, -(tilt as number)]}>
-                  <mesh castShadow position={[0, (h as number) * 0.5, 0]} material={reedStemMat}>
-                    <cylinderGeometry args={[0.035, 0.055, h as number, 5]} />
-                  </mesh>
-                  {hasHead && (
-                    <mesh castShadow position={[0, (h as number) * 0.82, 0]} material={cattailHeadMat}>
-                      <capsuleGeometry args={[0.075, 0.34, 4, 6]} />
-                    </mesh>
-                  )}
-                </group>
-              ))}
-            </group>
-          )}
-          {item.kind === 'fern_bush' && (
-            <group>
-              <mesh castShadow position={[0, 0.55, 0]} scale={[1.25, 0.82, 1.25]} material={foliageMat}>
-                <dodecahedronGeometry args={[0.92, 1]} />
-              </mesh>
-              {[0, 1, 2, 3, 4].map((fIdx) => (
-                <mesh key={"frond_" + fIdx} rotation={[0.55, (fIdx / 5) * Math.PI * 2, 0]} position={[0, 0.35, 0]} scale={[0.55, 1.0, 0.25]} material={reedStemMat}>
-                  <coneGeometry args={[0.45, 1.45, 4]} />
-                </mesh>
-              ))}
-            </group>
-          )}
-        </group>
-      ))}
+      {/* 2D. SINGLE MERGED DRAW CALL FOR ALL FARMLAND FURROWS, WHEAT, PUMPKINS & CABBAGES (60 FPS!) */}
+      <mesh geometry={mergedBridgeAndFarmGeo} material={mergedVertexColorMat} receiveShadow frustumCulled={false} />
 
       {/* 3. Arched Medieval Timber Bridge Centered Over River at Z=0 */}
       <group name="main-river-arched-bridge" position={[rX0, 0, 0]}>
         {[-18, -9, 9, 18].map((bx, bIdx) => (
           <group key={"pier_" + bIdx} position={[bx, 6.2, 0]}>
-            <mesh castShadow receiveShadow position={[0, 0, -2.8]}><cylinderGeometry args={[0.75, 0.95, 5.2, 10]} /><meshStandardMaterial color="#64748b" roughness={0.85} /></mesh>
-            <mesh castShadow receiveShadow position={[0, 0, 2.8]}><cylinderGeometry args={[0.75, 0.95, 5.2, 10]} /><meshStandardMaterial color="#64748b" roughness={0.85} /></mesh>
+            <mesh position={[0, 0, -2.8]}><cylinderGeometry args={[0.75, 0.95, 5.2, 8]} /><meshStandardMaterial color="#64748b" roughness={0.85} /></mesh>
+            <mesh position={[0, 0, 2.8]}><cylinderGeometry args={[0.75, 0.95, 5.2, 8]} /><meshStandardMaterial color="#64748b" roughness={0.85} /></mesh>
             <mesh position={[0, 2.1, 0]}><boxGeometry args={[1.4, 0.45, 7.2]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
           </group>
         ))}
-        {Array.from({ length: 21 }).map((_, sIdx) => {
-          const t = (sIdx - 10) / 10;
+        {Array.from({ length: 15 }).map((_, sIdx) => {
+          const t = (sIdx - 7) / 7;
           const bx = t * 21.0;
           const archY = 8.0 + (1.0 - t * t) * 1.95;
           const slopeAngle = Math.atan2(-2.0 * t * 1.95, 21.0);
           return (
             <group key={"deck_" + sIdx} position={[bx, archY, 0]} rotation={[0, 0, slopeAngle]}>
-              <mesh castShadow receiveShadow><boxGeometry args={[2.25, 0.28, 7.6]} /><meshStandardMaterial color="#8c5228" roughness={0.78} /></mesh>
-              <mesh position={[0, 0.02, -3.55]}><boxGeometry args={[2.28, 0.36, 0.35]} /><meshStandardMaterial color="#5c3618" roughness={0.8} /></mesh>
-              <mesh position={[0, 0.02, 3.55]}><boxGeometry args={[2.28, 0.36, 0.35]} /><meshStandardMaterial color="#5c3618" roughness={0.8} /></mesh>
-              {sIdx % 2 === 0 && (
-                <group>
-                  <mesh castShadow position={[0, 0.75, -3.55]}><boxGeometry args={[0.26, 1.45, 0.26]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
-                  <mesh castShadow position={[0, 0.75, 3.55]}><boxGeometry args={[0.26, 1.45, 0.26]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
-                </group>
-              )}
-              <mesh castShadow position={[0, 1.32, -3.55]}><boxGeometry args={[2.32, 0.18, 0.22]} /><meshStandardMaterial color="#5c3618" roughness={0.78} /></mesh>
-              <mesh castShadow position={[0, 1.32, 3.55]}><boxGeometry args={[2.32, 0.18, 0.22]} /><meshStandardMaterial color="#5c3618" roughness={0.78} /></mesh>
+              <mesh receiveShadow><boxGeometry args={[3.1, 0.28, 7.6]} /><meshStandardMaterial color="#8c5228" roughness={0.78} /></mesh>
+              <mesh position={[0, 0.75, -3.55]}><boxGeometry args={[0.26, 1.45, 0.26]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
+              <mesh position={[0, 0.75, 3.55]}><boxGeometry args={[0.26, 1.45, 0.26]} /><meshStandardMaterial color="#4a2c14" roughness={0.8} /></mesh>
+              <mesh position={[0, 1.32, -3.55]}><boxGeometry args={[3.15, 0.18, 0.22]} /><meshStandardMaterial color="#5c3618" roughness={0.78} /></mesh>
+              <mesh position={[0, 1.32, 3.55]}><boxGeometry args={[3.15, 0.18, 0.22]} /><meshStandardMaterial color="#5c3618" roughness={0.78} /></mesh>
             </group>
           );
         })}
@@ -665,7 +663,7 @@ export default function Water() {
 
       {/* 4. NATURAL GRANITE MOUNTAIN GORGE & WATERFALL */}
       <group name="grand-waterfall-sanctuary" position={[wfX, 7.55, wfZ]}>
-        <mesh geometry={canyonCliffGeo} material={cliffRockMat} castShadow receiveShadow />
+        <mesh geometry={canyonCliffGeo} material={cliffRockMat} receiveShadow />
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 17.3, 18]}>
           <planeGeometry args={[12.5, 16.0]} />
           <shaderMaterial side={THREE.DoubleSide} transparent uniforms={globalUniforms} vertexShader={riverVertexShader} fragmentShader={riverFragmentShader} />
@@ -675,48 +673,34 @@ export default function Water() {
         </mesh>
         {[3.8, 7.2, 10.8].map((rad, rIdx) => (
           <mesh key={"wf_foam_" + rIdx} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.12, 6.2]}>
-            <ringGeometry args={[rad, rad + 0.9, 32]} />
+            <ringGeometry args={[rad, rad + 0.9, 24]} />
             <meshBasicMaterial color="#ffffff" transparent opacity={0.75 - rIdx * 0.20} side={THREE.DoubleSide} />
           </mesh>
         ))}
-        {[[-9.5, 0.2, 7.5, 2.2], [9.5, 0.2, 7.5, 2.4], [-13.5, 0.4, 3.5, 2.8], [13.5, 0.4, 3.5, 2.6]].map(([rx, ry, rz, rr], rIdx) => (
-          <mesh key={"wf_boulder_" + rIdx} castShadow receiveShadow position={[rx, ry, rz]} scale={[1.3, 0.75, 1.1]} material={cliffRockMat}>
-            <dodecahedronGeometry args={[rr, 1]} />
-          </mesh>
-        ))}
-        {[
-          [-18, 19.5, 14], [18, 19.2, 14], [-32, 16.5, 6], [32, 16.8, 6], [-11, 18.0, 18], [11, 18.0, 18],
-        ].map(([tx, ty, tz], tIdx) => (
-          <group key={"cliff_tree_" + tIdx} position={[tx, ty, tz]}>
-            <mesh castShadow position={[0, 1.8, 0]} material={trunkMat}><cylinderGeometry args={[0.35, 0.52, 3.6, 8]} /></mesh>
-            <mesh castShadow position={[0, 4.4, 0]} scale={[1.25, 0.95, 1.25]} material={foliageMat}><dodecahedronGeometry args={[2.6, 1]} /></mesh>
-            <mesh castShadow position={[1.2, 3.6, 0.8]} scale={[1.1, 0.85, 1.1]} material={foliageMat}><dodecahedronGeometry args={[1.9, 1]} /></mesh>
-          </group>
-        ))}
       </group>
 
-      {/* 5. RIVERBANK A-FRAME WATERWHEEL + WOODEN AQUEDUCT SLUICE + STATIC FARMLAND! */}
+      {/* 5. RIVERBANK A-FRAME WATERWHEEL + FOOTBRIDGE + BARN */}
       <group name="river-watermill-farmland" position={[rX95, 6.85, 95]}>
         <group position={[-13.2, 0.15, 0]}>
           {[-1.45, 1.45].map((sz, sIdx) => (
             <group key={"af_" + sIdx} position={[0, 0, sz]}>
-              <mesh castShadow receiveShadow position={[0, 0.25, 0]}><boxGeometry args={[4.4, 0.45, 0.42]} /><meshStandardMaterial color="#9c7a44" roughness={0.85} /></mesh>
-              <mesh castShadow receiveShadow position={[-0.92, 2.25, 0]} rotation={[0, 0, -0.34]}><boxGeometry args={[0.36, 4.2, 0.34]} /><meshStandardMaterial color="#8c6836" roughness={0.82} /></mesh>
-              <mesh castShadow receiveShadow position={[0.92, 2.25, 0]} rotation={[0, 0, 0.34]}><boxGeometry args={[0.36, 4.2, 0.34]} /><meshStandardMaterial color="#8c6836" roughness={0.82} /></mesh>
-              <mesh castShadow position={[0, 1.9, 0]} rotation={[0, 0, 0.58]}><boxGeometry args={[0.20, 3.0, 0.22]} /><meshStandardMaterial color="#78582b" roughness={0.85} /></mesh>
-              <mesh castShadow position={[0, 1.9, 0]} rotation={[0, 0, -0.58]}><boxGeometry args={[0.20, 3.0, 0.22]} /><meshStandardMaterial color="#78582b" roughness={0.85} /></mesh>
-              <mesh castShadow position={[0, 4.15, 0]}><boxGeometry args={[0.92, 0.60, 0.46]} /><meshStandardMaterial color="#5c401c" roughness={0.85} /></mesh>
+              <mesh position={[0, 0.25, 0]}><boxGeometry args={[4.4, 0.45, 0.42]} /><meshStandardMaterial color="#9c7a44" roughness={0.85} /></mesh>
+              <mesh position={[-0.92, 2.25, 0]} rotation={[0, 0, -0.34]}><boxGeometry args={[0.36, 4.2, 0.34]} /><meshStandardMaterial color="#8c6836" roughness={0.82} /></mesh>
+              <mesh position={[0.92, 2.25, 0]} rotation={[0, 0, 0.34]}><boxGeometry args={[0.36, 4.2, 0.34]} /><meshStandardMaterial color="#8c6836" roughness={0.82} /></mesh>
+              <mesh position={[0, 1.9, 0]} rotation={[0, 0, 0.58]}><boxGeometry args={[0.20, 3.0, 0.22]} /><meshStandardMaterial color="#78582b" roughness={0.85} /></mesh>
+              <mesh position={[0, 1.9, 0]} rotation={[0, 0, -0.58]}><boxGeometry args={[0.20, 3.0, 0.22]} /><meshStandardMaterial color="#78582b" roughness={0.85} /></mesh>
+              <mesh position={[0, 4.15, 0]}><boxGeometry args={[0.92, 0.60, 0.46]} /><meshStandardMaterial color="#5c401c" roughness={0.85} /></mesh>
             </group>
           ))}
-          <mesh castShadow position={[-1.8, 0.25, 0]}><boxGeometry args={[0.40, 0.40, 3.3]} /><meshStandardMaterial color="#8c6836" roughness={0.85} /></mesh>
-          <mesh castShadow position={[1.8, 0.25, 0]}><boxGeometry args={[0.40, 0.40, 3.3]} /><meshStandardMaterial color="#8c6836" roughness={0.85} /></mesh>
+          <mesh position={[-1.8, 0.25, 0]}><boxGeometry args={[0.40, 0.40, 3.3]} /><meshStandardMaterial color="#8c6836" roughness={0.85} /></mesh>
+          <mesh position={[1.8, 0.25, 0]}><boxGeometry args={[0.40, 0.40, 3.3]} /><meshStandardMaterial color="#8c6836" roughness={0.85} /></mesh>
 
           <group position={[0, 4.15, 0]} ref={mainWheelRef}>
-            <mesh castShadow rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.40, 0.40, 3.6, 12]} /><meshStandardMaterial color="#5c401c" roughness={0.85} /></mesh>
+            <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[0.40, 0.40, 3.6, 10]} /><meshStandardMaterial color="#5c401c" roughness={0.85} /></mesh>
             {[-0.98, 0.98].map((wz, wIdx) => (
               <group key={"rim_" + wIdx} position={[0, 0, wz]}>
-                <mesh><ringGeometry args={[3.05, 3.85, 28]} /><meshStandardMaterial color="#c4a26a" side={THREE.DoubleSide} roughness={0.78} /></mesh>
-                <mesh><torusGeometry args={[3.45, 0.36, 8, 28]} /><meshStandardMaterial color="#b08d57" roughness={0.80} /></mesh>
+                <mesh><ringGeometry args={[3.05, 3.85, 24]} /><meshStandardMaterial color="#c4a26a" side={THREE.DoubleSide} roughness={0.78} /></mesh>
+                <mesh><torusGeometry args={[3.45, 0.36, 6, 24]} /><meshStandardMaterial color="#b08d57" roughness={0.80} /></mesh>
                 {Array.from({ length: 8 }).map((_, spkIdx) => (
                   <mesh key={"spk_" + spkIdx} rotation={[0, 0, (spkIdx / 8) * Math.PI]}>
                     <boxGeometry args={[0.24, 8.0, 0.16]} />
@@ -725,9 +709,9 @@ export default function Water() {
                 ))}
               </group>
             ))}
-            <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[3.08, 3.08, 1.92, 24, 1, true]} /><meshStandardMaterial color="#8c6836" side={THREE.DoubleSide} roughness={0.85} /></mesh>
-            {Array.from({ length: 16 }).map((_, bIdx) => (
-              <group key={"bkt_" + bIdx} rotation={[0, 0, (bIdx / 16) * Math.PI * 2]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}><cylinderGeometry args={[3.08, 3.08, 1.92, 20, 1, true]} /><meshStandardMaterial color="#8c6836" side={THREE.DoubleSide} roughness={0.85} /></mesh>
+            {Array.from({ length: 12 }).map((_, bIdx) => (
+              <group key={"bkt_" + bIdx} rotation={[0, 0, (bIdx / 12) * Math.PI * 2]}>
                 <mesh position={[0, 3.45, 0]} rotation={[0.38, 0, 0]}>
                   <boxGeometry args={[0.14, 0.80, 1.95]} />
                   <meshStandardMaterial color="#b08d57" roughness={0.80} />
@@ -735,66 +719,22 @@ export default function Water() {
               </group>
             ))}
           </group>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.65, 0]}>
-            <ringGeometry args={[0.8, 3.2, 20]} />
-            <meshBasicMaterial color="#f0f9ff" transparent opacity={0.65} side={THREE.DoubleSide} />
-          </mesh>
         </group>
 
-        {/* Small Wooden Footbridge Crossing the Irrigation Stream at X = 212 */}
+        {/* Footbridge Across Irrigation Stream */}
         <group position={[212 - rX95, 1.25, 0.2]}>
-          <mesh castShadow receiveShadow><boxGeometry args={[4.2, 0.25, 9.8]} /><meshStandardMaterial color="#8c5228" roughness={0.8} /></mesh>
-          <mesh castShadow position={[-1.9, 0.6, 0]}><boxGeometry args={[0.22, 1.1, 9.8]} /><meshStandardMaterial color="#5c3618" /></mesh>
-          <mesh castShadow position={[1.9, 0.6, 0]}><boxGeometry args={[0.22, 1.1, 9.8]} /><meshStandardMaterial color="#5c3618" /></mesh>
+          <mesh receiveShadow><boxGeometry args={[4.2, 0.25, 9.8]} /><meshStandardMaterial color="#8c5228" roughness={0.8} /></mesh>
+          <mesh position={[-1.9, 0.6, 0]}><boxGeometry args={[0.22, 1.1, 9.8]} /><meshStandardMaterial color="#5c3618" /></mesh>
+          <mesh position={[1.9, 0.6, 0]}><boxGeometry args={[0.22, 1.1, 9.8]} /><meshStandardMaterial color="#5c3618" /></mesh>
         </group>
 
-        {/* STATIC RIVERSIDE FARMLAND FLANKING BOTH SIDES OF THE IRRIGATION STREAM! */}
-        {(() => {
-          const farmBaseY = getTerrainHeight(rX95 - 42, 78) - 6.85;
-          return (
-            <group position={[-42, farmBaseY, 0]}>
-              <group position={[0, 0, -25]}>
-                <mesh castShadow receiveShadow position={[0, 0.3, 0]}><boxGeometry args={[9.2, 0.6, 7.2]} /><meshStandardMaterial color="#64748b" roughness={0.9} /></mesh>
-                <mesh castShadow receiveShadow position={[0, 2.3, 0]}><boxGeometry args={[8.6, 3.6, 6.6]} /><meshStandardMaterial color="#9a3412" roughness={0.82} /></mesh>
-                <mesh castShadow position={[0, 5.2, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[6.8, 3.0, 4]} /><meshStandardMaterial color="#78350f" roughness={0.85} /></mesh>
-                <mesh position={[0, 1.6, 3.35]}><boxGeometry args={[2.4, 2.6, 0.15]} /><meshStandardMaterial color="#451a03" /></mesh>
-              </group>
-
-              {[-13, -22, 13, 22].map((fz, fIdx) => (
-                <group key={"static_plot_" + fIdx} position={[0, 0, fz]}>
-                  {[-12, -7, -2, 3, 8, 13].map((rx, rIdx) => (
-                    <group key={"row_" + rIdx} position={[rx, 0.08, 0]}>
-                      <mesh receiveShadow rotation={[Math.PI / 2, 0, 0]} scale={[1.1, 1.0, 0.32]}>
-                        <cylinderGeometry args={[0.95, 1.15, 6.8, 8]} />
-                        <meshStandardMaterial color="#4a2e16" roughness={0.95} />
-                      </mesh>
-                      {[-2.2, -0.7, 0.7, 2.2].map((cz, zIdx) => (
-                        <group key={"crop_" + zIdx} position={[0, 0.25, cz]}>
-                          {fIdx < 2 ? (
-                            <group>
-                              <mesh position={[0, 0.45, 0]}><cylinderGeometry args={[0.32, 0.14, 0.9, 6]} /><meshStandardMaterial color="#eab308" roughness={0.75} /></mesh>
-                              <mesh position={[0, 0.95, 0]} scale={[1.1, 1.4, 1.1]}><dodecahedronGeometry args={[0.28, 0]} /><meshStandardMaterial color="#facc15" emissive="#a16207" emissiveIntensity={0.18} roughness={0.65} /></mesh>
-                            </group>
-                          ) : (rIdx + zIdx) % 2 === 0 ? (
-                            <group position={[0, 0.18, 0]}>
-                              <mesh scale={[1.15, 0.8, 1.15]}><dodecahedronGeometry args={[0.40, 1]} /><meshStandardMaterial color="#ea580c" roughness={0.55} /></mesh>
-                              <mesh position={[0, 0.34, 0]}><cylinderGeometry args={[0.04, 0.06, 0.18, 5]} /><meshStandardMaterial color="#365314" /></mesh>
-                            </group>
-                          ) : (
-                            <mesh position={[0, 0.16, 0]} scale={[1.2, 0.65, 1.2]}>
-                              <dodecahedronGeometry args={[0.38, 1]} />
-                              <meshStandardMaterial color="#4d9e34" emissive="#15803d" emissiveIntensity={0.14} roughness={0.78} />
-                            </mesh>
-                          )}
-                        </group>
-                      ))}
-                    </group>
-                  ))}
-                </group>
-              ))}
-            </group>
-          );
-        })()}
+        {/* Granary Barn */}
+        <group position={[-42, getTerrainHeight(rX95 - 42, 78) - 6.85, -25]}>
+          <mesh position={[0, 0.3, 0]}><boxGeometry args={[9.2, 0.6, 7.2]} /><meshStandardMaterial color="#64748b" roughness={0.9} /></mesh>
+          <mesh castShadow receiveShadow position={[0, 2.3, 0]}><boxGeometry args={[8.6, 3.6, 6.6]} /><meshStandardMaterial color="#9a3412" roughness={0.82} /></mesh>
+          <mesh position={[0, 5.2, 0]} rotation={[0, Math.PI / 4, 0]}><coneGeometry args={[6.8, 3.0, 4]} /><meshStandardMaterial color="#78350f" roughness={0.85} /></mesh>
+          <mesh position={[0, 1.6, 3.35]}><boxGeometry args={[2.4, 2.6, 0.15]} /><meshStandardMaterial color="#451a03" /></mesh>
+        </group>
       </group>
     </group>
   );
