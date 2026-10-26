@@ -165,17 +165,21 @@ export default function PlayerController() {
     if ((playerFrameState as any).pendingTeleport) {
       const pt = (playerFrameState as any).pendingTeleport;
       (playerFrameState as any).pendingTeleport = null;
-      playerFrameState.mountedHorseIndex = -1;
-      playerFrameState.isInBoat = false;
-      playerFrameState.x = pt.x;
-      playerFrameState.y = pt.y;
-      playerFrameState.z = pt.z;
-      if (typeof playerPos !== 'undefined' && playerPos.current) playerPos.current.set(pt.x, pt.y, pt.z);
-      if (typeof pos !== 'undefined' && pos.current) pos.current.set(pt.x, pt.y, pt.z);
-      if (typeof positionRef !== 'undefined' && positionRef.current) positionRef.current.set(pt.x, pt.y, pt.z);
-      if (typeof groupRef !== 'undefined' && groupRef.current) groupRef.current.position.set(pt.x, pt.y, pt.z);
-      if (typeof playerRef !== 'undefined' && playerRef.current) playerRef.current.position.set(pt.x, pt.y, pt.z);
-      state.camera.position.set(pt.x, pt.y + 4.5, pt.z + 8.5);
+      if (pt && Number.isFinite(pt.x) && Number.isFinite(pt.z)) {
+        const rawH = getWalkableHeight(pt.x, pt.z);
+        const safeY = (Number.isFinite(rawH) ? Math.max(1.2, rawH) : 8.2) + 0.15;
+        playerFrameState.mountedHorseIndex = -1;
+        playerFrameState.isInBoat = false;
+        playerFrameState.x = pt.x;
+        playerFrameState.y = safeY;
+        playerFrameState.z = pt.z;
+        playerFrameState.vx = 0;
+        playerFrameState.vy = 0;
+        playerFrameState.vz = 0;
+        if (typeof pt.yaw === 'number' && Number.isFinite(pt.yaw)) {
+          playerFrameState.FacingYaw = pt.yaw;
+        }
+      }
     }
     const dt = Math.min(delta, 0.05);
     const p = phys.current;

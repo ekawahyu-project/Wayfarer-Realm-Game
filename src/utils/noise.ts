@@ -51,6 +51,15 @@ export function getRiverCenterX(z: number): number {
 }
 
 export function getRiverDistance(x: number, z: number): number {
+  // Connected Agricultural River Branch flowing from Main River (x=256, z=95) westward to Farmland (x=175, z=95)
+  let agriBranchDist = 9999;
+  if (x >= 172 && x <= 262 && Math.abs(z - 95) <= 28) {
+    const curveZ = 95 + Math.sin((x - 215) * 0.06) * 3.5;
+    const dx = x < 178 ? 178 - x : x > 256 ? x - 256 : 0;
+    const dz = Math.abs(z - curveZ);
+    // Scale distance so an 8m wide branch carves down to riverbed depth (6.95m)
+    agriBranchDist = Math.hypot(dx, dz) * 1.65;
+  }
   if (z < -240 || z > 220) return 999;
   return Math.abs(x - getRiverCenterX(z));
 }
@@ -374,4 +383,11 @@ export function clearCollidersByTag(_tag?: string): void {
 }
 export function addCylinderCollider(x: number, z: number, r: number, tag = 'default'): void {
   if (typeof addBoxCollider === 'function') addBoxCollider(x, z, r * 2, r * 2, tag);
+}
+
+// __safeHeightGuard: Guarantees terrain height queries never return NaN
+export function getSafeWalkableHeight(x: number, z: number): number {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return 8.2;
+  const h = getWalkableHeight(x, z);
+  return Number.isFinite(h) ? h : 8.2;
 }

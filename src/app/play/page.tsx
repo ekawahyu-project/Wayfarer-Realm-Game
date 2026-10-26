@@ -30,8 +30,8 @@ const TELEPORT_LOCATIONS: TeleportLocation[] = [
   { label: "Pantai Barat", sub: "Dermaga & Pasir", icon: "🏖️", x: -510, z: 0, accent: "border-amber-500/50 hover:border-amber-400 bg-amber-950/60" },
   { label: "Hutan Birch", sub: "Jembatan Sungai", icon: "🌳", x: 228, z: 0, accent: "border-emerald-500/50 hover:border-emerald-400 bg-emerald-950/60" },
   { label: "Desa & Pasar Timur", sub: "Alun-Alun & Blacksmith", icon: "🏪", x: 342, z: -2, accent: "border-teal-500/50 hover:border-teal-400 bg-teal-950/60" },
-  { label: "Pertanian & Kincir", sub: "Kanal Sungai & Ladang", icon: "🌾", x: 205, z: 85, accent: "border-yellow-500/50 hover:border-yellow-400 bg-yellow-950/60" },
-  { label: "Air Terjun Hulu", sub: "Pegunungan & Laguna", icon: "🌊", x: 235, z: 195, accent: "border-cyan-500/50 hover:border-cyan-400 bg-cyan-950/60" },
+  { label: "Pertanian & Kincir", sub: "Kincir Sungai & Ladang", icon: "🌾", x: 226, z: 108, accent: "border-yellow-500/50 hover:border-yellow-400 bg-yellow-950/60" },
+  { label: "Air Terjun Hulu", sub: "Ngarai Tebing & Laguna", icon: "🌊", x: 242, z: 192, accent: "border-cyan-500/50 hover:border-cyan-400 bg-cyan-950/60" },
   { label: "Kerajaan Besar", sub: "Benteng & Istana", icon: "🏰", x: 0, z: 305, accent: "border-purple-500/50 hover:border-purple-400 bg-purple-950/60" },
   { label: "Desa Barat Daya", sub: "Pesisir & Blacksmith", icon: "🏡", x: -280, z: 225, accent: "border-emerald-500/50 hover:border-emerald-400 bg-emerald-950/60" },
   { label: "Desa Hutan Barat", sub: "Lembah & Blacksmith", icon: "🌲", x: -245, z: -80, accent: "border-green-500/50 hover:border-green-400 bg-green-950/60" },
@@ -78,21 +78,19 @@ export default function PlayPage() {
 
   // Fungsi Teleport Instan yang Terhubung Langsung ke Loop Fisika PlayerController!
   const handleTeleport = useCallback((tx: number, tz: number) => {
-    let finalX = tx;
-    if (tz === 195 && tx === 235 && typeof getRiverCenterX === 'function') {
-      finalX = getRiverCenterX(185);
-    }
-    const ty = getWalkableHeight(finalX, tz) + 0.25;
-    (playerFrameState as any).pendingTeleport = { x: finalX, y: ty, z: tz };
+    const safeX = Number.isFinite(tx) ? tx : 0;
+    const safeZ = Number.isFinite(tz) ? tz : 0;
+    const rawY = getWalkableHeight(safeX, safeZ);
+    const safeY = (Number.isFinite(rawY) ? Math.max(1.2, rawY) : 8.0) + 0.2;
     playerFrameState.mountedHorseIndex = -1;
     playerFrameState.isInBoat = false;
-    playerFrameState.x = finalX;
-    playerFrameState.y = ty;
-    playerFrameState.z = tz;
+    playerFrameState.x = safeX;
+    playerFrameState.y = safeY;
+    playerFrameState.z = safeZ;
+    (playerFrameState as any).pendingTeleport = { x: safeX, y: safeY, z: safeZ };
     const storeState: any = usePlayerStore.getState?.() || {};
-    if (typeof storeState.requestTeleport === 'function') storeState.requestTeleport(finalX, tz);
-    if (typeof storeState.setPosition === 'function') storeState.setPosition(finalX, ty, tz);
-    setHudState((h) => ({ ...h, x: Math.round(finalX), y: Math.round(ty), z: Math.round(tz) }));
+    if (typeof storeState.requestTeleport === 'function') storeState.requestTeleport(safeX, safeZ);
+    setHudState((h) => ({ ...h, x: Math.round(safeX), y: Math.round(safeY), z: Math.round(safeZ) }));
     setSidebarOpen(false);
   }, []);
 

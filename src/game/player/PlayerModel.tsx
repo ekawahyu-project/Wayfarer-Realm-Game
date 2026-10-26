@@ -27,7 +27,6 @@ let sharedPixarGeos: {
 export function getSculptedHumanGeometries() {
   if (sharedPixarGeos) return sharedPixarGeos;
 
-  // Smooth Spline-Sculpted Boy Explorer Torso (Soft natural proportions matching reference image_ddbb63.jpg)
   const torsoCurve = new THREE.SplineCurve([
     new THREE.Vector2(0.142, -0.16),
     new THREE.Vector2(0.136, -0.06),
@@ -107,10 +106,13 @@ export function DigitalHumanCharacter({
   const rightUpperArmRef = useRef<THREE.Group>(null);
   const rightForearmRef = useRef<THREE.Group>(null);
 
+  // Dedicated Refs for Sword & Lantern (Updated every frame in useFrame so Toggle NEVER fails!)
+  const swordGroupRef = useRef<THREE.Group>(null);
+  const lanternGroupRef = useRef<THREE.Group>(null);
+
   const phaseRef = useRef(npcSeed * 3.1);
   const moveBlendRef = useRef(0);
 
-  // Exact Reference Palette from image_ddbb63.jpg (Warm Pixar Subsurface Skin, Terracotta Sweater, Cream Sherpa Fleece, Rich Leather)
   const pixarSkinMat = useMemo(
     () => new THREE.MeshStandardMaterial({ color: "#ffcaa6", emissive: "#f43f5e", emissiveIntensity: 0.08, roughness: 0.42 }),
     []
@@ -146,6 +148,16 @@ export function DigitalHumanCharacter({
     const t = state.clock.elapsedTime + npcSeed * 7.3;
     if (!rootRef.current || !torsoRef.current || !headRef.current) return;
 
+    // 1. Live Weapon Visibility Check Every Frame ('sword' | 'lantern' | 'none')
+    const rawEq = (playerFrameState as any).equippedItem;
+    const eq = rawEq === "none" || rawEq === "lantern" || rawEq === "sword" ? rawEq : "sword";
+    if (swordGroupRef.current) {
+      swordGroupRef.current.visible = !isNpc && eq === "sword";
+    }
+    if (lanternGroupRef.current) {
+      lanternGroupRef.current.visible = !isNpc && eq === "lantern";
+    }
+
     const isMoving = isNpc ? npcWalkSpeed > 0.05 : playerFrameState.isMoving && !playerFrameState.isInBoat;
     const isRunning = isNpc ? false : playerFrameState.isRunning;
     const isGrounded = isNpc ? true : playerFrameState.isGrounded;
@@ -166,7 +178,6 @@ export function DigitalHumanCharacter({
     const sinP = Math.sin(p);
     const cosP = Math.cos(p);
 
-    // Fluid Pixar Idle Breathing, Weight Shift, & Bouncy Walk Cycle (Never stiff like a doll!)
     const walkBounce = isGrounded && !isSwimming ? Math.abs(sinP) * 0.052 * m : 0;
     const idleBreath = Math.sin(t * 2.4) * 0.010;
     const idleSwayX = (1.0 - Math.min(1, m)) * Math.sin(t * 1.2) * 0.012;
@@ -178,14 +189,12 @@ export function DigitalHumanCharacter({
     rootRef.current.rotation.x = THREE.MathUtils.lerp(rootRef.current.rotation.x, targetPitch, dt * 10);
     rootRef.current.rotation.z = THREE.MathUtils.lerp(rootRef.current.rotation.z, cosP * 0.032 * m + idleSwayX * 0.8, dt * 10);
 
-    // Natural Contra-Body Spine Twist & Curious Pixar Head Tilt
     torsoRef.current.rotation.y = sinP * 0.16 * m + (1.0 - Math.min(1, m)) * Math.sin(t * 0.8) * 0.04;
     torsoRef.current.rotation.z = -cosP * 0.025 * m;
     headRef.current.rotation.y = -sinP * 0.11 * m + (m < 0.05 ? Math.sin(t * 0.9) * 0.10 : 0);
-    headRef.current.rotation.z = (m < 0.05 ? Math.cos(t * 0.7) * 0.045 : -cosP * 0.03 * m);
+    headRef.current.rotation.z = m < 0.05 ? Math.cos(t * 0.7) * 0.045 : -cosP * 0.03 * m;
     headRef.current.rotation.x = isSwimming ? -0.6 : -rootRef.current.rotation.x * 0.45 + Math.sin(t * 1.8) * 0.025;
 
-    // Secondary Follow-Through Motion on Backpack & Side Herb Satchel
     if (backpackRef.current) {
       backpackRef.current.position.y = 0.09 + Math.sin(p * 2.0 - 0.5) * 0.016 * m;
       backpackRef.current.rotation.x = 0.04 + Math.abs(cosP) * 0.06 * m;
@@ -222,61 +231,60 @@ export function DigitalHumanCharacter({
     }
 
     if (leftUpperArmRef.current && rightUpperArmRef.current && leftForearmRef.current && rightForearmRef.current) {
+      const armSwing = -sinP * 0.58 * m;
+      const idleArmBreath = Math.sin(t * 2.4) * 0.02;
+      const idleElbow = -0.24;
+      const runElbow = isRunning ? -0.72 : -0.38;
+
       if (isSwimming) {
         leftUpperArmRef.current.rotation.set(-0.9 + sinP * 0.7, 0, 0.35 + Math.max(0, cosP) * 0.5);
         rightUpperArmRef.current.rotation.set(-0.9 + sinP * 0.7, 0, -0.35 - Math.max(0, cosP) * 0.5);
         leftForearmRef.current.rotation.x = -0.4;
         rightForearmRef.current.rotation.x = -0.4;
-      } else if (isRidingHorse) {
-        leftUpperArmRef.current.rotation.set(-0.45, 0.2, 0.12);
-        rightUpperArmRef.current.rotation.set(-0.45, -0.2, -0.12);
-        leftForearmRef.current.rotation.x = -0.65;
-        rightForearmRef.current.rotation.x = -0.65;
       } else {
-        const eq = (playerFrameState as any).equippedItem || "sword";
-        const armSwing = -sinP * 0.58 * m;
-        const idleArmBreath = Math.sin(t * 2.4) * 0.02;
-        const idleElbow = -0.24;
-        const runElbow = isRunning ? -0.72 : -0.38;
+        // LEFT ARM: If holding Lantern (eq === 'lantern'), raise arm forward & upward to hold the lantern aloft!
         if (!isNpc && eq === "lantern") {
-          // Raise Left Arm & Forearm Forward to Hold Lantern Aloft!
-          leftUpperArmRef.current.rotation.set(THREE.MathUtils.lerp(leftUpperArmRef.current.rotation.x, -1.05 + Math.sin(t * 3.0) * 0.04, dt * 12), -0.18, 0.12);
-          leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(leftForearmRef.current.rotation.x, -0.68 + Math.cos(t * 3.0) * 0.04, dt * 12);
+          leftUpperArmRef.current.rotation.set(-1.12 + Math.sin(t * 2.8) * 0.04, -0.16, 0.14);
+          leftForearmRef.current.rotation.x = -0.62 + Math.cos(t * 2.8) * 0.03;
+        } else if (isRidingHorse) {
+          leftUpperArmRef.current.rotation.set(-0.45, 0.2, 0.12);
+          leftForearmRef.current.rotation.x = -0.65;
         } else {
           leftUpperArmRef.current.rotation.set(armSwing + 0.04, 0, 0.15 + idleArmBreath);
           leftForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, -armSwing) * 0.25;
         }
-        rightUpperArmRef.current.rotation.set(-armSwing + 0.04, 0, -0.15 - idleArmBreath);
-        rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, armSwing) * 0.25;
+
+        // RIGHT ARM
+        if (isRidingHorse && eq !== 'sword') {
+          rightUpperArmRef.current.rotation.set(-0.45, -0.2, -0.12);
+          rightForearmRef.current.rotation.x = -0.65;
+        } else {
+          rightUpperArmRef.current.rotation.set(-armSwing + 0.04, 0, -0.15 - idleArmBreath);
+          rightForearmRef.current.rotation.x = THREE.MathUtils.lerp(idleElbow, runElbow, Math.min(1, m)) + Math.max(0, armSwing) * 0.25;
+        }
       }
     }
   });
 
   return (
     <group ref={rootRef}>
-      {/* Warm Pixar Studio Rim & Fill Lights */}
       {!isNpc && <pointLight position={[0, 0.85, -0.65]} intensity={0.85} distance={3.5} color="#fff7ed" />}
       {!isNpc && <pointLight position={[0, 0.75, 0.75]} intensity={0.55} distance={3.0} color="#fed7aa" />}
 
       <group ref={torsoRef} position={[0, 0.02, 0]}>
-        {/* 1. Red-Terracotta Explorer Sweater & Cream Front Chest Bib Apron (Exact match to image_ddbb63.jpg!) */}
         <mesh castShadow receiveShadow geometry={geos.torsoTunic} material={sweaterMat} />
-        {/* Padded Cream Front Chest Bib / Overalls Apron */}
         <mesh castShadow position={[0, 0.11, 0.072]} scale={[0.95, 1.0, 0.55]} material={creamFleeceMat}>
           <boxGeometry args={[0.22, 0.34, 0.14]} />
         </mesh>
-        {/* Vertical Brown Suspender Straps over Shoulders */}
         {[-0.088, 0.088].map((sx, sIdx) => (
           <mesh key={sIdx} position={[sx, 0.17, 0.005]} scale={[1.0, 1.0, 0.88]} material={darkLeatherMat}>
             <boxGeometry args={[0.042, 0.36, 0.24]} />
           </mesh>
         ))}
-        {/* Diagonal Leather Cross-Body Satchel Strap across Chest */}
         <mesh position={[0, 0.13, 0.015]} rotation={[0, 0, -0.68]} scale={[1.12, 1.0, 0.86]} material={strapTanMat}>
           <cylinderGeometry args={[0.142, 0.142, 0.038, 16]} />
         </mesh>
 
-        {/* Thick Folded Red-Orange Knit Neck Scarf (Exact match to image_ddbb63.jpg!) */}
         <group position={[0, 0.34, 0.01]}>
           <mesh castShadow rotation={[Math.PI / 2 + 0.08, 0, 0]} scale={[1.08, 0.92, 1.0]} material={scarfMat}>
             <torusGeometry args={[0.105, 0.042, 12, 20]} />
@@ -286,12 +294,10 @@ export function DigitalHumanCharacter({
           </mesh>
         </group>
 
-        {/* Contoured Dark Brown Cargo Trousers Pelvis */}
         <mesh castShadow position={[0, -0.15, 0]} scale={[1.12, 0.90, 0.80]} material={pantMat}>
           <sphereGeometry args={[0.140, 14, 12]} />
         </mesh>
 
-        {/* Tan & Brown Utility Belt with Brass Buckle, Belt Loops & Side Pouches */}
         <mesh position={[0, -0.05, 0]} scale={[1.14, 1.0, 0.85]} material={strapTanMat}>
           <cylinderGeometry args={[0.135, 0.138, 0.055, 18]} />
         </mesh>
@@ -299,26 +305,21 @@ export function DigitalHumanCharacter({
         {[-0.075, 0.075].map((lx, lIdx) => (
           <mesh key={lIdx} position={[lx, -0.05, 0.112]} material={darkLeatherMat}><boxGeometry args={[0.018, 0.062, 0.022]} /></mesh>
         ))}
-        {/* Left Hip Utility Vial/Pouch */}
         <mesh position={[0.145, -0.06, 0.03]} rotation={[0, 0, -0.12]} material={creamFleeceMat}>
           <cylinderGeometry args={[0.022, 0.022, 0.065, 8]} />
         </mesh>
 
-        {/* RIGHT HIP BOTANICAL SATCHEL BAG WITH AUTUMN TWIGS & BERRIES (Exact match to front view of image_ddbb63.jpg!) */}
         {hasStaff && (
           <group ref={satchelRef} position={[-0.165, -0.12, 0.02]} rotation={[0, 0, -0.08]}>
-            {/* Rounded Leather Side Bag & Flap */}
             <mesh castShadow scale={[0.75, 1.0, 1.1]} material={leatherBagMat}>
               <sphereGeometry args={[0.088, 12, 10]} />
             </mesh>
             <mesh position={[0.02, 0.04, 0]} scale={[0.78, 0.55, 1.12]} material={darkLeatherMat}>
               <sphereGeometry args={[0.088, 10, 8]} />
             </mesh>
-            {/* Cream Rolled Scrolls inside Satchel */}
             <mesh position={[-0.01, 0.08, 0.03]} rotation={[0.2, 0, 0.25]} material={creamFleeceMat}>
               <cylinderGeometry args={[0.014, 0.014, 0.08, 8]} />
             </mesh>
-            {/* Branching Autumn Twigs & Orange Leaves Sprouting from Side Satchel! */}
             <group position={[-0.02, 0.08, -0.01]} rotation={[0, 0, 0.38]}>
               <mesh position={[0, 0.14, 0]} material={darkLeatherMat}><cylinderGeometry args={[0.004, 0.007, 0.28, 5]} /></mesh>
               <mesh position={[-0.04, 0.18, 0.02]} rotation={[0.2, 0, 0.55]} material={darkLeatherMat}><cylinderGeometry args={[0.003, 0.005, 0.16, 5]} /></mesh>
@@ -334,31 +335,25 @@ export function DigitalHumanCharacter({
           </group>
         )}
 
-        {/* DETAILED LEATHER EXPLORER BACKPACK WITH TWIN STRAPS, TOP BEDROLL, & PROTRUDING GEAR (Exact match to side & back views of image_ddbb63.jpg!) */}
         {hasStaff && (
           <group ref={backpackRef} position={[0, 0.09, -0.155]}>
-            {/* Sculpted Rounded Leather Main Pack Body */}
             <mesh castShadow position={[0, -0.02, 0]} scale={[1.15, 1.22, 0.85]} material={leatherBagMat}>
               <sphereGeometry args={[0.135, 16, 14]} />
             </mesh>
-            {/* Top Folded Leather Flap & Center Brass Clasp */}
-            <mesh castShadow position={[0, 0.08, 0.01]} scale={[1.18, 0.55, 0.88]} material={ strapTanMat }>
+            <mesh castShadow position={[0, 0.08, 0.01]} scale={[1.18, 0.55, 0.88]} material={strapTanMat}>
               <sphereGeometry args={[0.132, 14, 10]} />
             </mesh>
             <mesh position={[0, 0.04, -0.112]} material={brassBuckleMat}><sphereGeometry args={[0.018, 8, 8]} /></mesh>
-            {/* Twin Vertical Dark Leather Straps on Back of Pack */}
             {[-0.055, 0.055].map((bx, bIdx) => (
               <mesh key={bIdx} position={[bx, -0.02, -0.105]} material={darkLeatherMat}>
                 <boxGeometry args={[0.024, 0.24, 0.025]} />
               </mesh>
             ))}
-            {/* Side Pocket Pouches on Backpack */}
             {[-0.135, 0.135].map((px, pIdx) => (
               <mesh key={pIdx} castShadow position={[px, -0.04, 0.01]} scale={[0.55, 0.85, 0.75]} material={darkLeatherMat}>
                 <sphereGeometry args={[0.068, 10, 10]} />
               </mesh>
             ))}
-            {/* Top Rolled Tan Bedroll / Blanket & Protruding Explorer Map/Bottle */}
             <mesh castShadow position={[-0.02, 0.155, 0.02]} rotation={[0, 0.2, Math.PI / 2 - 0.15]} material={strapTanMat}>
               <cylinderGeometry args={[0.036, 0.036, 0.16, 12]} />
             </mesh>
@@ -371,23 +366,18 @@ export function DigitalHumanCharacter({
           </group>
         )}
 
-        {/* 2. PIXAR BOY EXPLORER HEAD, AVIATOR SHERPA HAT, & BIG GOGGLES (100% faithful to image_ddbb63.jpg!) */}
         <group ref={headRef} position={[0, 0.48, 0.015]} scale={[0.98, 0.96, 0.98]}>
-          {/* Warm Rounded Pixar Boy Face & Cheeks */}
           <mesh castShadow position={[0, 0.01, 0]} scale={[0.98, 0.95, 0.94]} material={pixarSkinMat}>
             <sphereGeometry args={[0.154, 24, 22]} />
           </mesh>
-          {/* Rosy Cheeks & Cute Rounded Reddish Pixar Button Nose */}
           <mesh position={[-0.082, -0.015, 0.118]} scale={[1.25, 0.8, 0.5]} material={noseBlushMat}><sphereGeometry args={[0.024, 10, 10]} /></mesh>
           <mesh position={[0.082, -0.015, 0.118]} scale={[1.25, 0.8, 0.5]} material={noseBlushMat}><sphereGeometry args={[0.024, 10, 10]} /></mesh>
           <mesh castShadow position={[0, 0.0, 0.148]} scale={[1.15, 0.82, 0.95]} material={noseBlushMat}>
             <sphereGeometry args={[0.021, 12, 12]} />
           </mesh>
-          {/* Warm Friendly Pixar Boy Smile */}
           <mesh position={[0, -0.048, 0.136]} rotation={[0.15, 0, 0]} scale={[1.4, 0.45, 0.5]} material={darkLeatherMat}>
             <torusGeometry args={[0.022, 0.0045, 6, 12, Math.PI]} />
           </mesh>
-          {/* Expressive Sticking-Out Pixar Ears (Characteristic silhouette from image_ddbb63.jpg!) */}
           {[-1, 1].map((dir, eIdx) => (
             <group key={eIdx} position={[dir * 0.152, 0.0, -0.005]} rotation={[0, -dir * 0.28, dir * 0.18]}>
               <mesh castShadow scale={[0.72, 0.95, 0.45]} material={pixarSkinMat}><sphereGeometry args={[0.044, 12, 12]} /></mesh>
@@ -395,7 +385,6 @@ export function DigitalHumanCharacter({
             </group>
           ))}
 
-          {/* Large Warm Brown-Hazel Pixar Eyes with Double White Catchlights & Thick Eyebrows */}
           {[-0.050, 0.050].map((ex, idx) => (
             <group key={idx} position={[ex, 0.022, 0.128]} rotation={[0, idx === 0 ? -0.12 : 0.12, 0]}>
               <mesh scale={[1.12, 1.18, 0.46]} material={scleraMat}><sphereGeometry args={[0.027, 14, 14]} /></mesh>
@@ -412,7 +401,6 @@ export function DigitalHumanCharacter({
             </group>
           ))}
 
-          {/* Swept Dark Brown Boy Hair Fringe & Sideburns under Aviator Hat */}
           <mesh position={[0, 0.03, -0.02]} scale={[0.98, 0.96, 0.98]} material={hairMat}>
             <sphereGeometry args={[0.158, 18, 16]} />
           </mesh>
@@ -428,42 +416,32 @@ export function DigitalHumanCharacter({
             </mesh>
           ))}
 
-          {/* TERRACOTTA-ORANGE AVIATOR HAT WITH CREAM SHERPA FLEECE TRIM & CENTER STRIPE (Exact match to front/side/back of image_ddbb63.jpg!) */}
           <group position={[0, 0.055, -0.012]} rotation={[-0.12, 0, 0]}>
-            {/* Orange-Red Aviator Crown Dome */}
             <mesh castShadow position={[0, 0.025, 0]} scale={[1.02, 0.92, 1.05]} material={sweaterMat}>
               <sphereGeometry args={[0.162, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
             </mesh>
-            {/* Cream Center Stripe Running Over Top & Back of Hat (Visible in Back View of image_ddbb63.jpg!) */}
             <mesh position={[0, 0.032, -0.005]} scale={[0.32, 0.94, 1.07]} material={creamFleeceMat}>
               <sphereGeometry args={[0.163, 14, 14, 0, Math.PI * 2, 0, Math.PI * 0.62]} />
             </mesh>
-            {/* Thick Fluffy Cream Sherpa Fleece Band Around Forehead, Sides & Back */}
             <mesh castShadow position={[0, 0.015, 0.005]} rotation={[Math.PI / 2, 0, 0]} scale={[1.04, 1.08, 1.15]} material={creamFleeceMat}>
               <torusGeometry args={[0.148, 0.038, 12, 24]} />
             </mesh>
-            {/* Sherpa Fleece Side Flaps Behind Ears */}
             {[-0.145, 0.145].map((fx, fIdx) => (
               <mesh key={fIdx} castShadow position={[fx, -0.035, -0.025]} rotation={[0.2, 0, fx < 0 ? 0.18 : -0.18]} material={creamFleeceMat}>
                 <capsuleGeometry args={[0.035, 0.065, 6, 10]} />
               </mesh>
             ))}
 
-            {/* OVERSIZED AVIATOR GOGGLES ON FOREHEAD (Exact match to image_ddbb63.jpg!) */}
             <group position={[0, 0.068, 0.132]} rotation={[-0.28, 0, 0]}>
-              {/* Center Leather Nose Bridge */}
               <mesh position={[0, 0, 0.01]} material={darkLeatherMat}><boxGeometry args={[0.045, 0.022, 0.025]} /></mesh>
               {[-0.058, 0.058].map((gx, gIdx) => (
                 <group key={gIdx} position={[gx, 0, 0]} rotation={[0, gIdx === 0 ? -0.18 : 0.18, 0]}>
-                  {/* Padded Cream/Tan Goggle Cushion Ring */}
                   <mesh rotation={[Math.PI / 2, 0, 0]} material={strapTanMat}>
                     <cylinderGeometry args={[0.050, 0.052, 0.024, 18]} />
                   </mesh>
-                  {/* Metallic Gunmetal-Bronze Goggle Rim */}
                   <mesh position={[0, 0, 0.016]} material={goggleFrameMat}>
                     <torusGeometry args={[0.044, 0.009, 10, 20]} />
                   </mesh>
-                  {/* Curved Glossy Dark Aviator Lens + White Specular Highlight */}
                   <mesh position={[0, 0, 0.014]} scale={[1.0, 1.0, 0.42]} material={goggleLensMat}>
                     <sphereGeometry args={[0.043, 14, 12]} />
                   </mesh>
@@ -476,109 +454,93 @@ export function DigitalHumanCharacter({
           </group>
         </group>
 
-        {/* 3. TERRACOTTA SWEATER SLEEVES, SCULPTED LARGE 5-FINGERED HANDS, GLOWING LANTERN LAMP (LEFT HAND) & ADVENTURER SWORD (RIGHT HAND)! */}
+        {/* LEFT ARM, LARGE 5-FINGERED HAND & RAISED LANTERN LAMP */}
         <group ref={leftUpperArmRef} position={[-0.168, 0.26, 0]}>
           <mesh position={[0.01, 0.01, 0]} material={sweaterMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={sweaterMat} />
           <group ref={leftForearmRef} position={[0, -0.17, 0]}>
             <mesh castShadow geometry={geos.forearm} material={sweaterMat} />
             <mesh position={[0, -0.115, 0]} material={leatherBagMat}><cylinderGeometry args={[0.048, 0.046, 0.065, 12]} /></mesh>
-            {/* Enlarged Sculpted Left Hand + Fingerless Glove + Articulated Thumb & 4 Bold Fingers */}
             <group position={[0, -0.18, 0.008]}>
-              <mesh scale={[0.62, 1.05, 0.92]} material={darkLeatherMat}><sphereGeometry args={[0.042, 12, 10]} /></mesh>
-              <mesh position={[0.012, -0.016, 0.004]} scale={[0.58, 0.85, 0.88]} material={pixarSkinMat}><sphereGeometry args={[0.038, 12, 10]} /></mesh>
-              {/* Large Clear Thumb */}
-              <mesh position={[0.018, -0.006, 0.034]} rotation={[0.65, 0.15, 0.25]} material={pixarSkinMat}>
-                <capsuleGeometry args={[0.0095, 0.026, 6, 8]} />
+              <mesh scale={[0.65, 1.08, 0.95]} material={darkLeatherMat}><sphereGeometry args={[0.044, 12, 10]} /></mesh>
+              <mesh position={[0.012, -0.016, 0.004]} scale={[0.60, 0.88, 0.90]} material={pixarSkinMat}><sphereGeometry args={[0.040, 12, 10]} /></mesh>
+              <mesh position={[0.020, -0.006, 0.036]} rotation={[0.65, 0.15, 0.25]} material={pixarSkinMat}>
+                <capsuleGeometry args={[0.0105, 0.028, 6, 8]} />
               </mesh>
-              {/* 4 Bold Articulated Fingers (Index, Middle, Ring, Pinky) */}
-              {[0.018, 0.006, -0.006, -0.018].map((fz, fIdx) => (
-                <mesh key={fIdx} position={[0.006, -0.042, fz]} rotation={[0, 0, 0.22]} material={pixarSkinMat}>
-                  <capsuleGeometry args={[0.0082, fIdx === 1 || fIdx === 2 ? 0.032 : 0.025, 6, 8]} />
+              {[0.019, 0.0065, -0.0065, -0.019].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[0.006, -0.044, fz]} rotation={[0, 0, 0.22]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.009, fIdx === 1 || fIdx === 2 ? 0.034 : 0.027, 6, 8]} />
                 </mesh>
               ))}
-              {/* WARM GLOWING ADVENTURER LANTERN LAMP HELD ALOFT IN RAISED LEFT HAND (Only when equippedItem === 'lantern')! */}
-              {!isNpc && ((playerFrameState as any).equippedItem === "lantern") && (
-                <group position={[0.0, -0.045, 0.025]} rotation={[1.72, 0, 0]}>
-                  <mesh position={[0, -0.02, 0]} rotation={[0, Math.PI / 2, 0]} material={goggleFrameMat}>
-                    <torusGeometry args={[0.024, 0.0045, 6, 12]} />
-                  </mesh>
-                  <mesh position={[0, -0.06, 0]} material={goggleFrameMat}>
-                    <coneGeometry args={[0.052, 0.045, 6]} />
-                  </mesh>
-                  <mesh position={[0, -0.115, 0]}>
-                    <cylinderGeometry args={[0.038, 0.032, 0.082, 6]} />
-                    <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={3.6} roughness={0.15} />
-                  </mesh>
-                  <mesh position={[0, -0.165, 0]} material={goggleFrameMat}>
-                    <cylinderGeometry args={[0.042, 0.046, 0.024, 6]} />
-                  </mesh>
-                  <pointLight position={[0, -0.12, 0.08]} intensity={2.4} distance={22} color="#fbbf24" />
-                </group>
-              )}
+              {/* GLOWING LANTERN LAMP (Controlled via lanternGroupRef.current.visible in useFrame!) */}
+              <group ref={lanternGroupRef} visible={false} position={[0.0, -0.045, 0.025]} rotation={[1.72, 0, 0]}>
+                <mesh position={[0, -0.02, 0]} rotation={[0, Math.PI / 2, 0]} material={goggleFrameMat}>
+                  <torusGeometry args={[0.024, 0.0045, 6, 12]} />
+                </mesh>
+                <mesh position={[0, -0.06, 0]} material={goggleFrameMat}>
+                  <coneGeometry args={[0.052, 0.045, 6]} />
+                </mesh>
+                <mesh position={[0, -0.115, 0]}>
+                  <cylinderGeometry args={[0.038, 0.032, 0.082, 6]} />
+                  <meshStandardMaterial color="#fef08a" emissive="#f59e0b" emissiveIntensity={3.6} roughness={0.15} />
+                </mesh>
+                <mesh position={[0, -0.165, 0]} material={goggleFrameMat}>
+                  <cylinderGeometry args={[0.042, 0.046, 0.024, 6]} />
+                </mesh>
+                <pointLight position={[0, -0.12, 0.08]} intensity={2.5} distance={24} color="#fbbf24" />
+              </group>
             </group>
           </group>
         </group>
 
+        {/* RIGHT ARM, LARGE 5-FINGERED HAND & KNIGHT SWORD */}
         <group ref={rightUpperArmRef} position={[0.168, 0.26, 0]}>
           <mesh position={[-0.01, 0.01, 0]} material={sweaterMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
           <mesh castShadow geometry={geos.upperArm} material={sweaterMat} />
           <group ref={rightForearmRef} position={[0, -0.17, 0]}>
             <mesh castShadow geometry={geos.forearm} material={sweaterMat} />
             <mesh position={[0, -0.115, 0]} material={leatherBagMat}><cylinderGeometry args={[0.048, 0.046, 0.065, 12]} /></mesh>
-            {/* Enlarged Sculpted Right Hand + Fingerless Glove + Articulated Thumb & 4 Bold Fingers + Adventurer Sword! */}
             <group position={[0, -0.18, 0.008]}>
-              <mesh scale={[0.62, 1.05, 0.92]} material={darkLeatherMat}><sphereGeometry args={[0.042, 12, 10]} /></mesh>
-              <mesh position={[-0.012, -0.016, 0.004]} scale={[0.58, 0.85, 0.88]} material={pixarSkinMat}><sphereGeometry args={[0.038, 12, 10]} /></mesh>
-              {/* Large Clear Thumb */}
-              <mesh position={[-0.018, -0.006, 0.034]} rotation={[0.65, -0.15, -0.25]} material={pixarSkinMat}>
-                <capsuleGeometry args={[0.0095, 0.026, 6, 8]} />
+              <mesh scale={[0.65, 1.08, 0.95]} material={darkLeatherMat}><sphereGeometry args={[0.044, 12, 10]} /></mesh>
+              <mesh position={[-0.012, -0.016, 0.004]} scale={[0.60, 0.88, 0.90]} material={pixarSkinMat}><sphereGeometry args={[0.040, 12, 10]} /></mesh>
+              <mesh position={[-0.020, -0.006, 0.036]} rotation={[0.65, -0.15, -0.25]} material={pixarSkinMat}>
+                <capsuleGeometry args={[0.0105, 0.028, 6, 8]} />
               </mesh>
-              {/* 4 Bold Articulated Fingers (Index, Middle, Ring, Pinky) */}
-              {[0.018, 0.006, -0.006, -0.018].map((fz, fIdx) => (
-                <mesh key={fIdx} position={[-0.006, -0.042, fz]} rotation={[0, 0, -0.22]} material={pixarSkinMat}>
-                  <capsuleGeometry args={[0.0082, fIdx === 1 || fIdx === 2 ? 0.032 : 0.025, 6, 8]} />
+              {[0.019, 0.0065, -0.0065, -0.019].map((fz, fIdx) => (
+                <mesh key={fIdx} position={[-0.006, -0.044, fz]} rotation={[0, 0, -0.22]} material={pixarSkinMat}>
+                  <capsuleGeometry args={[0.009, fIdx === 1 || fIdx === 2 ? 0.034 : 0.027, 6, 8]} />
                 </mesh>
               ))}
-              {/* HEROIC ADVENTURER SWORD HELD IN RIGHT HAND! */}
-              {!isNpc && hasStaff && (
-                <group position={[-0.005, -0.032, 0.02]} rotation={[Math.PI * 0.42, 0, 0]}>
-                  {/* Leather-Wrapped Sword Hilt & Brass Pommel */}
-                  <mesh position={[0, -0.06, 0]} material={brassBuckleMat}>
-                    <sphereGeometry args={[0.020, 10, 10]} />
-                  </mesh>
-                  <mesh position={[0, 0.0, 0]} material={darkLeatherMat}>
-                    <cylinderGeometry args={[0.013, 0.015, 0.11, 10]} />
-                  </mesh>
-                  {/* Ornate Golden Crossguard */}
-                  <mesh position={[0, 0.06, 0]} material={brassBuckleMat}>
-                    <boxGeometry args={[0.024, 0.018, 0.14]} />
-                  </mesh>
-                  {/* Gleaming Forged Steel Sword Blade & Pointed Tip */}
-                  <mesh castShadow position={[0, 0.32, 0]} scale={[0.35, 1.0, 1.0]}>
-                    <cylinderGeometry args={[0.012, 0.024, 0.50, 8]} />
-                    <meshStandardMaterial color="#f8fafc" emissive="#93c5fd" emissiveIntensity={0.22} metalness={0.88} roughness={0.15} />
-                  </mesh>
-                </group>
-              )}
+              {/* KNIGHT SWORD (Controlled via swordGroupRef.current.visible in useFrame!) */}
+              <group ref={swordGroupRef} visible={true} position={[-0.005, -0.032, 0.02]} rotation={[Math.PI * 0.42, 0, 0]}>
+                <mesh position={[0, -0.06, 0]} material={brassBuckleMat}>
+                  <sphereGeometry args={[0.022, 10, 10]} />
+                </mesh>
+                <mesh position={[0, 0.0, 0]} material={darkLeatherMat}>
+                  <cylinderGeometry args={[0.014, 0.016, 0.11, 10]} />
+                </mesh>
+                <mesh position={[0, 0.06, 0]} material={brassBuckleMat}>
+                  <boxGeometry args={[0.026, 0.020, 0.15]} />
+                </mesh>
+                <mesh castShadow position={[0, 0.34, 0]} scale={[0.35, 1.0, 1.0]}>
+                  <cylinderGeometry args={[0.012, 0.026, 0.54, 8]} />
+                  <meshStandardMaterial color="#f8fafc" emissive="#93c5fd" emissiveIntensity={0.22} metalness={0.88} roughness={0.15} />
+                </mesh>
+              </group>
             </group>
           </group>
         </group>
       </group>
 
-      {/* 4. CARGO TROUSERS, CREAM FLEECE CUFFS, GAITERS, & LACED HIKING BOOTS (Exact match to image_ddbb63.jpg!) */}
       <group ref={leftThighRef} position={[-0.084, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
         <group ref={leftShinRef} position={[0, -0.25, 0]}>
-          {/* Rolled Cream Fleece Trouser Cuff below Knee */}
           <mesh position={[0, -0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={creamFleeceMat}>
             <torusGeometry args={[0.056, 0.018, 8, 14]} />
           </mesh>
-          {/* Dark Gaiter & Laced Brown Leather Boot */}
           <mesh position={[0, -0.10, 0]} material={darkLeatherMat}><cylinderGeometry args={[0.055, 0.052, 0.10, 12]} /></mesh>
           <mesh castShadow geometry={geos.calfBoot} material={leatherBagMat} />
           <mesh castShadow position={[0, -0.25, 0.034]} scale={[0.92, 0.78, 1.45]} material={leatherBagMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
-          {/* Thick Dark Boot Sole */}
           <mesh position={[0, -0.285, 0.034]} scale={[0.95, 0.25, 1.48]} material={darkLeatherMat}><cylinderGeometry args={[0.058, 0.058, 0.08, 12]} /></mesh>
         </group>
       </group>
@@ -586,15 +548,12 @@ export function DigitalHumanCharacter({
       <group ref={rightThighRef} position={[0.084, -0.15, 0]}>
         <mesh castShadow geometry={geos.thigh} material={pantMat} />
         <group ref={rightShinRef} position={[0, -0.25, 0]}>
-          {/* Rolled Cream Fleece Trouser Cuff below Knee */}
           <mesh position={[0, -0.04, 0]} rotation={[Math.PI / 2, 0, 0]} material={creamFleeceMat}>
             <torusGeometry args={[0.056, 0.018, 8, 14]} />
           </mesh>
-          {/* Dark Gaiter & Laced Brown Leather Boot */}
           <mesh position={[0, -0.10, 0]} material={darkLeatherMat}><cylinderGeometry args={[0.055, 0.052, 0.10, 12]} /></mesh>
           <mesh castShadow geometry={geos.calfBoot} material={leatherBagMat} />
           <mesh castShadow position={[0, -0.25, 0.034]} scale={[0.92, 0.78, 1.45]} material={leatherBagMat}><sphereGeometry args={[0.058, 12, 10]} /></mesh>
-          {/* Thick Dark Boot Sole */}
           <mesh position={[0, -0.285, 0.034]} scale={[0.95, 0.25, 1.48]} material={darkLeatherMat}><cylinderGeometry args={[0.058, 0.058, 0.08, 12]} /></mesh>
         </group>
       </group>
