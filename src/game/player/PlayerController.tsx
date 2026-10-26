@@ -162,36 +162,39 @@ export default function PlayerController() {
   }, [gl.domElement, setInBoat]);
 
   useFrame((state, delta) => {
-    // __nanRecoveryGuard: Prevent NaN coordinates from ever causing a black screen!
-    if (!Number.isFinite(playerFrameState.x) || !Number.isFinite(playerFrameState.z)) {
-      playerFrameState.x = 228;
-      playerFrameState.z = 0;
-      playerFrameState.y = getWalkableHeight(228, 0) + 0.2;
-    }
-    if (!Number.isFinite(playerFrameState.y)) {
-      playerFrameState.y = getWalkableHeight(playerFrameState.x, playerFrameState.z) + 0.2;
-    }
+    const dt = Math.min(delta, 0.05);
+    const p = phys.current;
+
+    // Instant Safe Teleport directly updating phys.current (p.x, p.y, p.z)
     if ((playerFrameState as any).pendingTeleport) {
       const pt = (playerFrameState as any).pendingTeleport;
       (playerFrameState as any).pendingTeleport = null;
       if (pt && Number.isFinite(pt.x) && Number.isFinite(pt.z)) {
         const rawH = getWalkableHeight(pt.x, pt.z);
         const safeY = (Number.isFinite(rawH) ? Math.max(1.2, rawH) : 8.2) + 0.25;
+        p.x = pt.x;
+        p.y = safeY;
+        p.z = pt.z;
+        if ('vx' in p) p.vx = 0;
+        if ('vy' in p) p.vy = 0;
+        if ('vz' in p) p.vz = 0;
         playerFrameState.mountedHorseIndex = -1;
         playerFrameState.isInBoat = false;
         playerFrameState.x = pt.x;
         playerFrameState.y = safeY;
         playerFrameState.z = pt.z;
-        playerFrameState.vx = 0;
-        playerFrameState.vy = 0;
-        playerFrameState.vz = 0;
-        state.camera.position.set(pt.x, safeY + 4.2, pt.z + 8.5);
-        return;
       }
     }
+
+    // NaN Guard on phys.current so camera never turns black
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.z) || !Number.isFinite(p.y)) {
+      p.x = 228;
+      p.z = 0;
+      p.y = getWalkableHeight(228, 0) + 0.25;
+      if ('vx' in p) p.vx = 0;
+      if ('vy' in p) p.vy = 0;
+      if ('vz' in p) p.vz = 0;
     }
-    const dt = Math.min(delta, 0.05);
-    const p = phys.current;
 
     if (teleportTarget) {
       playerFrameState.mountedHorseIndex = -1;
