@@ -164,6 +164,8 @@ export default function PlayerController() {
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05);
     const p = phys.current;
+    const _prevPhysX = p.x;
+    const _prevPhysZ = p.z;
 
     // Instant Safe Teleport directly updating phys.current (p.x, p.y, p.z)
     if ((playerFrameState as any).pendingTeleport) {
@@ -307,6 +309,16 @@ export default function PlayerController() {
       playerGroupRef.current.position.set(p.x, p.y + mountYOffset, p.z);
     }
 
+    // __enforcedGlobalCollisionOnPhys: Enforce solid collision on p.x & p.z before syncing frame state!
+    const _colRadius = playerFrameState.mountedHorseIndex !== -1 ? 0.92 : 0.56;
+    const [_resX, _resZ] = resolveWorldCollisions(p.x, p.z, _colRadius, _prevPhysX, _prevPhysZ);
+    p.x = _resX;
+    p.z = _resZ;
+    const _walkH = getWalkableHeight(p.x, p.z);
+    if (Number.isFinite(_walkH) && p.y < _walkH) {
+      p.y = _walkH;
+      if ('vy' in p && p.vy < 0) p.vy = 0;
+    }
     playerFrameState.x = p.x;
     playerFrameState.y = p.y;
     playerFrameState.z = p.z;

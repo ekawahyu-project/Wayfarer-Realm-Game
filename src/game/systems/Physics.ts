@@ -34,30 +34,58 @@ export function clearCollidersByTag(tag = 'default'): void {
   }
 }
 
-// Solid OBB (Oriented Bounding Box) & Cylinder Collision Resolver — Zero Wall/Stall Clipping!
-export function resolveWorldCollisions(x: number, z: number, radius = 0.52): [number, number] {
+// Multi-Pass Swept OBB & Cylinder Collision Solver (3 iterations prevent corner & high-speed horse clipping!)
+export function resolveWorldCollisions(x: number, z: number, radius = 0.58, prevX?: number, prevZ?: number): [number, number] {
+  if (!Number.isFinite(x) || !Number.isFinite(z)) return [228, 0];
   let nx = x;
   let nz = z;
 
-  // 1. Cylinder Colliders (Wells, Pillars, Towers, Trees, Rocks)
+  // Clamp sub-step if moving fast on horseback to prevent tunneling through thin walls
+  if (typeof prevX === 'number' && typeof prevZ === 'number' && Number.isFinite(prevX) && Number.isFinite(prevZ)) {
+    const stepDist = Math.hypot(nx - prevX, nz - prevZ);
+    if (stepDist > 0.65 && stepDist < 15.0) {
+      const midX = (prevX + nx) * 0.5;
+      const midZ = (prevZ + nz) * 0.5;
+      const [resolvedMidX, resolvedMidZ] = resolveSinglePass(midX, midZ, radius);
+      nx = resolvedMidX + (nx - midX);
+      nz = resolvedMidZ + (nz - midZ);
+    }
+  }
+
+  for (let pass = 0; pass < 3; pass++) {
+    const res = resolveSinglePass(nx, nz, radius);
+    nx = res[0];
+    nz = res[1];
+  }
+
+  return [nx, nz];
+}
+
+function resolveSinglePass(x: number, z: number, radius: number): [number, number] {
+  let nx = x;
+  let nz = z;
+
   for (let i = 0; i < globalCylinderColliders.length; i++) {
     const c = globalCylinderColliders[i];
     const dx = nx - c.x;
     const dz = nz - c.z;
+    if (Math.abs(dx) > c.r + radius + 2 || Math.abs(dz) > c.r + radius + 2) continue;
     const minDist = c.r + radius;
     const distSq = dx * dx + dz * dz;
-    if (distSq < minDist * minDist && distSq > 0.00001) {
+    if (distSq < minDist * minDist && distSq > 0.000001) {
       const dist = Math.sqrt(distSq);
       nx = c.x + (dx / dist) * minDist;
       nz = c.z + (dz / dist) * minDist;
     }
   }
 
-  // 2. Oriented Box Colliders (Houses, Market Stalls, Kingdom Walls, Harbor, Shrine)
   for (let i = 0; i < globalBoxColliders.length; i++) {
     const b = globalBoxColliders[i];
     const dx = nx - b.x;
     const dz = nz - b.z;
+    const maxBound = Math.max(b.w, b.d) + radius + 2;
+    if (Math.abs(dx) > maxBound || Math.abs(dz) > maxBound) continue;
+
     const cosR = Math.cos(-b.rot);
     const sinR = Math.sin(-b.rot);
     const localX = dx * cosR - dz * sinR;

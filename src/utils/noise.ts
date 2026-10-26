@@ -1,3 +1,4 @@
+import { addBoxCollider as _addGlobalBox, addCylinderCollider as _addGlobalCyl, clearCollidersByTag as _clearGlobalTag, resolveWorldCollisions } from "@/game/systems/Physics";
 import { createNoise2D } from "simplex-noise";
 
 function createSeededRandom(seed: number) {
@@ -55,6 +56,14 @@ export function getRiverDistance(x: number, z: number): number {
   const wfLagoonDist = distToSegment(x, z, 238, 165, 238, 232) * 0.72;
   const wfPoolBowl = Math.max(0, Math.hypot(x - 238, z - 224) - 8.5);
   const waterfallPoolDist = Math.min(wfLagoonDist, wfPoolBowl);
+  // Natural Winding Agricultural Irrigation Stream branching from the Riverbank Waterwheel (X=244, Z=95) through the Farmland (X=174, Z=95)
+  let farmStreamDist = 9999;
+  if (x >= 170 && x <= 252 && Math.abs(z - 95) <= 18) {
+    const streamCurveZ = 95.0 + Math.sin((246.0 - x) * 0.085) * 2.6;
+    const dx = x < 174 ? 174 - x : x > 246 ? x - 246 : 0;
+    const dz = Math.abs(z - streamCurveZ);
+    farmStreamDist = Math.hypot(dx, dz) * 2.35;
+  }
   if (z < -240 || z > 220) return 999;
   return Math.abs(x - getRiverCenterX(z));
 }
@@ -175,8 +184,16 @@ export function getTerrainSlope(x: number, z: number): number {
   return Math.hypot((hR - hL) / (2 * eps), (hU - hD) / (2 * eps));
 }
 
+// Includes walkable farm footbridge
 export function getWalkableHeight(x: number, z: number, currentY = 22.0): number {
   // Smooth Walkable Arched Timber River Bridge accurately centered over the River at Z = 0!
+  // Small Wooden Footbridge across the Farmland Irrigation Stream at X = 212, Z = 95
+  if (x >= 209.5 && x <= 214.5 && z >= 89.5 && z <= 101.5) {
+    const arch = 1.0 - Math.pow((z - 95.5) / 6.0, 2);
+    const fbY = 8.15 + Math.max(0, arch) * 0.65;
+    const rawH = getExactMeshTerrainHeight(x, z);
+    if (fbY > rawH) return fbY;
+  }
   if (Math.abs(z) <= 4.4) {
     const rCenterX = typeof getRiverCenterX === 'function' ? getRiverCenterX(0) : 258.0;
     if (Math.abs(x - rCenterX) <= 22.0) {
@@ -274,6 +291,7 @@ export function clearWorldColliders() {
 }
 
 export function addBoxCollider(cx: number, cz: number, widthX: number, depthZ: number, group = "world", maxY = 999) {
+  try { _addGlobalBox(arguments[0], arguments[1], arguments[2], arguments[3], arguments[4] || 'world', arguments[5] || 0); } catch (_) {}
   const hx = widthX * 0.5, hz = depthZ * 0.5;
   SOLID_BOXES.push({ group, minX: cx - hx, maxX: cx + hx, minZ: cz - hz, maxZ: cz + hz, maxY });
 }
