@@ -51,15 +51,10 @@ export function getRiverCenterX(z: number): number {
 }
 
 export function getRiverDistance(x: number, z: number): number {
-  // Connected Agricultural River Branch flowing from Main River (x=256, z=95) westward to Farmland (x=175, z=95)
-  let agriBranchDist = 9999;
-  if (x >= 172 && x <= 262 && Math.abs(z - 95) <= 28) {
-    const curveZ = 95 + Math.sin((x - 215) * 0.06) * 3.5;
-    const dx = x < 178 ? 178 - x : x > 256 ? x - 256 : 0;
-    const dz = Math.abs(z - curveZ);
-    // Scale distance so an 8m wide branch carves down to riverbed depth (6.95m)
-    agriBranchDist = Math.hypot(dx, dz) * 1.65;
-  }
+  // Extend main river channel smoothly into the Waterfall Plunge Lagoon (from z=160 to z=235)
+  const wfLagoonDist = distToSegment(x, z, 238, 165, 238, 232) * 0.72;
+  const wfPoolBowl = Math.max(0, Math.hypot(x - 238, z - 224) - 8.5);
+  const waterfallPoolDist = Math.min(wfLagoonDist, wfPoolBowl);
   if (z < -240 || z > 220) return 999;
   return Math.abs(x - getRiverCenterX(z));
 }

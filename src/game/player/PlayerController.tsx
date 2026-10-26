@@ -162,12 +162,21 @@ export default function PlayerController() {
   }, [gl.domElement, setInBoat]);
 
   useFrame((state, delta) => {
+    // __nanRecoveryGuard: Prevent NaN coordinates from ever causing a black screen!
+    if (!Number.isFinite(playerFrameState.x) || !Number.isFinite(playerFrameState.z)) {
+      playerFrameState.x = 228;
+      playerFrameState.z = 0;
+      playerFrameState.y = getWalkableHeight(228, 0) + 0.2;
+    }
+    if (!Number.isFinite(playerFrameState.y)) {
+      playerFrameState.y = getWalkableHeight(playerFrameState.x, playerFrameState.z) + 0.2;
+    }
     if ((playerFrameState as any).pendingTeleport) {
       const pt = (playerFrameState as any).pendingTeleport;
       (playerFrameState as any).pendingTeleport = null;
       if (pt && Number.isFinite(pt.x) && Number.isFinite(pt.z)) {
         const rawH = getWalkableHeight(pt.x, pt.z);
-        const safeY = (Number.isFinite(rawH) ? Math.max(1.2, rawH) : 8.2) + 0.15;
+        const safeY = (Number.isFinite(rawH) ? Math.max(1.2, rawH) : 8.2) + 0.25;
         playerFrameState.mountedHorseIndex = -1;
         playerFrameState.isInBoat = false;
         playerFrameState.x = pt.x;
@@ -176,10 +185,10 @@ export default function PlayerController() {
         playerFrameState.vx = 0;
         playerFrameState.vy = 0;
         playerFrameState.vz = 0;
-        if (typeof pt.yaw === 'number' && Number.isFinite(pt.yaw)) {
-          playerFrameState.FacingYaw = pt.yaw;
-        }
+        state.camera.position.set(pt.x, safeY + 4.2, pt.z + 8.5);
+        return;
       }
+    }
     }
     const dt = Math.min(delta, 0.05);
     const p = phys.current;
